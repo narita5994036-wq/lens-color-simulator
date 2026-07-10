@@ -275,10 +275,19 @@
   .camera-frame{
     position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
     width:100%; aspect-ratio:3/4; max-height:100%; overflow:hidden; background:#000;
+    touch-action:none;
   }
   .camera-frame video{
     position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    transform-origin:center center;
   }
+  .camera-zoom-badge{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    background:rgba(17,17,17,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    color:#fff; font-size:12px; letter-spacing:0.04em; padding:5px 12px; border-radius:20px;
+    opacity:0; transition:opacity .2s ease; pointer-events:none; z-index:6;
+  }
+  .camera-zoom-badge.show{opacity:1;}
   .camera-guide{
     position:absolute; inset:0; width:100%; height:100%; pointer-events:none;
   }
@@ -544,6 +553,7 @@
 <div class="camera-modal" id="cameraModal">
   <div class="camera-frame" id="cameraFrame">
     <video id="cameraVideo" autoplay playsinline muted></video>
+    <div class="camera-zoom-badge" id="cameraZoomBadge">1.0x</div>
     <svg class="camera-guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
       <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
       <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
@@ -891,8 +901,12 @@
   const btnCameraShutter = document.getElementById('btnCameraShutter');
   const btnCameraCancel = document.getElementById('btnCameraCancel');
   const btnCameraFlip = document.getElementById('btnCameraFlip');
+  const cameraFrame = document.getElementById('cameraFrame');
+  const cameraZoomBadge = document.getElementById('cameraZoomBadge');
   let cameraStream = null;
   let cameraFacingMode = 'environment';
+  let cameraZoom = 1;
+  const CAMERA_ZOOM_MAX = 4;
   const libLink = document.getElementById('libLink');
   const btnDetect = document.getElementById('btnDetect');
   const btnShare = document.getElementById('btnShare');
@@ -1098,10 +1112,23 @@
     cameraVideo.srcObject = cameraStream;
   }
 
+  let cameraZoomBadgeTimer = null;
+  function setCameraZoom(z, showBadge){
+    cameraZoom = Math.min(CAMERA_ZOOM_MAX, Math.max(1, z));
+    cameraVideo.style.transform = 'scale(' + cameraZoom + ')';
+    if(showBadge){
+      cameraZoomBadge.textContent = cameraZoom.toFixed(1) + 'x';
+      cameraZoomBadge.classList.add('show');
+      clearTimeout(cameraZoomBadgeTimer);
+      cameraZoomBadgeTimer = setTimeout(()=>{ cameraZoomBadge.classList.remove('show'); }, 900);
+    }
+  }
+
   async function openCameraModal(){
     try{
       cameraFacingMode = 'environment';
       await startCameraStream(cameraFacingMode);
+      setCameraZoom(1, false);
       cameraModal.classList.add('show');
     }catch(err){
       console.error('Camera error:', err);
@@ -1125,12 +1152,37 @@
     cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
     try{
       await startCameraStream(cameraFacingMode);
+      setCameraZoom(1, false);
     }catch(err){
       console.error('Camera flip error:', err);
       // revert to the previous facing mode if the requested camera isn't available
       cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
-      startCameraStream(cameraFacingMode).catch(e => console.error('Camera revert error:', e));
+      startCameraStream(cameraFacingMode).then(()=> setCameraZoom(1, false)).catch(e => console.error('Camera revert error:', e));
     }
+  });
+
+  // pinch-to-zoom on the live camera preview (digital zoom via CSS transform,
+  // matching what the shutter capture crops out below)
+  let cameraPinchData = null; // {dist0, zoomStart} while a 2-finger pinch is active
+  function cameraTouchDistance(evt){
+    const [t0, t1] = evt.touches;
+    return Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+  }
+  cameraFrame.addEventListener('touchstart', (evt)=>{
+    if(evt.touches.length === 2){
+      evt.preventDefault();
+      cameraPinchData = {dist0: cameraTouchDistance(evt) || 1, zoomStart: cameraZoom};
+    }
+  }, {passive:false});
+  cameraFrame.addEventListener('touchmove', (evt)=>{
+    if(evt.touches.length === 2 && cameraPinchData){
+      evt.preventDefault();
+      const dist = cameraTouchDistance(evt) || 1;
+      setCameraZoom(cameraPinchData.zoomStart * (dist / cameraPinchData.dist0), true);
+    }
+  }, {passive:false});
+  cameraFrame.addEventListener('touchend', (evt)=>{
+    if(evt.touches.length < 2) cameraPinchData = null;
   });
 
   btnCameraShutter.addEventListener('click', ()=>{
@@ -1145,6 +1197,12 @@
     }else{
       sh = w/targetRatio;
       sy = (h-sh)/2;
+    }
+    // then crop further to match the pinch-zoom applied to the live preview
+    if(cameraZoom > 1){
+      const zsw = sw/cameraZoom, zsh = sh/cameraZoom;
+      sx += (sw-zsw)/2; sy += (sh-zsh)/2;
+      sw = zsw; sh = zsh;
     }
     captureCanvas.width = sw;
     captureCanvas.height = sh;
