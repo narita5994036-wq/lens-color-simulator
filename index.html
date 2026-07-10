@@ -379,6 +379,13 @@
   }
   .empty-note{font-size:11px; color:var(--gray-mid); padding:8px 0 0;}
 
+  .shape-swatch .circle{
+    display:flex; align-items:center; justify-content:center; background:var(--gray-bg);
+  }
+  .shape-swatch .circle svg{width:26px; height:26px; overflow:visible;}
+  .shape-swatch .circle svg path{fill:none; stroke:var(--black); stroke-width:5; stroke-linejoin:round;}
+  .shape-swatch.selected .circle{border:2px solid var(--black); background:var(--white);}
+
   /* ---- modal ---- */
   .overlay{
     position:fixed; inset:0; background:rgba(17,17,17,0.4); display:none; align-items:flex-end; justify-content:center; z-index:50;
@@ -521,6 +528,11 @@
   <div class="sidebar-section">
     <h3 data-i18n="sectionDetect">レンズ形検知</h3>
     <button class="stage-action-btn" id="btnDetect" disabled data-i18n="btnDetectNeedKey">レンズ位置を自動検出</button>
+  </div>
+
+  <div class="sidebar-section">
+    <h3 data-i18n="sectionShape">レンズ形状</h3>
+    <div class="swatch-row" id="shapePresetRow"></div>
   </div>
 
   <div class="sidebar-section">
@@ -738,6 +750,13 @@
       colorsHeader:"カラー",
       sidebarTitle:"メニュー",
       sectionDetect:"レンズ形検知",
+      sectionShape:"レンズ形状",
+      shapeOval:"オーバル",
+      shapeSquare:"スクエア",
+      shapeRound:"ラウンド",
+      shapeWellington:"ウェリントン",
+      shapeTeardrop:"ティアドロップ",
+      shapeCrownPanto:"クラウンパント",
       sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
@@ -784,6 +803,13 @@
       colorsHeader:"Colours",
       sidebarTitle:"Menu",
       sectionDetect:"Lens Shape Detection",
+      sectionShape:"Lens Shape",
+      shapeOval:"Oval",
+      shapeSquare:"Square",
+      shapeRound:"Round",
+      shapeWellington:"Wellington",
+      shapeTeardrop:"Teardrop",
+      shapeCrownPanto:"Crown Panto",
       sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
@@ -932,6 +958,7 @@
   const zoomValue = document.getElementById('zoomValue');
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
+  const shapePresetRow = document.getElementById('shapePresetRow');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1087,6 +1114,99 @@
       left:  {points: ellipseToPolygon(0.385, 0.415, 0.10, 0.058, 8)},
       right: {points: ellipseToPolygon(0.635, 0.415, 0.10, 0.058, 8)}
     };
+  }
+
+  // ---------- lens shape presets ----------
+  // each template is a clockwise polygon in a normalized -1..1 space, scaled
+  // by the current lens's half-width/half-height and re-centered on its
+  // current position when applied — so switching shapes is instant
+  // regardless of how the lens was last positioned (drag or auto-detect).
+  // oval/round are generated directly via ellipseToPolygon instead of a
+  // fixed template, since "round" needs to force equal rx/ry.
+  const LENS_SHAPE_TEMPLATES = {
+    square: [
+      [-0.67,-0.85],[0.67,-0.85],[0.85,-0.67],[0.85,0.67],
+      [0.67,0.85],[-0.67,0.85],[-0.85,0.67],[-0.85,-0.67]
+    ],
+    wellington: [
+      [-0.72,-0.82],[0.72,-0.82],[0.90,-0.60],
+      [0.62,0.62],[0.40,0.85],[-0.40,0.85],[-0.62,0.62],[-0.90,-0.60]
+    ],
+    teardrop: [
+      [0,-1.0],[0.5,-0.95],[0.85,-0.75],[1.0,-0.4],[0.98,0.0],
+      [0.75,0.45],[0.42,0.75],[0.15,0.95],[0,1.0],[-0.15,0.95],
+      [-0.42,0.75],[-0.75,0.45],[-0.98,0.0],[-1.0,-0.4],[-0.85,-0.75],[-0.5,-0.95]
+    ],
+    crownPanto: [
+      [0,-1.0],[0.22,-0.90],[0.55,-0.90],[0.85,-0.68],[0.98,-0.30],
+      [0.95,0.15],[0.75,0.55],[0.42,0.85],[0,1.0],[-0.42,0.85],
+      [-0.75,0.55],[-0.95,0.15],[-0.98,-0.30],[-0.85,-0.68],[-0.55,-0.90],[-0.22,-0.90]
+    ]
+  };
+  const LENS_SHAPE_KEYS = ['oval','square','round','wellington','teardrop','crownPanto'];
+
+  function lensBoundingBox(pts){
+    const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    return {cx:(minX+maxX)/2, cy:(minY+maxY)/2, rx:(maxX-minX)/2, ry:(maxY-minY)/2};
+  }
+
+  function buildShapePolygon(shapeKey, box){
+    let rx = box.rx, ry = box.ry;
+    if(shapeKey === 'round'){
+      const r = (rx+ry)/2;
+      rx = r; ry = r;
+    }
+    if(shapeKey === 'oval' || shapeKey === 'round'){
+      return {points: ellipseToPolygon(box.cx, box.cy, rx, ry, 12)};
+    }
+    const template = LENS_SHAPE_TEMPLATES[shapeKey];
+    return {points: template.map(([x,y]) => ({x: box.cx + x*rx, y: box.cy + y*ry}))};
+  }
+
+  function applyShapePreset(shapeKey){
+    if(!img || !lenses) return;
+    pushUndoSnapshot();
+    lenses = {
+      left:  buildShapePolygon(shapeKey, lensBoundingBox(lenses.left.points)),
+      right: buildShapePolygon(shapeKey, lensBoundingBox(lenses.right.points))
+    };
+    scaleMode = false;
+    updateHintText();
+    closeSidebar();
+    draw();
+  }
+
+  function smoothSvgPath(pts){
+    // mirrors tracePolygon()'s canvas rendering (quadratic curves through
+    // each point, starting/ending at edge midpoints) so preset icon
+    // previews match how the shape actually looks once applied to a lens
+    const mid = (a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
+    const startMid = mid(pts[pts.length-1], pts[0]);
+    let d = 'M' + startMid.x.toFixed(1) + ',' + startMid.y.toFixed(1);
+    for(let i=0;i<pts.length;i++){
+      const next = pts[(i+1)%pts.length];
+      const m = mid(pts[i], next);
+      d += ' Q' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + m.x.toFixed(1) + ',' + m.y.toFixed(1);
+    }
+    return d + ' Z';
+  }
+
+  function renderShapePresets(){
+    shapePresetRow.innerHTML = '';
+    LENS_SHAPE_KEYS.forEach(key=>{
+      const box = {cx:0, cy:0, rx:0.82, ry:0.82};
+      const preview = buildShapePolygon(key, box).points
+        .map(p => ({x: p.x*13+13, y: p.y*13+13}));
+      const d = smoothSvgPath(preview);
+      const el = document.createElement('div');
+      el.className = 'swatch shape-swatch';
+      el.innerHTML = '<div class="circle"><svg viewBox="0 0 26 26"><path d="' + d + '"/></svg></div>'
+        + '<div class="name">' + t('shape' + key.charAt(0).toUpperCase() + key.slice(1)) + '</div>';
+      el.addEventListener('click', ()=> applyShapePreset(key));
+      shapePresetRow.appendChild(el);
+    });
   }
 
   // tapping the empty image area launches the guided camera view; the small
@@ -2195,6 +2315,7 @@
   }
 
   function renderAll(){
+    renderShapePresets();
     presetGroups.innerHTML = '';
     const groupOrder = [
       {key:'arriate', labelKey:'groupArriate'},
