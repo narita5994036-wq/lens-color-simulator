@@ -2519,27 +2519,32 @@
       const cleaned = textBlock.text.replace(/```json|```/g,'').trim();
       const parsed = JSON.parse(cleaned);
       if(parsed.left && parsed.right){
-        const leftPoly = clampLensPolygon(parsed.left);
-        const rightPoly = clampLensPolygon(parsed.right);
-        const leftCentroid = polygonCentroid(leftPoly.points);
-        const rightCentroid = polygonCentroid(rightPoly.points);
+        let leftPoly = clampLensPolygon(parsed.left);
+        let rightPoly = clampLensPolygon(parsed.right);
         const leftPupil = parsePoint(parsed.leftPupil);
         const rightPupil = parsePoint(parsed.rightPupil);
-        if(leftPupil && rightPupil){
-          // cross-check against the model's own independently-reported pupil
-          // position, rather than an assumed "photos always look like this"
-          // constant — catches the lens shape drifting away from the eyes
-          // (e.g. down toward the mouth/chin) regardless of how this
-          // particular photo happens to be framed
-          const maxDrift = 0.14;
-          if(dist(leftCentroid, leftPupil) > maxDrift || dist(rightCentroid, rightPupil) > maxDrift){
-            throw new Error('detected lens position drifted too far from the reported pupil position');
+        const pupilsPlausible = leftPupil && rightPupil
+          && leftPupil.y > 0.05 && leftPupil.y < 0.75
+          && rightPupil.y > 0.05 && rightPupil.y < 0.75
+          && leftPupil.x < rightPupil.x;
+        if(pupilsPlausible){
+          // getting a full multi-point polygon's *absolute* placement right
+          // is a harder task for the model than locating a single point (the
+          // pupil), and has repeatedly drifted downward toward the
+          // nose/mouth even when the pupil estimate itself was reasonable.
+          // So: trust the model for the lens *shape*, but force it to be
+          // centered exactly on its own independently-reported pupil
+          // position instead of trusting the polygon's absolute coordinates.
+          leftPoly = recenterPolygon(leftPoly, leftPupil);
+          rightPoly = recenterPolygon(rightPoly, rightPupil);
+        } else {
+          const avgY = (polygonCentroid(leftPoly.points).y + polygonCentroid(rightPoly.points).y) / 2;
+          if(avgY > 0.58){
+            // no usable pupil anchor to cross-check against — fall back to a
+            // coarse absolute check so an obviously-wrong result (well into
+            // the lower half of the photo) still doesn't get applied
+            throw new Error('detected position looked implausible (too low, expected near eye level)');
           }
-        } else if((leftCentroid.y + rightCentroid.y) / 2 > 0.58){
-          // no usable pupil anchor to cross-check against — fall back to a
-          // coarse absolute check so an obviously-wrong result (well into
-          // the lower half of the photo) still doesn't get applied
-          throw new Error('detected position looked implausible (too low, expected near eye level)');
         }
         pushUndoSnapshot();
         lenses = { left: leftPoly, right: rightPoly };
@@ -2570,8 +2575,14 @@
     return (Number.isFinite(x) && Number.isFinite(y)) ? {x,y} : null;
   }
 
-  function dist(a,b){
-    return Math.hypot(a.x-b.x, a.y-b.y);
+  function recenterPolygon(poly, target){
+    const c = polygonCentroid(poly.points);
+    const dx = target.x - c.x, dy = target.y - c.y;
+    const pts = poly.points.map(p => ({
+      x: Math.min(1, Math.max(0, p.x + dx)),
+      y: Math.min(1, Math.max(0, p.y + dy))
+    }));
+    return {points: pts};
   }
 
   function clampLensPolygon(l){
