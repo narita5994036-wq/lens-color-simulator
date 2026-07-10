@@ -652,6 +652,10 @@
   const MODEL = "claude-sonnet-5";
   const LENS_DETECT_PROMPT = 'この画像はメガネ(サングラス含む)を着用している人物の写真です。左右それぞれのレンズの輪郭をできる限り正確に検出してください。\n'
     + '\n'
+    + '位置について(重要・最優先で確認してください):\n'
+    + '- レンズは必ず「両目を覆う位置」、つまり眉の下から鼻筋の上あたりの高さにあります。口・鼻の穴・顎・頬のあたりを検出することは絶対にありません。\n'
+    + '- 座標を出力する前に、必ず「この輪郭の中心の高さは、瞳（黒目）の高さとほぼ一致しているか？」を自己チェックしてください。もし輪郭の中心が瞳の高さより明らかに下（口や顎に近い高さ）にある場合、それは誤りです。画像内で実際に瞳・眉・鼻筋がある高さを基準に、位置を検出し直してください。\n'
+    + '\n'
     + '検出対象について:\n'
     + '- 検出するのは「レンズ(光が通る開口部)の外周」であり、フレームのプラスチックや金属部分の外側の輪郭ではありません。フレームに縁取られた内側の縁を検出してください。\n'
     + '- レンズの形状は真円とは限りません。ラウンド、スクエア、キャットアイ、アビエーター、多角形など様々な形状がありうるので、実際に見えている輪郭の形状にできるだけ忠実に沿わせてください。\n'
@@ -661,7 +665,7 @@
     + '- 左右のレンズは同じフレームである場合が多く、形状・大きさ・傾きは概ね左右対称になります。片方の輪郭が髪や反射などで見えにくい場合は、もう片方の見え方を参考にしながら自然な対称形になるよう補完してください。\n'
     + '\n'
     + '座標について:\n'
-    + '- 画像の左上を原点(0,0)、右下を(1,1)とした相対座標(0〜1の小数、小数点以下3桁程度)で返してください。\n'
+    + '- 画像の左上を原点(0,0)、右下を(1,1)とした相対座標(0〜1の小数、小数点以下3桁程度)で返してください。y=0が画像の一番上、y=1が画像の一番下です。\n'
     + '- ここでのleft/rightは画像内での見た目上の左右（向かって左/向かって右）です。\n'
     + '\n'
     + '出力は必ず次のJSON形式のみとし、前置き・説明・コメント・マークダウンのコードブロックは一切含めないでください:\n'
@@ -2473,6 +2477,7 @@
       apiKeyInput.focus();
       return;
     }
+    closeSidebar();
     statusText.textContent = t('statusDetecting');
     statusOverlay.classList.add('show');
     try{
@@ -2511,11 +2516,17 @@
       const cleaned = textBlock.text.replace(/```json|```/g,'').trim();
       const parsed = JSON.parse(cleaned);
       if(parsed.left && parsed.right){
+        const leftPoly = clampLensPolygon(parsed.left);
+        const rightPoly = clampLensPolygon(parsed.right);
+        const avgY = (polygonCentroidY(leftPoly.points) + polygonCentroidY(rightPoly.points)) / 2;
+        // lenses sit roughly at eye level; a result centered well into the
+        // lower half of the photo is almost certainly mouth/chin/nose, not
+        // lenses, so reject it instead of applying an obviously wrong shape
+        if(avgY > 0.58){
+          throw new Error('detected position looked implausible (too low, expected near eye level)');
+        }
         pushUndoSnapshot();
-        lenses = {
-          left: clampLensPolygon(parsed.left),
-          right: clampLensPolygon(parsed.right)
-        };
+        lenses = { left: leftPoly, right: rightPoly };
         scaleMode = false;
         updateHintText();
         draw();
@@ -2530,6 +2541,10 @@
     }
     statusOverlay.classList.remove('show');
   });
+
+  function polygonCentroidY(pts){
+    return pts.reduce((sum,p)=>sum+p.y, 0) / pts.length;
+  }
 
   function clampLensPolygon(l){
     const raw = Array.isArray(l.points) ? l.points : [];
