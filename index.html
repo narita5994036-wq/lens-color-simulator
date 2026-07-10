@@ -701,6 +701,7 @@
       sectionShape:"レンズ形状",
       shapeOval:"オーバル",
       shapeBox:"ボックス",
+      shapeWellington:"ウェリントン",
       sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
@@ -742,6 +743,7 @@
       sectionShape:"Lens Shape",
       shapeOval:"Oval",
       shapeBox:"Box",
+      shapeWellington:"Wellington",
       sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
@@ -1047,9 +1049,13 @@
     box: [
       [-0.788,-1],[0.788,-1],[1,-0.788],[1,0.788],
       [0.788,1],[-0.788,1],[-1,0.788],[-1,-0.788]
+    ],
+    wellington: [
+      [-0.800,-1.0],[0.800,-1.0],[1.0,-0.737],[0.689,0.725],
+      [0.444,1.0],[-0.444,1.0],[-0.689,0.725],[-1.0,-0.737]
     ]
   };
-  const LENS_SHAPE_KEYS = ['oval','box'];
+  const LENS_SHAPE_KEYS = ['oval','box','wellington'];
 
   function lensBoundingBox(pts){
     const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
@@ -1060,7 +1066,7 @@
 
   function buildShapePolygon(shapeKey, box){
     if(shapeKey === 'oval'){
-      return {points: ellipseToPolygon(box.cx, box.cy, box.rx, box.ry, 12)};
+      return {points: ellipseToPolygon(box.cx, box.cy, box.rx, box.ry, 8)};
     }
     const template = LENS_SHAPE_TEMPLATES[shapeKey];
     return {points: template.map(([x,y]) => ({x: box.cx + x*box.rx, y: box.cy + y*box.ry}))};
