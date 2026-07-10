@@ -1036,7 +1036,7 @@
         dragHint.style.display = 'block';
         updateToggleVisibility();
         updateHintText();
-        btnDetect.disabled = !apiKey;
+        btnDetect.disabled = false;
         btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
         btnShare.disabled = false;
         if(typeof targetSlot === 'number'){
@@ -1240,7 +1240,7 @@
       updateColorBadge();
       updateToggleVisibility();
       updateHintText();
-      btnDetect.disabled = !apiKey;
+      btnDetect.disabled = false;
       btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
       btnShare.disabled = false;
       renderAll();
@@ -2339,14 +2339,23 @@
     localStorage.setItem(STORAGE_APIKEY, apiKey);
     settingsOverlay.classList.remove('show');
     if(img){
-      btnDetect.disabled = !apiKey;
+      btnDetect.disabled = false;
       btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
     }
   });
 
   // ---------- auto detect via Claude API ----------
   btnDetect.addEventListener('click', async ()=>{
-    if(!img || !apiKey) return;
+    if(!img) return;
+    if(!apiKey){
+      // no key configured yet — send the user straight to where they can add one
+      // instead of silently doing nothing (a disabled-looking button with no
+      // feedback reads as "detection is broken")
+      apiKeyInput.value = apiKey;
+      settingsOverlay.classList.add('show');
+      apiKeyInput.focus();
+      return;
+    }
     statusText.textContent = t('statusDetecting');
     statusOverlay.classList.add('show');
     try{
@@ -2373,7 +2382,12 @@
         })
       });
       if(!resp.ok){
-        throw new Error('API error: ' + resp.status);
+        let detail = '';
+        try{
+          const errBody = await resp.json();
+          detail = errBody && errBody.error && errBody.error.message ? errBody.error.message : '';
+        }catch(e){ /* body wasn't JSON, fall back to the status code alone */ }
+        throw new Error('API ' + resp.status + (detail ? ': ' + detail : ''));
       }
       const data = await resp.json();
       const textBlock = (data.content || []).find(c=>c.type==='text');
@@ -2394,8 +2408,8 @@
       }
     }catch(err){
       console.error('Lens detection error:', err);
-      statusText.textContent = t('statusFailed');
-      setTimeout(()=>{ statusOverlay.classList.remove('show'); }, 1400);
+      statusText.textContent = t('statusFailed') + (err && err.message ? ' (' + err.message + ')' : '');
+      setTimeout(()=>{ statusOverlay.classList.remove('show'); }, 3200);
       return;
     }
     statusOverlay.classList.remove('show');
