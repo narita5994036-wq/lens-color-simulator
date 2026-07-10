@@ -2492,7 +2492,8 @@
         },
         body: JSON.stringify({
           model: MODEL,
-          max_tokens: 900,
+          max_tokens: 2200,
+          thinking: {type: 'enabled', budget_tokens: 1024},
           messages:[{
             role:'user',
             content:[
