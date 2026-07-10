@@ -701,8 +701,6 @@
       sectionShape:"レンズ形状",
       shapeOval:"オーバル",
       shapeBox:"ボックス",
-      shapeWellington:"ウェリントン",
-      shapeBoston:"ボストン",
       sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
@@ -744,8 +742,6 @@
       sectionShape:"Lens Shape",
       shapeOval:"Oval",
       shapeBox:"Box",
-      shapeWellington:"Wellington",
-      shapeBoston:"Boston",
       sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
@@ -1042,21 +1038,18 @@
   // regardless of how the lens was last positioned (drag or auto-detect).
   // oval is generated directly via ellipseToPolygon instead of a fixed
   // template.
+  // note: each template's own bounding box must reach exactly ±1 in both x
+  // and y — lensBoundingBox() below re-derives rx/ry from the *rendered*
+  // polygon's actual extent the next time a preset is applied, so a
+  // template that falls short of ±1 causes the lens to shrink a little
+  // every time a preset is (re-)selected.
   const LENS_SHAPE_TEMPLATES = {
     box: [
-      [-0.67,-0.85],[0.67,-0.85],[0.85,-0.67],[0.85,0.67],
-      [0.67,0.85],[-0.67,0.85],[-0.85,0.67],[-0.85,-0.67]
-    ],
-    wellington: [
-      [-0.72,-0.82],[0.72,-0.82],[0.90,-0.60],
-      [0.62,0.62],[0.40,0.85],[-0.40,0.85],[-0.62,0.62],[-0.90,-0.60]
-    ],
-    boston: [
-      [-0.42,-0.80],[0.42,-0.80],[0.80,-0.42],[0.80,0.42],
-      [0.42,0.80],[-0.42,0.80],[-0.80,0.42],[-0.80,-0.42]
+      [-0.788,-1],[0.788,-1],[1,-0.788],[1,0.788],
+      [0.788,1],[-0.788,1],[-1,0.788],[-1,-0.788]
     ]
   };
-  const LENS_SHAPE_KEYS = ['oval','box','wellington','boston'];
+  const LENS_SHAPE_KEYS = ['oval','box'];
 
   function lensBoundingBox(pts){
     const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
