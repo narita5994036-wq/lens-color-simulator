@@ -282,10 +282,12 @@
   .camera-guide{
     position:absolute; inset:0; width:100%; height:100%; pointer-events:none;
   }
-  .camera-guide .guide-bust, .camera-guide .guide-glasses{
-    fill:none; stroke:rgba(255,255,255,0.85); stroke-width:2.2; stroke-linejoin:round;
+  .camera-guide .guide-oval{
+    fill:none; stroke:rgba(66,232,224,0.9); stroke-width:1.6;
   }
-  .camera-guide .guide-glasses{stroke-dasharray:7,5.5;}
+  .camera-guide .guide-v, .camera-guide .guide-h, .camera-guide .guide-tick{
+    stroke:rgba(66,232,224,0.75); stroke-width:1;
+  }
   .camera-guide-label{
     position:absolute; left:0; right:0; bottom:118px; text-align:center;
     color:rgba(255,255,255,0.9); font-size:12px; letter-spacing:0.04em;
@@ -539,17 +541,18 @@
   <div class="camera-frame" id="cameraFrame">
     <video id="cameraVideo" autoplay playsinline muted></video>
     <svg class="camera-guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
-      <path class="guide-bust" d="M150,51
-        C205,51 236,95 236,151
-        C236,195 215,240 195,273
-        C230,300 280,325 298,361
-        C299,375 299,390 298,400
-        L2,400
-        C1,390 1,375 2,361
-        C20,325 70,300 105,273
-        C85,240 64,195 64,151
-        C64,95 95,51 150,51 Z" />
-      <rect x="71" y="134" width="158" height="49" rx="3" ry="3" class="guide-glasses" />
+      <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
+      <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
+      <line class="guide-h" x1="0" y1="54" x2="300" y2="54" />
+      <line class="guide-h" x1="0" y1="166" x2="300" y2="166" />
+      <line class="guide-h" x1="0" y1="326" x2="300" y2="326" />
+      <line class="guide-tick" x1="6" y1="48" x2="6" y2="60" />
+      <line class="guide-tick" x1="294" y1="48" x2="294" y2="60" />
+      <line class="guide-tick" x1="6" y1="160" x2="6" y2="172" />
+      <line class="guide-tick" x1="294" y1="160" x2="294" y2="172" />
+      <line class="guide-tick" x1="6" y1="320" x2="6" y2="332" />
+      <line class="guide-tick" x1="294" y1="320" x2="294" y2="332" />
+      <ellipse class="guide-oval" cx="150" cy="190" rx="92" ry="136" />
     </svg>
   </div>
   <div class="camera-guide-label" data-i18n="cameraGuideLabel">枠に顔とフレームを合わせてください</div>
