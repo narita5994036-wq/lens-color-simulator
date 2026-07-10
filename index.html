@@ -425,16 +425,6 @@
   }
   .sheet{position:relative;}
   .note{font-size:11px; color:var(--gray-mid); line-height:1.6; margin-top:-4px; margin-bottom:18px;}
-  .status{
-    position:absolute; inset:0; background:rgba(255,255,255,0.85); display:none; align-items:center; justify-content:center;
-    flex-direction:column; gap:10px; font-size:12px; color:var(--gray-mid); letter-spacing:0.05em;
-  }
-  .status.show{display:flex;}
-  .spinner{
-    width:22px; height:22px; border:1px solid var(--gray-line); border-top-color:var(--black); border-radius:50%;
-    animation:spin 0.8s linear infinite;
-  }
-  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -462,7 +452,6 @@
       <div data-i18n="emptyState">タップして撮影してください</div>
       <span class="lib-link" id="libLink" data-i18n="chooseFromLibrary">写真から選択</span>
     </div>
-    <div class="status" id="statusOverlay"><div class="spinner"></div><div id="statusText" data-i18n="statusDetecting">解析中</div></div>
     <div class="stage-tabs" id="stageTabs" style="display:none;">
       <button type="button" class="stage-tab" id="stageTab0" data-slot="0"><span class="tab-plus">+</span></button>
       <button type="button" class="stage-tab" id="stageTab1" data-slot="1"><span class="tab-plus">+</span></button>
@@ -523,11 +512,6 @@
   <div class="sidebar-header">
     <span class="sidebar-title" data-i18n="sidebarTitle">メニュー</span>
     <button class="close-x" id="btnSidebarClose">×</button>
-  </div>
-
-  <div class="sidebar-section">
-    <h3 data-i18n="sectionDetect">レンズ形検知</h3>
-    <button class="stage-action-btn" id="btnDetect" disabled data-i18n="btnDetectNeedKey">レンズ位置を自動検出</button>
   </div>
 
   <div class="sidebar-section">
@@ -613,14 +597,6 @@
       <label data-i18n="showBadgeLabel">現在のカラー表示を表示</label>
       <div class="switch on" id="settingShowBadge"><div class="knob"></div></div>
     </div>
-    <div class="field">
-      <label data-i18n="apiKeyLabel">Claude API キー（レンズ自動検出に使用）</label>
-      <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
-    </div>
-    <div class="note" data-i18n="apiKeyNote">APIキーはこの端末内にのみ保存され、外部には送信されません。自動検出を使わない場合は入力不要です（手動でレンズ範囲を調整できます）。</div>
-    <div class="sheet-actions">
-      <button class="btn primary" id="btnSaveKey" data-i18n="saveBtn">保存</button>
-    </div>
   </div>
 </div>
 
@@ -657,32 +633,9 @@
   const STORAGE_PRESETS = "mykita-lens-presets-v8";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
-  const STORAGE_APIKEY  = "mykita-lens-apikey-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
   const STORAGE_SHOW_TOGGLES = "mykita-lens-show-toggles-v1";
   const STORAGE_SHOW_BADGE   = "mykita-lens-show-badge-v1";
-  const MODEL = "claude-sonnet-5";
-  const LENS_DETECT_PROMPT = 'この画像はメガネ(サングラス含む)を着用している人物の写真です。左右それぞれのレンズの輪郭をできる限り正確に検出してください。\n'
-    + '\n'
-    + '手順(必ずこの順番で行ってください):\n'
-    + '1. まず、左目と右目それぞれの瞳(黒目の中心)がどこにあるか、画像内の位置を特定してください。\n'
-    + '2. 次に、その瞳の位置を基準にして、瞳を中心付近に含む形で左右それぞれのレンズ(フレームの中の、光が通る開口部)の輪郭を検出してください。レンズは必ず瞳とほぼ同じ高さにあります。口・鼻の穴・顎・頬の高さになることは絶対にありません。\n'
-    + '3. 出力するレンズ輪郭の中心が、手順1で特定した瞳の位置から大きく離れていないか(同じ高さ・同じ左右位置にあるか)、最後に必ず確認してください。\n'
-    + '\n'
-    + '検出対象について:\n'
-    + '- 検出するのは「レンズ(光が通る開口部)の外周」であり、フレームのプラスチックや金属部分の外側の輪郭ではありません。フレームに縁取られた内側の縁を検出してください。\n'
-    + '- レンズの形状は真円とは限りません。ラウンド、スクエア、キャットアイ、アビエーター、多角形など様々な形状がありうるので、実際に見えている輪郭の形状にできるだけ忠実に沿わせてください。\n'
-    + '- 直線的な角がある形状では角の周辺に頂点を密に配置し、滑らかな曲線部分では頂点を疎に配置して、片方のレンズにつき8〜14点程度の多角形で表現してください。\n'
-    + '- 頂点は輪郭に沿って時計回りに並べてください。\n'
-    + '- 顔や写真がわずかに傾いている場合は、実際に見えている傾きのまま検出してください（水平に矯正しないでください）。\n'
-    + '- 左右のレンズは同じフレームである場合が多く、形状・大きさ・傾きは概ね左右対称になります。片方の輪郭が髪や反射などで見えにくい場合は、もう片方の見え方を参考にしながら自然な対称形になるよう補完してください。\n'
-    + '\n'
-    + '座標について:\n'
-    + '- 画像の左上を原点(0,0)、右下を(1,1)とした相対座標(0〜1の小数、小数点以下3桁程度)で返してください。y=0が画像の一番上、y=1が画像の一番下です。\n'
-    + '- ここでのleft/rightは画像内での見た目上の左右（向かって左/向かって右）です。\n'
-    + '\n'
-    + '出力は必ず次のJSON形式のみとし、前置き・説明・コメント・マークダウンのコードブロックは一切含めないでください。leftPupil/rightPupilは手順1で特定した瞳の座標[x,y]です:\n'
-    + '{"leftPupil":[0.0,0.0],"rightPupil":[0.0,0.0],"left":{"points":[[0.0,0.0],[0.0,0.0]]},"right":{"points":[[0.0,0.0],[0.0,0.0]]}}';
 
   const FRAME_NAMES_RAW = "EKON, LAMIN, BELLIS_CUSTOMIZED, COLEMAN_CUSTOMIZED, BERTHOLD, ELLUM, BELLIS, HOPPER, LETO, SOTO, HEATH, KAMI_A, KAMI, AYAN, FARAH, ATINE, LAIS, SANG, JADA, NEALE, OCEANE, ELBERT, OLYMPE, TALINI, SESI, JULLA, NUKKA, TAIFA, MONDO, EERO, NIKEN, IMBA, EMMI, PEN, ISLA, LUCIA, ALBA, ARMSTRONG, YOTAM, CARSON, GERHARD, SKYLAR, OLLI, MAREN, SONU, MR006, MR001, MR002, MR003, LANA, MR005, TOMI_CUSTOMIZED, KAYO_CUSTOMIZED, YUCCA, DRIFT, PIO, BIJAN, ARVIN, RENO, NOOMI, LAVAND, KABAL, LILIA, ML19, JANO, CLOVER, BLUE, STUDIO12.1, BRAN, NURIA, DORSA, SELBY, ROSCOE, ARVEL, CHRISTA, MARAL, SENTA, PORTIA, HARRISON, FORT, DORIAN, RIBO, MAHSA, KIANA, TOSCA, SANTO, REMBERT, LOMAX, AITA, DELANCEY, NEVILLE, YUKON, HELICON, NIKEN_CUSTOMIZED, WATARU_CUSTOMIZED, YURA, GRUNT, RAT, SAGA, TRUMAN_CUSTOMIZED, STUDIO7.4_CUSTOMIZED, KAMI_CUSTOMIZED, WIM, JULES, CHIP, ML18, STUDIO15.2, STUDIO15.1, PANA, NANOOK, TUKTU, KEOMA, DESTA, TRULES, YOLA, PAULSON, KAIMAR, RHYS, HAMISH, REVA, LAVEN, INDIRA, BEAM, ASPEN, TEVEL, RAIDER, HAWI, NANNA, MOSHA, JASMI, GYLFI, AHTI, MIO, XANDER, THEODORE, GARTH, KIMBER, NYARA, KAIS, KIVA, SOMA, SERUM, TELMA, ASGER, LOVA, RAIM_CUSTOMIZED, PAL, SATU, KARSTEN_CUSTOMIZED, JULIAN, STANLEY, DESNA, LAHTI, HOLM, DELANO, WALLY, TUFF, KAL, NIAM, MABEL, SOLEA, EILISH, SINCLAIR, XANDER_CUSTOMIZED, SIWA_PLUS, FLEMMING, FIR, PHIL, LORENZO, HENNING, CORMAC, ROSEMARY, ROCKWELL, CLIVE, BUD, ALLEN, NAAMA, BADU, AMOS, ML16, BEAR, SAWYER, ML17, ML05, ANDERS, ML09, NEETU_CUSTOMIZED, MR004, PERRY, ALIN, EMBERS, ROWAN, CAT, LOOMIS, TESHI, TOTO, MARELLE, MEL, BIRCH, MAUREEN, SOLENE, AMARE, SANTERI, SIERRA, MAVON, WALKER, SAUL, LAIMI, INCHEON, DAKAR, ML15, ML13, SAMAR, SAGA_A, LEON, DADA, KELSEY, JUSTUS, DELFINA, COLTON, BORGA, ML11, ARTURO, TIWA, KENJA, JEPPE, HILLA, TAAVI, MATIS, SAIMA_A, HAWKING, 1 OF 0 SBP03 CHARCOAL, 1 OF 0 SBP02 GOLDEN OLIVE, 1 OF 0 SBP01 MATTE MAPLE LEAF, TEEMA, ML10, DALUR, DIA_CUSTOMIZED, BELLIS_CUSTOMIZED, DUSK_CUSTOMIZED, TARO_CUSTOMIZED, NIMA, LOME, UNA, PAVI, LEELAND, GIA, AVERY, ALISTER, LAURI, ISE, HALVAR, EDISON, CILIAN, JANAN, SUVI, SELVA, SALVADOR, REEVES, GETZ, GARLAND, CAVEN, CANTARA, PEARL, VAASA, JARA_CUSTOMIZED, WATERS, JOJO_A, COLEMAN, SOLO, KNUT, ALPINE, ML03, ARMIN, ALCOR, TULOK, ALYA, LAMIN_M, ELBA, STUDIO14.2, STUDIO13.1, JELVA, ELVE, KILENDA, MOJAVE, JEFFERSON, MARTIN, CYPRESS, STUDIO14.1, ELI, HOLLIS, KNOX, DAVU_A, TIWA_A, KIENE, MERVI, ARVO, STEEN, IDRIS, HOWLIN, BEACH, WILL, PARIS, STUDIO7.5, KYLAN, ARIELLE, JARI, MONROE, VANILLA, SURI, 032c SILK SCARF, 032c LEATHER TRAY, 032c KEY FOB, FERLO, HELMI, SATIN, SANTANA, NORFOLK, TOBI, NUKKA_A, SINDAL, MARFA, MOTT, STUDIO6.8, KENTON, JALO, ALDER, ML05_DEMO LENSES, LAVRA, VIOLA, RUE, BADU_PLUS, NIAM_PLUS, CAVEN_PLUS, NEVEN, SAIMA, ALICIA, RIKU, KOLDING, LAHTI_A, LERATO, LAGON, MEJA, SESI_A, DIA, ELISA, FINVID_CUSTOMIZED, AKI_CUSTOMIZED, ALESSIA, VELMA, SPRUCE, LENNON, MISAKO, JARA, CANNA, ARLO, SOUDA, BUENO, HANNO, NOR, TATE, ML08, ALCOTT, VISKA, VEN, LALE, SILVER, BADU_PULS, ALFONSO, SERAPHINA, NEELA, DUSK, DON, ML04_DEMO LENSES, KELLY, NAT, KENDALL, LAVRA_A, DAYO_PLUS, MERI, ANANA_A, SAMU, BORGA_A, MOMO, KAITO, PEGGY, IRIS, FELICIA, MINTTU, STUDIO12.2, NALA, MARLOWE, MAHA, NEW, KALLA, EETU, JES, AMKA_A, KISKA, WALT, STUDIO12.5, DEW, KAYO, RYKER, KAORI_CUSTOMIZED, KEOMA_A, EKON_A, LAYANA, MISTY, MIKKEL, HYDRA, KENDO, EITO_CUSTOMIZED, JONAH, JAZ, HOLM_A, PHILLYS, RAYMOND, SCHORSCH, ANIK_A, BERNIE, ANTTI_CUSTOMIZED, NAOKO_CUSTOMIZED, HITI_A, HIMIKO, ANGUS, CLARENCE, KETILL, ACHILLES, STINE, STUDIO13.2, FREDA_A, MAJVI, GIBA, JOLAN, STUDIO5.4, STUDIO5.3, HILDEGARD, SOEREN, THOMAS, AIDEN, LUPITA, ML12, ROLLINS, NESTOR, KIRIMA, TATA, MEGHAN, JORGOS, OLSEN_CUSTOMIZED, DENNIS, TUVA, BIKKI_A, GRIMBART, BOLDEWYN, BELLYN, SIWA, DAYO, TALINI_A, EDE, FARGO, CORINNA, CEDAR, SIRU, ANTTI, SHO, HEGON_A, LEVANTE, AURI, PALOMA, TALVI, KOLMAR, HEMLOCK, CHARLOTTE, SATORI, YASKA, KETILL_A, NIS, BRENDA, STUDIO7.1, RILEY, ML14, SILIA, VERUSCHKA, LEWIS, EITO, CLAAS_CUSTOMIZED, CALLUM, TOMI, HIRO, YUUTO, JONTE, GERO, ESBO, LUMI, ML07, HULDA, ANNIKA, TORBEN, BRODY, MAXIMILIAN, WAVE, ALMETA, ERRKI, MATTI, MERRICK, MMTRANSFER004, MMCRAFT005, MMCRAFT002, MMESSE019, TANNER, BASIL, MMTRANSFER003, AKEMI, ELLINGTON, ML01, MMCRAFT016, STUDIO2.2, STUDIO6.7, MMESSE020, WATARU, TRUMAN, KEELUT_A, KARI, MMRAW007, MMRAW013, KEELUT, COCO, MMRAW021, BUSTER, MMTRANSFER001, MMESSE001, MMESSE013, DEAN, STUDIO4.3, HOLLY, SANNA, JESPER, MMRAW018, AKI, MMCRAFT007, HANSEN, MMRAW011, HELGI, HALDUR_A, TOMOMI, GISELLE, MMCRAFT001, MMRAW020, LARSSON, MMCRAFT006, ML02, DAISUKE, MMRAW002, HESTA_A, MINAKO, RIN, NOBU, ULLA, VANESSA, STUDIO6.6, MMECHO005, MMESSE029, MMESSE028, MMCRAFT014, LISKA, BLU, MMCRAFT013, MMESSE002, HEGON_EU, JIRO, MMCRAFT010, KAUKO, HL002, HL001, STUDIO6.4, STUDIO6.2, JUJUBI_A, BILIMBI_A, BJELLE, MMCRAFT011, MMESSE026, NIBA_A, CLAUDE, DD2.3, RAOUL, NAOKO, GIGI SHADES, ALUKI, JANIS, KARSTEN, STUDIO7.2, ALIO_A_S, MMESSE021, OLGA, ADRIANO, AKSEL, DAGNY, TOMKIN_A, GIORGIO, TOMKIN Shades, MMESSE027, MMRAW017, HOPS, LOUIS, TUKTU_A, KAZU, MADELEINE, MASAO, BAMBI, BRADFIELD, SOLOMON, MMRAW014, HEIKO, PIT, GUNNAR, ROCKET, ISMO, PHILOMENE, QUENBY, KJELL, STUDIO11.1, GAPI, OTTI, BRANDUR_A, YOKO, DD2.2, BELLA, KIKI, REM, STUDIO6.3, ALICE, VABO, FEDOR, MMVIRTUAL001, NEA, ALEXANDER, NIVES, THUNDER, MMRAW005, HAY, DREW, WALSH, KASIMIR, GREGORY, URSULA, GISELLE_S, ALESSIA_S, KASIMIR_S, VITO_S, LENNARD_S, LOVISA, ARLUK_A, LENNARD, NITA, VITO, CLAAS, HIROTO, TAUNO, KAI, ESKID, MMESSE008, JAIS, SCARLETT_S, SEPP_S, BELLYN_S, TONA, OVE, HILLA_A, MAVERICK, MMRAW008, ANNABETH_S, KENDRICK_S, KYO_S, STUDIO9.1, STUDIO9.2, MMESSE016, LILLESOL, SYLVESTER, FEDERICO, LOTUS, CAYENNE, KEELUT Shades, REED, KARMA, JULLA_A, HOUSTON, NATHAN, FERN, STUDIO7.4, JUDE, ROB, TOCLO_A, DAGGOO, JULIUS, MMESSE006, STUDIO6.5, LUAVA_A, NUKKA Shades, MMRAW012, PALM, PRISCILLA, JOVI, MMRAW010, MMRAW009, MMCRAFT004, GINA, CARA, JORDI, APPLE, ADEBAR, GESA, LEMAS, MMESSE009, RYO, TRIBE, CASH, BOOST, HARU, MMCRAFT012, MMRAW016, MMRAW015, MMESSE025, MMESSE024, STUDIO10.2, STUDIO10.1, DALIA, SELLECK, CARLO, GUNDA, ELGARD, COLTRANE, CHARLENE, MERYL, LONNE, JUL, ERI, BEULAH, IVER, FINNA, ZACH_S, JIM_S, DASH_S, PHILOMENE_S, SCHORSCH_S, AGNES_S, SHIFT, JONES, RICCARDO, LANDON, CORALIE, DEMO LENSES, SOS, TRITON, HERKO, STUDIO8.2, STUDIO8.1, STUDIO7.3, STUDIO6.1, STUDIO5.5, STUDIO2.3, STUDIO2.1, STUDIO1.4, ARMIDA_S, LOVELL, MUSK, GUARD ONE / PLUS, GUARD ONE, RIDGE, BOOM, MMCIRCLE002, MMCIRCLE001, CANYON, PEAK, BOND, BLAZE, BALTA, MMECHO001, RIDER, OMEGA, YOSHY, POTI, MARS, CALLIOPE, TITAN, GAMMA, MATO_A, KALLIO_A, ONIKI_A, KENDA_A, MMRAW019, POK, YUMA_A, TORUK_A, LAGON_A, JOVVA_A, ELVE_A, LUAVA, AILO, FRANKLIN, FABIAN, CAPOTE, OKI, YUKA, OLIVE_S, MMDUAL003, GILES, SULLIVAN_S, ELDRIDGE_S, ANNABETH, MMDUAL004, MMDUAL004_S, MMDUAL002, MMDUAL001, GRANT, FABRICE, SIENNA, WARNER_S, ARMIDA, THOMPSON_S, KAYO_DAIKI TSUNETA, LENNARD_DAIKI TSUNETA, OLSEN, KAZUO, NUKKA shades, TALINI shades, TOMKIN shades, KEELUT shades, LEX shades, GIGI shades, FABIAN shades, ROMINA, STUDIO12.3, ML06, MMESSE030, FOCUS, DEEP, MMCRAFT017, JENSEN, SEIGO, DONOVAN, EMORY, TOTAL, SUPER, FELIX, RIKKE, TARO, YOSHI, KAORI, HL003, NETA, ZELDA, BAKER, PARK, DUANE, MMCRAFT015, TILLA, MAGDA, DALTON, DARCY, STUART, LIVA, LOTTA, GUNNARSON, LORENS, HAMPTON, ASMUND, IAN, CALEB, WILDER, WESTON, EASTON, AL, ZANE, LOST, CYNTHIA, RYOKO, YORIN, INGELS, YNGVE, SOY, JOEL, BASIE, VALDA, TURNER, PAULIN, DURAN, HAGEN, RAFFAELLA, LUND, TAPIO, SID, MMESSE007, MMESSE023, MMESSE022, MMCRAFT009, MMCRAFT008, PORTER, JETTE, FRANCESCO, MANUEL, MIRO, MONOGRAM, RAIDON, BJAKE, ANDERSSON, MMCRAFT003, SELINA, KITT, EARTHA E10, YUMI, KUMIKO, TAKEO, JUN, MIZUHO, NILSSON, HELKA, AGAVA, MMESSE018, MMESSE017, ERLING, JONI F69, JONI F10, METTE, ARTO, BIRK, JARMO, ANDO, MALTE, KENT, DD2.2 A25, VERBAL, EARTHA E25, WOODROW, BEVERLY, VERUCHKA, MMESSE010, VILDE, MACY, DUSTY F65, EARTHA E65, ISAAC, DEMI, SLOE, TORGE, AIRA, CELESTE, ENNIO, BRENT, ANYU, ENRICO, MMTRANS001, MMTRANS003, MMESSE011, MMESSE005, MMESSE012, FINVID, OWL, DAVIS, PERNILLA, ESBJOERN, WULF, PEACH, LUPINE, FLAX, VERUCHKA F10, ADEBAR_S, PETZ_S, PETZ, RANI, JOSEPPA, JUNIS, ERIN, VALTO, EJVIND, ELON, ELDER, CLOVE, MMTRANS002, DOUG, CROSBY, THELONIUS, EDDA, BENNY, ELLERY, SCHORSCH F65, JORG, RAGNAR, TIMOTHY, PEYTON, DD2.2 A6, DD2.2 A2, JOOST, FLIP, ROOPE, ZACH, ERWIN F65, MMESSE006_S, MMESSE005_S, MMESSE001_S, GERRIT, CARTER, MADITA, MMESSE003_S, URSULA_S, URSULA F61, ERLAND, LUELLA, BUGSY, ERWIN F61, ERWIN F25, ERWIN F10, ERWIN F9, PRISKA, RASMUS, PIA, EINAR, MAILA, SLY, NORA_S, TARJE, JOHN, YUKI_S, AKIRA_S, MAREIKE, JANIS F10, FRANZ F9, BECKY, TAULANT, BONNIE, RAFAEL, SMILLA, XAVER F10, FRANZ F25, JORDAN, BETTY, NIGEL, JESPER_S, JANIS F9, JAMES, COOPER";
 
@@ -739,17 +692,12 @@
       cameraGuideLabel:"枠に顔とフレームを合わせてください",
       dragHint:"頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット",
       scaleModeHint:"ガイドボックス内をドラッグで移動、右下の点で拡大・縮小できます（もう一度ダブルタップで解除）",
-      statusDetecting:"解析中",
-      statusFailed:"検出に失敗しました",
-      btnDetect:"レンズ位置を自動検出",
-      btnDetectNeedKey:"レンズ位置を自動検出（要APIキー）",
       handlesLabel:"操作点",
       opacityLabel:"濃度",
       gradientBottomLabel:"最小濃度",
       zoomLabel:"ズーム",
       colorsHeader:"カラー",
       sidebarTitle:"メニュー",
-      sectionDetect:"レンズ形検知",
       sectionShape:"レンズ形状",
       shapeOval:"オーバル",
       shapeSquare:"スクエア",
@@ -774,9 +722,6 @@
       languageLabel:"言語 / Language",
       showTogglesLabel:"操作点トグルを表示",
       showBadgeLabel:"現在のカラー表示を表示",
-      apiKeyLabel:"Claude API キー（レンズ自動検出に使用）",
-      apiKeyNote:"APIキーはこの端末内にのみ保存され、外部には送信されません。自動検出を使わない場合は入力不要です（手動でレンズ範囲を調整できます）。",
-      saveBtn:"保存",
       cancelBtn:"キャンセル",
       customColorFallback:"カスタムカラー",
       resetConfirmTitle:"画像をリセットしますか？",
@@ -792,17 +737,12 @@
       cameraGuideLabel:"Align the face and frame within the guide",
       dragHint:"Drag a point to reshape, drag inside to move, double-tap to toggle scale mode for both lenses. Swipe the background left/right to cycle your last 5 colours, triple-tap the background to reset zoom",
       scaleModeHint:"Drag inside the guide box to move, drag the bottom-right dot to scale (double-tap again to exit)",
-      statusDetecting:"Analysing",
-      statusFailed:"Detection failed",
-      btnDetect:"Auto-Detect Lenses",
-      btnDetectNeedKey:"Auto-Detect Lenses (API key required)",
       handlesLabel:"Points",
       opacityLabel:"Density",
       gradientBottomLabel:"Min Density",
       zoomLabel:"Zoom",
       colorsHeader:"Colours",
       sidebarTitle:"Menu",
-      sectionDetect:"Lens Shape Detection",
       sectionShape:"Lens Shape",
       shapeOval:"Oval",
       shapeSquare:"Square",
@@ -827,9 +767,6 @@
       languageLabel:"Language",
       showTogglesLabel:"Show points toggle",
       showBadgeLabel:"Show current colour display",
-      apiKeyLabel:"Claude API Key (used for lens auto-detection)",
-      apiKeyNote:"The API key is stored only on this device and never sent elsewhere. Not required if you don't use auto-detection (lens areas can be adjusted manually).",
-      saveBtn:"Save",
       cancelBtn:"Cancel",
       customColorFallback:"Custom Colour",
       resetConfirmTitle:"Reset the photo?",
@@ -850,7 +787,6 @@
   let history = loadJSON(STORAGE_HISTORY, []).slice(0,5);
   let favorites = loadJSON(STORAGE_FAVORITES, []);
   const FAVORITES_MAX = 20;
-  let apiKey  = localStorage.getItem(STORAGE_APIKEY) || "";
 
   let img = null;           // loaded HTMLImageElement
   let imgNatW = 0, imgNatH = 0;
@@ -921,8 +857,6 @@
   const stage = document.getElementById('stage');
   const emptyState = document.getElementById('emptyState');
   const dragHint = document.getElementById('dragHint');
-  const statusOverlay = document.getElementById('statusOverlay');
-  const statusText = document.getElementById('statusText');
 
   const cameraInput = document.getElementById('camera-input');
   const uploadInput = document.getElementById('upload-input');
@@ -939,7 +873,6 @@
   let cameraZoom = 1;
   const CAMERA_ZOOM_MAX = 4;
   const libLink = document.getElementById('libLink');
-  const btnDetect = document.getElementById('btnDetect');
   const btnShare = document.getElementById('btnShare');
   const btnAddFavorite = document.getElementById('btnAddFavorite');
   const favoritesRow = document.getElementById('favoritesRow');
@@ -965,8 +898,6 @@
 
   const btnSettings = document.getElementById('btnSettings');
   const settingsOverlay = document.getElementById('settingsOverlay');
-  const apiKeyInput = document.getElementById('apiKeyInput');
-  const btnSaveKey = document.getElementById('btnSaveKey');
   const settingShowToggles = document.getElementById('settingShowToggles');
   const settingShowBadge = document.getElementById('settingShowBadge');
 
@@ -1016,16 +947,10 @@
       const key = el.getAttribute('data-i18n-placeholder');
       el.placeholder = t(key);
     });
-    apiKeyInput.placeholder = "sk-ant-...";
     document.documentElement.lang = lang;
     langSwitch.querySelectorAll('.lang-btn').forEach(b=>{
       b.classList.toggle('active', b.dataset.lang === lang);
     });
-    if(img){
-      btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
-    } else {
-      btnDetect.textContent = t('btnDetectNeedKey');
-    }
     updateHintText();
     updateColorBadge();
     renderAll();
@@ -1082,8 +1007,6 @@
         dragHint.style.display = 'block';
         updateToggleVisibility();
         updateHintText();
-        btnDetect.disabled = false;
-        btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
         btnShare.disabled = false;
         if(typeof targetSlot === 'number'){
           frameName = '';
@@ -1418,7 +1341,6 @@
     dragHint.style.display = 'none';
     updateToggleVisibility();
     updateStageTabsUI();
-    btnDetect.disabled = true;
     btnShare.disabled = true;
     frameName = '';
     frameNameInput.value = '';
@@ -1482,8 +1404,6 @@
       updateColorBadge();
       updateToggleVisibility();
       updateHintText();
-      btnDetect.disabled = false;
-      btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
       btnShare.disabled = false;
       renderAll();
       resizeCanvas();
@@ -2572,167 +2492,10 @@
   }
 
 
-  // ---------- settings / API key ----------
+  // ---------- settings ----------
   btnSettings.addEventListener('click', ()=>{
-    apiKeyInput.value = apiKey;
     settingsOverlay.classList.add('show');
   });
-  btnSaveKey.addEventListener('click', ()=>{
-    apiKey = apiKeyInput.value.trim();
-    localStorage.setItem(STORAGE_APIKEY, apiKey);
-    settingsOverlay.classList.remove('show');
-    if(img){
-      btnDetect.disabled = false;
-      btnDetect.textContent = apiKey ? t('btnDetect') : t('btnDetectNeedKey');
-    }
-  });
-
-  // ---------- auto detect via Claude API ----------
-  btnDetect.addEventListener('click', async ()=>{
-    if(!img) return;
-    if(!apiKey){
-      // no key configured yet — send the user straight to where they can add one
-      // instead of silently doing nothing (a disabled-looking button with no
-      // feedback reads as "detection is broken")
-      apiKeyInput.value = apiKey;
-      settingsOverlay.classList.add('show');
-      apiKeyInput.focus();
-      return;
-    }
-    closeSidebar();
-    statusText.textContent = t('statusDetecting');
-    statusOverlay.classList.add('show');
-    try{
-      const base64 = await imageToBase64(img);
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 2200,
-          thinking: {type: 'adaptive'},
-          output_config: {effort: 'high'},
-          messages:[{
-            role:'user',
-            content:[
-              {type:'image', source:{type:'base64', media_type:'image/jpeg', data: base64}},
-              {type:'text', text:LENS_DETECT_PROMPT}
-            ]
-          }]
-        })
-      });
-      if(!resp.ok){
-        let detail = '';
-        try{
-          const errBody = await resp.json();
-          detail = errBody && errBody.error && errBody.error.message ? errBody.error.message : '';
-        }catch(e){ /* body wasn't JSON, fall back to the status code alone */ }
-        throw new Error('API ' + resp.status + (detail ? ': ' + detail : ''));
-      }
-      const data = await resp.json();
-      const textBlock = (data.content || []).find(c=>c.type==='text');
-      if(!textBlock) throw new Error('no text in response');
-      const cleaned = textBlock.text.replace(/```json|```/g,'').trim();
-      const parsed = JSON.parse(cleaned);
-      if(parsed.left && parsed.right){
-        let leftPoly = clampLensPolygon(parsed.left);
-        let rightPoly = clampLensPolygon(parsed.right);
-        const leftPupil = parsePoint(parsed.leftPupil);
-        const rightPupil = parsePoint(parsed.rightPupil);
-        const pupilsPlausible = leftPupil && rightPupil
-          && leftPupil.y > 0.05 && leftPupil.y < 0.75
-          && rightPupil.y > 0.05 && rightPupil.y < 0.75
-          && leftPupil.x < rightPupil.x;
-        if(pupilsPlausible){
-          // getting a full multi-point polygon's *absolute* placement right
-          // is a harder task for the model than locating a single point (the
-          // pupil), and has repeatedly drifted downward toward the
-          // nose/mouth even when the pupil estimate itself was reasonable.
-          // So: trust the model for the lens *shape*, but force it to be
-          // centered exactly on its own independently-reported pupil
-          // position instead of trusting the polygon's absolute coordinates.
-          leftPoly = recenterPolygon(leftPoly, leftPupil);
-          rightPoly = recenterPolygon(rightPoly, rightPupil);
-        } else {
-          const avgY = (polygonCentroid(leftPoly.points).y + polygonCentroid(rightPoly.points).y) / 2;
-          if(avgY > 0.58){
-            // no usable pupil anchor to cross-check against — fall back to a
-            // coarse absolute check so an obviously-wrong result (well into
-            // the lower half of the photo) still doesn't get applied
-            throw new Error('detected position looked implausible (too low, expected near eye level)');
-          }
-        }
-        pushUndoSnapshot();
-        lenses = { left: leftPoly, right: rightPoly };
-        scaleMode = false;
-        updateHintText();
-        draw();
-      } else {
-        throw new Error('unexpected shape');
-      }
-    }catch(err){
-      console.error('Lens detection error:', err);
-      statusText.textContent = t('statusFailed') + (err && err.message ? ' (' + err.message + ')' : '');
-      setTimeout(()=>{ statusOverlay.classList.remove('show'); }, 3200);
-      return;
-    }
-    statusOverlay.classList.remove('show');
-  });
-
-  function polygonCentroid(pts){
-    let sx=0, sy=0;
-    pts.forEach(p=>{ sx+=p.x; sy+=p.y; });
-    return {x: sx/pts.length, y: sy/pts.length};
-  }
-
-  function parsePoint(p){
-    if(!Array.isArray(p) || p.length < 2) return null;
-    const x = Number(p[0]), y = Number(p[1]);
-    return (Number.isFinite(x) && Number.isFinite(y)) ? {x,y} : null;
-  }
-
-  function recenterPolygon(poly, target){
-    const c = polygonCentroid(poly.points);
-    const dx = target.x - c.x, dy = target.y - c.y;
-    const pts = poly.points.map(p => ({
-      x: Math.min(1, Math.max(0, p.x + dx)),
-      y: Math.min(1, Math.max(0, p.y + dy))
-    }));
-    return {points: pts};
-  }
-
-  function clampLensPolygon(l){
-    const raw = Array.isArray(l.points) ? l.points : [];
-    const pts = raw
-      .map(p => Array.isArray(p) ? {x:Number(p[0]), y:Number(p[1])} : {x:Number(p.x), y:Number(p.y)})
-      .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
-      .map(p => ({x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y))}));
-    if(pts.length < 3){
-      // fall back to a generic octagon if detection returned something unusable
-      return {points: ellipseToPolygon(0.41, 0.415, 0.10, 0.058, 8)};
-    }
-    return {points: pts};
-  }
-
-  function imageToBase64(image){
-    return new Promise((resolve)=>{
-      const c = document.createElement('canvas');
-      const maxDim = 1568; // Anthropic's recommended long-edge size for full-detail vision input
-      let w = image.naturalWidth, h = image.naturalHeight;
-      if(w > h && w > maxDim){ h = h*maxDim/w; w = maxDim; }
-      else if(h > maxDim){ w = w*maxDim/h; h = maxDim; }
-      c.width = w; c.height = h;
-      const cctx = c.getContext('2d');
-      cctx.drawImage(image, 0, 0, w, h);
-      const dataUrl = c.toDataURL('image/jpeg', 0.92);
-      resolve(dataUrl.split(',')[1]);
-    });
-  }
 
   // ---------- share (cheki-style composite with frame name, colour name + density) ----------
   function generateChekiCanvas(){
