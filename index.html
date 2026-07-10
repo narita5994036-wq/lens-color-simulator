@@ -272,7 +272,11 @@
     display:none; align-items:stretch; justify-content:center;
   }
   .camera-modal.show{display:flex;}
-  .camera-modal video{
+  .camera-frame{
+    position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+    width:100%; aspect-ratio:3/4; max-height:100%; overflow:hidden; background:#000;
+  }
+  .camera-frame video{
     position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
   }
   .camera-guide{
@@ -532,20 +536,22 @@
 <input type="file" id="upload-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
 
 <div class="camera-modal" id="cameraModal">
-  <video id="cameraVideo" autoplay playsinline muted></video>
-  <svg class="camera-guide" viewBox="0 0 300 650" preserveAspectRatio="xMidYMid slice">
-    <path class="guide-bust" d="M150,35
-      C220,35 260,110 260,200
-      C260,278 240,338 217,390
-      C210,404 210,420 217,436
-      C258,458 294,508 298,650
-      L2,650
-      C6,508 42,458 83,436
-      C90,420 90,404 83,390
-      C60,338 40,278 40,200
-      C40,110 80,35 150,35 Z" />
-    <rect x="75" y="183" width="150" height="34" rx="4" ry="4" class="guide-glasses" />
-  </svg>
+  <div class="camera-frame" id="cameraFrame">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <svg class="camera-guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
+      <path class="guide-bust" d="M150,20
+        C213,20 270,60 270,125
+        C270,175 245,215 225,240
+        C218,250 218,258 225,268
+        C260,285 292,315 298,400
+        L2,400
+        C8,315 40,285 75,268
+        C82,258 82,250 75,240
+        C55,215 30,175 30,125
+        C30,60 87,20 150,20 Z" />
+      <rect x="78" y="110" width="144" height="28" rx="3" ry="3" class="guide-glasses" />
+    </svg>
+  </div>
   <div class="camera-guide-label" data-i18n="cameraGuideLabel">枠に顔とフレームを合わせてください</div>
   <div class="camera-controls">
     <button class="camera-btn cancel" id="btnCameraCancel" aria-label="close">×</button>
@@ -1082,9 +1088,19 @@
   btnCameraShutter.addEventListener('click', ()=>{
     const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
     if(!w || !h) return;
-    captureCanvas.width = w;
-    captureCanvas.height = h;
-    captureCanvas.getContext('2d').drawImage(cameraVideo, 0, 0, w, h);
+    // crop to the same 3:4 (width:height) frame shown on screen behind the guide
+    const targetRatio = 3/4;
+    let sx=0, sy=0, sw=w, sh=h;
+    if(w/h > targetRatio){
+      sw = h*targetRatio;
+      sx = (w-sw)/2;
+    }else{
+      sh = w/targetRatio;
+      sy = (h-sh)/2;
+    }
+    captureCanvas.width = sw;
+    captureCanvas.height = sh;
+    captureCanvas.getContext('2d').drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
       const file = new File([blob], 'capture.jpg', {type:'image/jpeg'});
