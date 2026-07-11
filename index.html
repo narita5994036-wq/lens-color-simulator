@@ -2932,7 +2932,7 @@
     const pw = imgNatW, ph = imgNatH;
     const borderSide = Math.round(pw * 0.045);
     const borderTop = borderSide;
-    const borderBottom = Math.round(pw * 0.32);
+    const borderBottom = Math.round(pw * 0.35);
     const cw = pw + borderSide * 2;
     const chh = ph + borderTop + borderBottom;
 
@@ -2986,13 +2986,13 @@
       spec: (borderBottom*0.0039) + 'px', disclaimer: (borderBottom*0.0015) + 'px'
     };
 
-    // left-aligned, top-anchored block (matching the reference product page's
-    // bold model name over a plain left-aligned spec list), with a slightly
-    // taller gap after the title than between the spec lines themselves
+    // centered, top-anchored block with evenly spaced lines, matching the
+    // balance of a reference cheki export (title, then evenly-gapped spec
+    // lines, then the smaller disclaimer note)
     const titleLineHeight = borderBottom * 0.22;
-    const specLineHeight = borderBottom * 0.15;
+    const specLineHeight = borderBottom * 0.22;
     const disclaimerLineHeight = borderBottom * 0.09;
-    let y = borderTop + ph + borderBottom * 0.32;
+    let y = borderTop + ph + borderBottom * 0.28;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
