@@ -2046,7 +2046,7 @@
   function updateMagnifier(pos){
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const srcCss = 37.8; // CSS-pixel region sampled around the touch point (36 + 5%)
+    const srcCss = 39.69; // CSS-pixel region sampled around the touch point (36 + 5% + 5%); larger range = lower zoom
     const size = magnifierCanvas.width;
     magnifierCtx.clearRect(0, 0, size, size);
     magnifierCtx.drawImage(canvas,
