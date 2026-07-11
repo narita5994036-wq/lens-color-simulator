@@ -1790,14 +1790,26 @@
         ctx.strokeRect(box.minX, box.minY, box.maxX-box.minX, box.maxY-box.minY);
         ctx.setLineDash([]);
         ctx.fillStyle = '#111111';
-        boxCorners(box).forEach(c => ctx.fillRect(c.x-4, c.y-4, 10, 10));
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        boxCorners(box).forEach(c => {
+          ctx.fillRect(c.x-4, c.y-4, 10, 10);
+          ctx.strokeRect(c.x-4, c.y-4, 10, 10);
+        });
       } else {
         pts.forEach((p,i)=>{
           const isDragging = dragTarget && dragTarget.mode === 'vertex' &&
             dragTarget.side === side && dragTarget.index === i;
+          const radius = isDragging ? 7 : 4.5;
+          // white outline around each point keeps it visible against dark lens frames
+          ctx.beginPath();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
+          ctx.stroke();
           ctx.beginPath();
           ctx.fillStyle = isDragging ? 'rgba(17,17,17,0.4)' : '#111111';
-          ctx.arc(p.x, p.y, isDragging ? 7 : 4.5, 0, Math.PI*2);
+          ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
           ctx.fill();
         });
       }
