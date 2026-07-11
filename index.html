@@ -537,6 +537,12 @@
   </div>
 
   <div class="sidebar-section">
+    <h3 data-i18n="sectionMirror">ミラーリング</h3>
+    <button class="btn" id="btnMirrorFromLeft" data-i18n="mirrorFromLeftBtn">左のレンズを右にミラーリング</button>
+    <button class="btn" id="btnMirrorFromRight" style="margin-top:8px;" data-i18n="mirrorFromRightBtn">右のレンズを左にミラーリング</button>
+  </div>
+
+  <div class="sidebar-section">
     <h3 data-i18n="sectionColors">カラープリセット</h3>
     <div id="presetGroups"></div>
   </div>
@@ -638,7 +644,7 @@
     <div class="note" data-i18n="mirrorConfirmNote">この形状を左右反転し、もう片方のレンズに反映します。</div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
-      <button class="btn" id="btnMirrorResetPoints" data-i18n="mirrorResetPointsBtn">操作ポイントをリセット</button>
+      <button class="btn" id="btnMirrorResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
       <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
     </div>
   </div>
@@ -730,6 +736,9 @@
       colorsHeader:"カラー",
       sidebarTitle:"メニュー",
       sectionShape:"レンズ形状",
+      sectionMirror:"ミラーリング",
+      mirrorFromLeftBtn:"左のレンズを右にミラーリング",
+      mirrorFromRightBtn:"右のレンズを左にミラーリング",
       shapeOval:"オーバル",
       shapeBox:"ボックス",
       shapeWellington:"ウェリントン",
@@ -757,7 +766,6 @@
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
-      mirrorResetPointsBtn:"操作ポイントをリセット",
       tabChooseTitle:"写真の追加方法",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット"
@@ -776,6 +784,9 @@
       colorsHeader:"Colours",
       sidebarTitle:"Menu",
       sectionShape:"Lens Shape",
+      sectionMirror:"Mirroring",
+      mirrorFromLeftBtn:"Mirror Left Lens to Right",
+      mirrorFromRightBtn:"Mirror Right Lens to Left",
       shapeOval:"Oval",
       shapeBox:"Box",
       shapeWellington:"Wellington",
@@ -803,7 +814,6 @@
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
-      mirrorResetPointsBtn:"Reset Control Points",
       tabChooseTitle:"Add Photo",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo"
@@ -926,6 +936,8 @@
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
   const shapePresetRow = document.getElementById('shapePresetRow');
+  const btnMirrorFromLeft = document.getElementById('btnMirrorFromLeft');
+  const btnMirrorFromRight = document.getElementById('btnMirrorFromRight');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1602,6 +1614,15 @@
     closeSidebar();
     showResetConfirm();
   });
+
+  function openMirrorConfirmFor(side){
+    if(!lenses) return;
+    mirrorSourceSide = side;
+    closeSidebar();
+    mirrorConfirmOverlay.classList.add('show');
+  }
+  btnMirrorFromLeft.addEventListener('click', ()=> openMirrorConfirmFor('left'));
+  btnMirrorFromRight.addEventListener('click', ()=> openMirrorConfirmFor('right'));
 
   // ---------- drawing ----------
   function getFitRect(){
