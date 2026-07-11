@@ -1266,7 +1266,12 @@
       cameraStream = null;
     }
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: {facingMode: {ideal: facingMode}},
+      // without explicit resolution constraints, browsers often default the
+      // video stream to a low resolution (e.g. 640x480), which then bakes
+      // into the captured photo (and any canvas text drawn on top of it,
+      // like the share-image caption) — request the highest the device
+      // offers so captured photos are as sharp as a library-picked one
+      video: {facingMode: {ideal: facingMode}, width: {ideal: 4096}, height: {ideal: 4096}},
       audio: false
     });
     cameraVideo.srcObject = cameraStream;
