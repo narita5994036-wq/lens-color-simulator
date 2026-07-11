@@ -841,6 +841,7 @@
   let gradientBottomPct = null; // adjustable bottom-of-gradient density (percent), only used for non-twin gradient presets
   let compareMode = false;  // true = show "before" only
   let showHandles = true;   // whether the editable outline/vertex points are drawn
+  let activeSide = 'left';  // which lens is in edit mode (shows points/outline); the other shows a passive grey outline only
 
   function pointsVisible(){
     // points are shown only when the on-screen toggle is both switched on
@@ -1043,6 +1044,7 @@
         imgNatW = image.naturalWidth;
         imgNatH = image.naturalHeight;
         lenses = defaultLensRegions();
+        activeSide = 'left';
         undoStack = [];
         activeStockSlot = (typeof targetSlot === 'number') ? targetSlot : -1;
         currentColor = null;
@@ -1144,16 +1146,19 @@
   }
 
   function smoothSvgPath(pts){
-    // mirrors tracePolygon()'s canvas rendering (quadratic curves through
-    // each point, starting/ending at edge midpoints) so preset icon
-    // previews match how the shape actually looks once applied to a lens
-    const mid = (a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
-    const startMid = mid(pts[pts.length-1], pts[0]);
-    let d = 'M' + startMid.x.toFixed(1) + ',' + startMid.y.toFixed(1);
-    for(let i=0;i<pts.length;i++){
-      const next = pts[(i+1)%pts.length];
-      const m = mid(pts[i], next);
-      d += ' Q' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + m.x.toFixed(1) + ',' + m.y.toFixed(1);
+    // mirrors tracePolygon()'s canvas rendering (a Catmull-Rom spline
+    // through every point) so preset icon previews match how the shape
+    // actually looks once applied to a lens
+    const n = pts.length;
+    let d = 'M' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
+    for(let i=0;i<n;i++){
+      const p0 = pts[(i-1+n)%n];
+      const p1 = pts[i];
+      const p2 = pts[(i+1)%n];
+      const p3 = pts[(i+2)%n];
+      const cp1x = p1.x + (p2.x-p0.x)/6, cp1y = p1.y + (p2.y-p0.y)/6;
+      const cp2x = p2.x - (p3.x-p1.x)/6, cp2y = p2.y - (p3.y-p1.y)/6;
+      d += ' C' + cp1x.toFixed(1) + ',' + cp1y.toFixed(1) + ' ' + cp2x.toFixed(1) + ',' + cp2y.toFixed(1) + ' ' + p2.x.toFixed(1) + ',' + p2.y.toFixed(1);
     }
     return d + ' Z';
   }
@@ -1529,6 +1534,7 @@
     if(!img) return;
     pushUndoSnapshot();
     lenses = defaultLensRegions();
+    activeSide = 'left';
     scaleMode = false;
     updateHintText();
     draw();
@@ -1571,6 +1577,7 @@
     const updated = {left: lenses.left, right: lenses.right};
     updated[side] = defaultLensRegions()[side];
     lenses = updated;
+    activeSide = side;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1659,22 +1666,27 @@
   }
 
   function tracePolygon(ctx, pts){
-    // draws a smooth closed curve through the control points so corners are
-    // always rounded, regardless of how angular the raw polygon is
-    if(pts.length < 3){
+    // draws a smooth closed Catmull-Rom spline through every control point
+    // (converted to cubic bezier segments) so the curve always passes
+    // exactly through each point, however sharply it bends, instead of only
+    // approximating them
+    const n = pts.length;
+    if(n < 3){
       ctx.beginPath();
       pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
       ctx.closePath();
       return;
     }
-    const mid = (a,b)=>({x:(a.x+b.x)/2, y:(a.y+b.y)/2});
     ctx.beginPath();
-    const startMid = mid(pts[pts.length-1], pts[0]);
-    ctx.moveTo(startMid.x, startMid.y);
-    for(let i=0;i<pts.length;i++){
-      const next = pts[(i+1)%pts.length];
-      const m = mid(pts[i], next);
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, m.x, m.y);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for(let i=0;i<n;i++){
+      const p0 = pts[(i-1+n)%n];
+      const p1 = pts[i];
+      const p2 = pts[(i+1)%n];
+      const p3 = pts[(i+2)%n];
+      const cp1x = p1.x + (p2.x-p0.x)/6, cp1y = p1.y + (p2.y-p0.y)/6;
+      const cp2x = p2.x - (p3.x-p1.x)/6, cp2y = p2.y - (p3.y-p1.y)/6;
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
     ctx.closePath();
   }
@@ -1753,6 +1765,16 @@
     ctx.save();
     ['left','right'].forEach(side=>{
       const pts = toScreenPoints(side, r);
+      if(side !== activeSide){
+        // inactive lens: a passive grey reference outline only — no
+        // points, no scale box, not interactive
+        ctx.strokeStyle = 'rgba(140,140,140,0.6)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        tracePolygon(ctx, pts);
+        ctx.stroke();
+        return;
+      }
       ctx.strokeStyle = scaleMode ? 'rgba(17,17,17,0.85)' : 'rgba(17,17,17,0.55)';
       ctx.lineWidth = scaleMode ? 1.5 : 1;
       ctx.setLineDash(scaleMode ? [5,4] : []);
@@ -1771,11 +1793,11 @@
         boxCorners(box).forEach(c => ctx.fillRect(c.x-4, c.y-4, 10, 10));
       } else {
         pts.forEach((p,i)=>{
-          const isActive = dragTarget && dragTarget.mode === 'vertex' &&
+          const isDragging = dragTarget && dragTarget.mode === 'vertex' &&
             dragTarget.side === side && dragTarget.index === i;
           ctx.beginPath();
-          ctx.fillStyle = isActive ? 'rgba(17,17,17,0.4)' : '#111111';
-          ctx.arc(p.x, p.y, isActive ? 7 : 4.5, 0, Math.PI*2);
+          ctx.fillStyle = isDragging ? 'rgba(17,17,17,0.4)' : '#111111';
+          ctx.arc(p.x, p.y, isDragging ? 7 : 4.5, 0, Math.PI*2);
           ctx.fill();
         });
       }
@@ -1819,22 +1841,20 @@
   }
 
   function hitTest(pos, r){
-    if(!lenses) return null;
-    if(pointsVisible()){
-      for(const side of ['left','right']){
-        const pts = toScreenPoints(side, r);
-        for(let i=0;i<pts.length;i++){
-          if(Math.hypot(pos.x-pts[i].x, pos.y-pts[i].y) < 16){
-            return {side, mode:'vertex', index:i};
-          }
-        }
+    // only the active lens is interactive; the inactive one is a passive
+    // reference outline. Also, with the points toggle off, nothing is
+    // draggable at all (not even moving the outline) — matching what's
+    // actually drawn on screen.
+    if(!lenses || !pointsVisible()) return null;
+    const side = activeSide;
+    const pts = toScreenPoints(side, r);
+    for(let i=0;i<pts.length;i++){
+      if(Math.hypot(pos.x-pts[i].x, pos.y-pts[i].y) < 16){
+        return {side, mode:'vertex', index:i};
       }
     }
-    for(const side of ['left','right']){
-      const pts = toScreenPoints(side, r);
-      if(pointInPolygon(pos, pts)){
-        return {side, mode:'move'};
-      }
+    if(pointInPolygon(pos, pts)){
+      return {side, mode:'move'};
     }
     return null;
   }
@@ -1849,20 +1869,18 @@
   }
 
   function hitTestScaleMode(pos, r){
+    // only the active lens is interactive in scale mode too
+    if(!pointsVisible()) return null;
+    const side = activeSide;
+    const box = getBox(toScreenPoints(side, r));
     // corner scale handles (all four) take priority over the move area
-    for(const side of ['left','right']){
-      const box = getBox(toScreenPoints(side, r));
-      for(const c of boxCorners(box)){
-        if(Math.hypot(pos.x-c.x, pos.y-c.y) < 18){
-          return {side, mode:'scale', corner:c.corner};
-        }
+    for(const c of boxCorners(box)){
+      if(Math.hypot(pos.x-c.x, pos.y-c.y) < 18){
+        return {side, mode:'scale', corner:c.corner};
       }
     }
-    for(const side of ['left','right']){
-      const box = getBox(toScreenPoints(side, r));
-      if(pos.x>=box.minX && pos.x<=box.maxX && pos.y>=box.minY && pos.y<=box.maxY){
-        return {side, mode:'move'};
-      }
+    if(pos.x>=box.minX && pos.x<=box.maxX && pos.y>=box.minY && pos.y<=box.maxY){
+      return {side, mode:'move'};
     }
     return null;
   }
@@ -1931,9 +1949,10 @@
     lastTap = {time: now, x: pos.x, y: pos.y, side: tappedSide, count: tapCount};
 
     if(tappedSide && tapCount === 2){
-      // double-tap on a lens toggles the outline scale mode for both lenses
+      // double-tap on a lens activates it and toggles the outline scale mode
       clearTimeout(longPressTimer);
       lastTap = {time:0, x:0, y:0, side:null, count:0};
+      activeSide = tappedSide;
       scaleMode = !scaleMode;
       updateHintText();
       draw();
@@ -1950,6 +1969,13 @@
       draw();
       evt.preventDefault();
       return;
+    }
+
+    if(tappedSide && tappedSide !== activeSide){
+      // tapping the other lens switches which one is in edit mode; the same
+      // touch continues below so it can also start a drag immediately
+      activeSide = tappedSide;
+      draw();
     }
 
     if(scaleMode){
