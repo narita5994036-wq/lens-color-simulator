@@ -2669,6 +2669,7 @@
     updateColorBadge();
     renderAll();
     draw();
+    closeSidebar();
   }
 
   function renderNoColorOption(){
@@ -2777,6 +2778,7 @@
     renderAll();
     historyRow.scrollLeft = 0;
     draw();
+    closeSidebar();
   }
 
   const SWIPE_ANIM_MS = 260;
@@ -3091,6 +3093,7 @@
 
   function shareImage(){
     if(!img) return;
+    closeSidebar();
     const c = generateChekiCanvas();
     pendingShareCanvas = c;
     sharePreviewImg.src = c.toDataURL('image/jpeg', 0.92);
