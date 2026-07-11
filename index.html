@@ -38,7 +38,7 @@
   /* an invisible spacer matching .header-icons' width keeps .brand-block
      genuinely centered on the bar instead of just centered in the leftover
      space, which used to collide with the icons on narrow screens */
-  .header-spacer{width:78px; flex-shrink:0;}
+  .header-spacer{width:34px; flex-shrink:0;}
   .brand-block{flex:1; min-width:0; text-align:center;}
   .brand{
     font-size:19px; letter-spacing:0.16em; text-transform:uppercase; color:var(--black); font-weight:400;
@@ -488,9 +488,6 @@
       <div class="title">Lens Colour Simulator</div>
     </div>
     <div class="header-icons">
-      <button class="gear" id="btnSettings" aria-label="設定">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></svg>
-      </button>
       <button class="gear" id="btnSidebarOpen" aria-label="メニュー">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
       </button>
@@ -604,6 +601,25 @@
     <button class="btn" id="btnSidebarResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
     <button class="btn" id="btnSidebarResetImage" style="margin-top:8px;" data-i18n="resetImageBtn">画像をリセット</button>
   </div>
+
+  <div class="sidebar-section">
+    <h3 data-i18n="sectionSettings">設定</h3>
+    <div class="field">
+      <label data-i18n="languageLabel">言語 / Language</label>
+      <div class="lang-switch" id="langSwitch">
+        <button type="button" class="lang-btn" data-lang="ja">JP</button>
+        <button type="button" class="lang-btn" data-lang="en">EN</button>
+      </div>
+    </div>
+    <div class="field toggle-field">
+      <label data-i18n="showTogglesLabel">画面内のトグルを表示</label>
+      <div class="switch on" id="settingShowToggles"><div class="knob"></div></div>
+    </div>
+    <div class="field toggle-field">
+      <label data-i18n="showBadgeLabel">現在のカラー表示を表示</label>
+      <div class="switch on" id="settingShowBadge"><div class="knob"></div></div>
+    </div>
+  </div>
 </aside>
 
 <input type="file" id="camera-input" accept="image/*" capture="environment" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
@@ -641,27 +657,6 @@
 <div class="swatch-tooltip" id="swatchTooltip"></div>
 
 <!-- settings modal -->
-<div class="overlay" id="settingsOverlay">
-  <div class="sheet">
-    <button class="close-x" data-close="settingsOverlay">×</button>
-    <h4 data-i18n="settingsTitle">設定</h4>
-    <div class="field">
-      <label data-i18n="languageLabel">言語 / Language</label>
-      <div class="lang-switch" id="langSwitch">
-        <button type="button" class="lang-btn" data-lang="ja">JP</button>
-        <button type="button" class="lang-btn" data-lang="en">EN</button>
-      </div>
-    </div>
-    <div class="field toggle-field">
-      <label data-i18n="showTogglesLabel">画面内のトグルを表示</label>
-      <div class="switch on" id="settingShowToggles"><div class="knob"></div></div>
-    </div>
-    <div class="field toggle-field">
-      <label data-i18n="showBadgeLabel">現在のカラー表示を表示</label>
-      <div class="switch on" id="settingShowBadge"><div class="knob"></div></div>
-    </div>
-  </div>
-</div>
 
 <!-- reset confirm modal (opened via long-press on the photo) -->
 <div class="overlay" id="resetConfirmOverlay">
@@ -814,7 +809,7 @@
       groupStandard:"スタンダード",
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
-      settingsTitle:"設定",
+      sectionSettings:"設定",
       languageLabel:"言語 / Language",
       showTogglesLabel:"操作点トグルを表示",
       showBadgeLabel:"現在のカラー表示を表示",
@@ -865,7 +860,7 @@
       groupStandard:"Standard",
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
-      settingsTitle:"Settings",
+      sectionSettings:"Settings",
       languageLabel:"Language",
       showTogglesLabel:"Show points toggle",
       showBadgeLabel:"Show current colour display",
@@ -1012,9 +1007,6 @@
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
-
-  const btnSettings = document.getElementById('btnSettings');
-  const settingsOverlay = document.getElementById('settingsOverlay');
   const settingShowToggles = document.getElementById('settingShowToggles');
   const settingShowBadge = document.getElementById('settingShowBadge');
 
@@ -2858,18 +2850,25 @@
 
   function updateColorBadge(){
     btnAddFavorite.disabled = !currentColor;
-    if(!currentColor || !showColorBadgeSetting){
+    if(!img || !showColorBadgeSetting){
       colorBadge.style.display = 'none';
       return;
     }
-    colorBadgeDot.style.background = currentColor;
-    colorBadgeName.textContent = currentPreset ? displayName(currentPreset) : t('customColorFallback');
-    colorBadgePct.textContent = (currentPreset && currentPreset.twin) ? '' : Math.round(opacity*100) + '%';
+    if(currentColor){
+      colorBadgeDot.classList.remove('no-color-circle');
+      colorBadgeDot.style.background = currentColor;
+      colorBadgeName.textContent = currentPreset ? displayName(currentPreset) : t('customColorFallback');
+      colorBadgePct.textContent = (currentPreset && currentPreset.twin) ? '' : Math.round(opacity*100) + '%';
+    } else {
+      colorBadgeDot.classList.add('no-color-circle');
+      colorBadgeDot.style.background = '';
+      colorBadgeName.textContent = t('noColor');
+      colorBadgePct.textContent = '';
+    }
     colorBadge.style.display = 'flex';
   }
 
   colorBadge.addEventListener('click', ()=>{
-    if(!currentColor) return;
     openSidebar();
   });
 
@@ -2935,12 +2934,6 @@
     }
     renderDensityTrack();
   }
-
-
-  // ---------- settings ----------
-  btnSettings.addEventListener('click', ()=>{
-    settingsOverlay.classList.add('show');
-  });
 
   // ---------- share (cheki-style composite with frame name, colour name + density) ----------
   // greedy character-wrap (no spaces in Japanese) so the disclaimer note
