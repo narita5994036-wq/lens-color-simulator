@@ -795,6 +795,7 @@
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
       sharePreviewTitle:"この画像をシェア",
+      shareDisclaimer:"シュミレーターによるサンプルです。実際の色とは多少異なります。",
       sectionColors:"カラープリセット",
       sectionFavorites:"お気に入り",
       addFavoriteBtn:"現在のカラーをお気に入りに追加",
@@ -844,6 +845,7 @@
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
       sharePreviewTitle:"Share This Photo",
+      shareDisclaimer:"This is a simulated sample. Actual colours may vary slightly.",
       sectionColors:"Colour Presets",
       sectionFavorites:"Favourites",
       addFavoriteBtn:"Add Current Colour to Favourites",
@@ -2908,11 +2910,29 @@
   });
 
   // ---------- share (cheki-style composite with frame name, colour name + density) ----------
+  // greedy character-wrap (no spaces in Japanese) so the disclaimer note
+  // fits within the available caption width instead of overflowing it
+  function wrapTextByChar(cctx, text, maxWidth){
+    const out = [];
+    let line = '';
+    for(const ch of text){
+      const test = line + ch;
+      if(line && cctx.measureText(test).width > maxWidth){
+        out.push(line);
+        line = ch;
+      } else {
+        line = test;
+      }
+    }
+    if(line) out.push(line);
+    return out;
+  }
+
   function generateChekiCanvas(){
     const pw = imgNatW, ph = imgNatH;
     const borderSide = Math.round(pw * 0.045);
     const borderTop = borderSide;
-    const borderBottom = Math.round(pw * 0.26);
+    const borderBottom = Math.round(pw * 0.32);
     const cw = pw + borderSide * 2;
     const chh = ph + borderTop + borderBottom;
 
@@ -2933,11 +2953,16 @@
     cctx.textBaseline = 'alphabetic';
 
     // build the caption lines: a bold title (frame name, or the brand as a
-    // fallback) followed by plain "Label: value" spec lines, echoing the
-    // product-page style of a bold model name over a plain spec list
+    // lighter-toned fallback) followed by plain "Label: value" spec lines,
+    // echoing the product-page style of a bold model name over a plain
+    // spec list, plus a small disclaimer note at the very end
     const lines = [];
     const trimmedFrame = frameName.trim();
-    lines.push({text: (trimmedFrame || 'MYKITA OSAKA').toUpperCase(), role:'title'});
+    if(trimmedFrame){
+      lines.push({text: trimmedFrame.toUpperCase(), role:'title'});
+    } else {
+      lines.push({text:'MYKITA OSAKA', role:'brandFallback'});
+    }
     if(currentColor){
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
       lines.push({text: 'Lens: ' + name, role:'spec'});
@@ -2947,11 +2972,13 @@
     }
 
     const fontFor = {
-      title: `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
-      spec:  `400 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`
+      title:         `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
+      brandFallback: `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
+      spec:          `300 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`,
+      disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
-      title:'#111111', spec:'#111111'
+      title:'#111111', brandFallback:'#8c8c8c', spec:'#111111', disclaimer:'#8c8c8c'
     };
 
     // left-aligned, top-anchored block (matching the reference product page's
@@ -2959,12 +2986,22 @@
     // taller gap after the title than between the spec lines themselves
     const titleLineHeight = borderBottom * 0.22;
     const specLineHeight = borderBottom * 0.15;
+    const disclaimerLineHeight = borderBottom * 0.09;
     let y = borderTop + ph + borderBottom * 0.32;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
       cctx.fillText(line.text, borderSide, y);
-      y += (line.role === 'title' ? titleLineHeight : specLineHeight);
+      y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
+    });
+
+    y += disclaimerLineHeight * 0.4;
+    cctx.font = fontFor.disclaimer;
+    cctx.fillStyle = colorFor.disclaimer;
+    const disclaimerText = t('shareDisclaimer');
+    wrapTextByChar(cctx, disclaimerText, cw - borderSide*2).forEach(line=>{
+      cctx.fillText(line, borderSide, y);
+      y += disclaimerLineHeight;
     });
 
     return c;
