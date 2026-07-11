@@ -216,7 +216,6 @@
     color:var(--gray-mid); font-size:14px; font-weight:300; cursor:pointer;
   }
   .stage-tab.active{border:2px solid var(--black);}
-  .stage-tab.occupied .tab-plus{display:none;}
 
   .swatch-tooltip{
     position:fixed; z-index:150; display:none;
@@ -501,11 +500,7 @@
       <div data-i18n="emptyState">タップして撮影してください</div>
       <span class="lib-link" id="libLink" data-i18n="chooseFromLibrary">写真から選択</span>
     </div>
-    <div class="stage-tabs" id="stageTabs" style="display:none;">
-      <button type="button" class="stage-tab" id="stageTab0" data-slot="0"><span class="tab-plus">+</span></button>
-      <button type="button" class="stage-tab" id="stageTab1" data-slot="1"><span class="tab-plus">+</span></button>
-      <button type="button" class="stage-tab" id="stageTab2" data-slot="2"><span class="tab-plus">+</span></button>
-    </div>
+    <div class="stage-tabs" id="stageTabs" style="display:none;"></div>
     <button class="stage-undo-btn" id="btnUndo" disabled aria-label="undo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
     </button>
@@ -689,19 +684,6 @@
   </div>
 </div>
 
-<!-- tab capture-source choice modal -->
-<div class="overlay" id="tabChooseOverlay">
-  <div class="sheet">
-    <button class="close-x" data-close="tabChooseOverlay">×</button>
-    <h4 data-i18n="tabChooseTitle">写真の追加方法</h4>
-    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
-      <button class="btn primary" id="btnTabTakePhoto" data-i18n="btnCapture">撮影する</button>
-      <button class="btn" id="btnTabChooseLibrary" data-i18n="chooseFromLibrary">写真から選択</button>
-      <button class="btn" data-close="tabChooseOverlay" data-i18n="cancelBtn">キャンセル</button>
-    </div>
-  </div>
-</div>
-
 <!-- share-image preview modal (shown before the generated cheki-style image is actually shared/saved) -->
 <div class="overlay" id="sharePreviewOverlay">
   <div class="sheet">
@@ -821,7 +803,6 @@
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
-      tabChooseTitle:"写真の追加方法",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット"
     },
@@ -872,7 +853,6 @@
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
-      tabChooseTitle:"Add Photo",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo"
     }
@@ -923,8 +903,6 @@
   const STOCK_MAX = 3;
   let imageStock = [null, null, null]; // temporary in-memory slots for comparing multiple frames in one visit
   let activeStockSlot = -1; // index of the stock slot currently shown, or -1 if viewing an unsaved photo
-  let tabPressTimer = null;
-  let tabLongPressFired = false;
   let pendingStockSlot = null; // set just before opening the camera for a specific tab slot
   let pendingResetTargets = []; // [{type:'slot', index}, ...] or {type:'current'} — which photo(s) the reset-confirm modal will erase
   const UNDO_MAX = 20;
@@ -1017,9 +995,6 @@
   const mirrorConfirmOverlay = document.getElementById('mirrorConfirmOverlay');
   const btnMirrorConfirm = document.getElementById('btnMirrorConfirm');
   const btnMirrorResetPoints = document.getElementById('btnMirrorResetPoints');
-  const tabChooseOverlay = document.getElementById('tabChooseOverlay');
-  const btnTabTakePhoto = document.getElementById('btnTabTakePhoto');
-  const btnTabChooseLibrary = document.getElementById('btnTabChooseLibrary');
   const btnResetImage = document.getElementById('btnResetImage');
 
   const sidebar = document.getElementById('sidebar');
@@ -1031,11 +1006,6 @@
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
   const stageTabs = document.getElementById('stageTabs');
-  const stageTabEls = [
-    document.getElementById('stageTab0'),
-    document.getElementById('stageTab1'),
-    document.getElementById('stageTab2')
-  ];
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
   const colorBadgeName = document.getElementById('colorBadgeName');
@@ -1048,7 +1018,6 @@
   document.querySelectorAll('[data-close]').forEach(el=>{
     el.addEventListener('click', ()=>{
       document.getElementById(el.dataset.close).classList.remove('show');
-      if(el.dataset.close === 'tabChooseOverlay') pendingStockSlot = null;
     });
   });
 
@@ -1246,10 +1215,11 @@
   }
 
   // tapping the empty image area launches the guided camera view; the small
-  // library link underneath lets someone pick an existing photo instead
+  // library link underneath lets someone pick an existing photo instead.
+  // pendingStockSlot is left untouched here — showEmptySlotForCapture() may
+  // have already targeted a specific tab slot for whatever gets captured next
   stage.addEventListener('click', ()=>{
     if(!img){
-      pendingStockSlot = null;
       openCameraModal();
     }
   });
@@ -1532,44 +1502,46 @@
     image.src = snap.dataURL;
   }
 
+  // only occupied tabs plus a single trailing "+" tab (for the next empty
+  // slot, if any) are rendered — no long-press-to-delete, no pre-filled
+  // empty slots
   function updateStageTabsUI(){
     const anyOccupied = imageStock.some(s=>!!s);
     stageTabs.style.display = (img || anyOccupied) ? 'flex' : 'none';
-    stageTabEls.forEach((tab, i)=>{
-      const snap = imageStock[i];
-      tab.classList.toggle('occupied', !!snap);
-      tab.classList.toggle('active', activeStockSlot === i);
-      tab.style.backgroundImage = snap ? `url(${snap.dataURL})` : 'none';
+    stageTabs.innerHTML = '';
+    imageStock.forEach((snap, i)=>{
+      if(!snap) return;
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'stage-tab occupied' + (activeStockSlot === i ? ' active' : '');
+      tab.style.backgroundImage = `url(${snap.dataURL})`;
+      tab.addEventListener('click', (evt)=>{
+        // without this, the click bubbles up to the stage's own "tap empty
+        // area to open the camera" listener, which can fire spuriously if
+        // `img` is still momentarily null while switching to another tab
+        evt.stopPropagation();
+        onStageTabClick(i);
+      });
+      stageTabs.appendChild(tab);
     });
+    const nextEmptyIndex = imageStock.findIndex(s => !s);
+    if(nextEmptyIndex !== -1){
+      const plusTab = document.createElement('button');
+      plusTab.type = 'button';
+      plusTab.className = 'stage-tab';
+      plusTab.innerHTML = '<span class="tab-plus">+</span>';
+      plusTab.addEventListener('click', (evt)=>{
+        evt.stopPropagation();
+        onStageTabClick(nextEmptyIndex);
+      });
+      stageTabs.appendChild(plusTab);
+    }
   }
 
-  function onStageTabPressStart(i){
-    tabLongPressFired = false;
-    clearTimeout(tabPressTimer);
-    tabPressTimer = setTimeout(()=>{
-      if(imageStock[i]){
-        // occupied tab: long-press clears it
-        imageStock[i] = null;
-        if(activeStockSlot === i) activeStockSlot = -1;
-        updateStageTabsUI();
-        tabLongPressFired = true;
-      }
-    }, 600);
-  }
-  function onStageTabPressEnd(){
-    clearTimeout(tabPressTimer);
-  }
   function onStageTabClick(i){
-    if(tabLongPressFired){ tabLongPressFired = false; return; }
     const snap = imageStock[i];
     if(!snap){
-      // an empty tab asks whether to take a new photo or pick one from the library;
-      // first make sure the currently active tab's latest edits (colour, frame name, etc.) are kept
-      if(activeStockSlot !== -1 && imageStock[activeStockSlot] && img){
-        imageStock[activeStockSlot] = captureStockSnapshot();
-      }
-      pendingStockSlot = i;
-      tabChooseOverlay.classList.add('show');
+      showEmptySlotForCapture(i);
       return;
     }
     if(activeStockSlot === i){
@@ -1585,29 +1557,37 @@
     updateStageTabsUI();
   }
 
-  btnTabTakePhoto.addEventListener('click', ()=>{
-    tabChooseOverlay.classList.remove('show');
-    openCameraModal();
-  });
-  btnTabChooseLibrary.addEventListener('click', ()=>{
-    tabChooseOverlay.classList.remove('show');
-    uploadInput.click();
-  });
-
-  stageTabEls.forEach((tab, i)=>{
-    tab.addEventListener('mousedown', ()=> onStageTabPressStart(i));
-    tab.addEventListener('touchstart', ()=> onStageTabPressStart(i), {passive:true});
-    tab.addEventListener('mouseup', onStageTabPressEnd);
-    tab.addEventListener('mouseleave', onStageTabPressEnd);
-    tab.addEventListener('touchend', onStageTabPressEnd);
-    tab.addEventListener('click', (evt)=>{
-      // without this, the click bubbles up to the stage's own "tap empty
-      // area to open the camera" listener, which can fire spuriously if
-      // `img` is still momentarily null while switching to another tab
-      evt.stopPropagation();
-      onStageTabClick(i);
-    });
-  });
+  // tapping the "+" tab keeps the current tab's data intact and just shows
+  // the simulator's initial (empty) screen, targeting slot i for whatever
+  // photo gets captured or picked next — no intermediate chooser popup
+  function showEmptySlotForCapture(i){
+    if(activeStockSlot !== -1 && imageStock[activeStockSlot] && img){
+      imageStock[activeStockSlot] = captureStockSnapshot();
+    }
+    pendingStockSlot = i;
+    activeStockSlot = -1;
+    img = null;
+    lenses = null;
+    currentColor = null;
+    currentPreset = null;
+    applyDensityConstraints(null);
+    gradientBottomPct = null;
+    renderDensityTrack();
+    updateColorBadge();
+    scaleMode = false;
+    zoomLevel = 1; panX = 0; panY = 0;
+    zoomSlider.value = 100;
+    zoomValue.textContent = '100%';
+    emptyState.style.display = 'flex';
+    dragHint.style.display = 'none';
+    updateToggleVisibility();
+    btnShare.disabled = true;
+    frameName = '';
+    frameNameInput.value = '';
+    frameAutocompleteList.classList.remove('show');
+    updateStageTabsUI();
+    draw();
+  }
 
 
   function resetLensPoints(){
