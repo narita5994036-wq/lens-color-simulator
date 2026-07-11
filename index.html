@@ -1638,11 +1638,12 @@
       x: -(p.x - srcBox.cx) / srcBox.rx,
       y: (p.y - srcBox.cy) / srcBox.ry
     })).reverse();
-    // carry over the source's size as well as its shape, only keeping the
-    // target's own position so the mirrored lens still lines up with that eye
+    // carry over the source's size, shape, and vertical position; only the
+    // horizontal position stays at the target's own so it still lines up
+    // with that eye left-to-right
     const newTargetPoints = mirroredPoints.map(p => ({
       x: tgtBox.cx + p.x * srcBox.rx,
-      y: tgtBox.cy + p.y * srcBox.ry
+      y: srcBox.cy + p.y * srcBox.ry
     }));
     pushUndoSnapshot();
     const updated = {left: lenses.left, right: lenses.right};
