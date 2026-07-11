@@ -2910,7 +2910,7 @@
       drawTint(cctx, {x:borderSide, y:borderTop, w:pw, h:ph});
     }
 
-    cctx.textAlign = 'center';
+    cctx.textAlign = 'left';
     cctx.textBaseline = 'alphabetic';
 
     // build the caption lines: a bold title (frame name, or the brand as a
@@ -2935,13 +2935,17 @@
       title:'#111111', spec:'#111111'
     };
 
-    const n = lines.length;
-    lines.forEach((line, i)=>{
-      const yFrac = (i+1) / (n+1);
-      const y = borderTop + ph + borderBottom * yFrac;
+    // left-aligned, top-anchored block (matching the reference product page's
+    // bold model name over a plain left-aligned spec list), with a slightly
+    // taller gap after the title than between the spec lines themselves
+    const titleLineHeight = borderBottom * 0.22;
+    const specLineHeight = borderBottom * 0.15;
+    let y = borderTop + ph + borderBottom * 0.32;
+    lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
-      cctx.fillText(line.text, cw/2, y);
+      cctx.fillText(line.text, borderSide, y);
+      y += (line.role === 'title' ? titleLineHeight : specLineHeight);
     });
 
     return c;
