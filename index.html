@@ -462,6 +462,7 @@
     border:1px solid var(--gray-line); cursor:pointer;
   }
   .reset-tab-thumb.selected{border:2px solid var(--black);}
+  .share-preview-img{width:100%; display:block; border:1px solid var(--gray-line);}
   .sheet-actions{display:flex; gap:10px; margin-top:22px;}
   .sheet-actions button{flex:1;}
   .sheet .close-x{
@@ -699,6 +700,19 @@
   </div>
 </div>
 
+<!-- share-image preview modal (shown before the generated cheki-style image is actually shared/saved) -->
+<div class="overlay" id="sharePreviewOverlay">
+  <div class="sheet">
+    <button class="close-x" data-close="sharePreviewOverlay">×</button>
+    <h4 data-i18n="sharePreviewTitle">この画像をシェア</h4>
+    <img id="sharePreviewImg" class="share-preview-img" alt="">
+    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
+      <button class="btn primary" id="btnSharePreviewConfirm" data-i18n="shareBtn">画像を共有</button>
+      <button class="btn" data-close="sharePreviewOverlay" data-i18n="cancelBtn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -780,6 +794,7 @@
       sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
+      sharePreviewTitle:"この画像をシェア",
       sectionColors:"カラープリセット",
       sectionFavorites:"お気に入り",
       addFavoriteBtn:"現在のカラーをお気に入りに追加",
@@ -828,6 +843,7 @@
       sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
+      sharePreviewTitle:"Share This Photo",
       sectionColors:"Colour Presets",
       sectionFavorites:"Favourites",
       addFavoriteBtn:"Add Current Colour to Favourites",
@@ -960,6 +976,9 @@
   const CAMERA_ZOOM_MAX = 4;
   const libLink = document.getElementById('libLink');
   const btnShare = document.getElementById('btnShare');
+  const sharePreviewOverlay = document.getElementById('sharePreviewOverlay');
+  const sharePreviewImg = document.getElementById('sharePreviewImg');
+  const btnSharePreviewConfirm = document.getElementById('btnSharePreviewConfirm');
   const btnAddFavorite = document.getElementById('btnAddFavorite');
   const favoritesRow = document.getElementById('favoritesRow');
   const favoritesEmptyNote = document.getElementById('favoritesEmptyNote');
@@ -2951,9 +2970,9 @@
     return c;
   }
 
-  async function shareImage(){
-    if(!img) return;
-    const c = generateChekiCanvas();
+  let pendingShareCanvas = null;
+
+  async function shareOrDownloadCanvas(c){
     c.toBlob(async (blob)=>{
       if(!blob) return;
       const file = new File([blob], 'mykita-lens-color.jpg', {type:'image/jpeg'});
@@ -2975,6 +2994,20 @@
       }
     }, 'image/jpeg', 0.92);
   }
+
+  function shareImage(){
+    if(!img) return;
+    const c = generateChekiCanvas();
+    pendingShareCanvas = c;
+    sharePreviewImg.src = c.toDataURL('image/jpeg', 0.92);
+    sharePreviewOverlay.classList.add('show');
+  }
+
+  btnSharePreviewConfirm.addEventListener('click', ()=>{
+    sharePreviewOverlay.classList.remove('show');
+    if(pendingShareCanvas) shareOrDownloadCanvas(pendingShareCanvas);
+    pendingShareCanvas = null;
+  });
 
   // ---------- frame name autocomplete ----------
   function renderFrameSuggestions(query){
