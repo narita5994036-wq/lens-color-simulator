@@ -201,6 +201,18 @@
     white-space:nowrap; pointer-events:none;
   }
 
+  .drag-magnifier{
+    position:fixed; width:110px; height:110px; border-radius:50%;
+    border:2px solid rgba(255,255,255,0.95); box-shadow:0 4px 18px rgba(0,0,0,0.35);
+    overflow:hidden; pointer-events:none; z-index:160; display:none;
+  }
+  .drag-magnifier.show{display:block;}
+  .drag-magnifier canvas{width:100%; height:100%; display:block;}
+  .drag-magnifier .magnifier-crosshair{
+    position:absolute; top:50%; left:50%; width:16px; height:16px; margin:-8px 0 0 -8px;
+    border:2px solid #ff3366; border-radius:50%; box-sizing:border-box;
+  }
+
   .stage-color-badge{
     display:none; align-items:center; gap:8px; min-width:0; flex-shrink:1;
     background:rgba(255,255,255,0.9); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
@@ -507,6 +519,11 @@
 
 </div>
 
+<div class="drag-magnifier" id="dragMagnifier">
+  <canvas id="magnifierCanvas" width="110" height="110"></canvas>
+  <div class="magnifier-crosshair"></div>
+</div>
+
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -621,7 +638,7 @@
     <div class="note" data-i18n="mirrorConfirmNote">この形状を左右反転し、もう片方のレンズに反映します。</div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
-      <button class="btn" id="btnMirrorResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
+      <button class="btn" id="btnMirrorResetPoints" data-i18n="mirrorResetPointsBtn">デフォルトのポイントリセット</button>
       <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
     </div>
   </div>
@@ -740,6 +757,7 @@
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
+      mirrorResetPointsBtn:"デフォルトのポイントリセット",
       tabChooseTitle:"写真の追加方法",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット"
@@ -785,6 +803,7 @@
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
+      mirrorResetPointsBtn:"Reset to Default Points",
       tabChooseTitle:"Add Photo",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo"
@@ -945,6 +964,9 @@
   const colorBadgeName = document.getElementById('colorBadgeName');
   const colorBadgePct = document.getElementById('colorBadgePct');
   const swatchTooltip = document.getElementById('swatchTooltip');
+  const dragMagnifier = document.getElementById('dragMagnifier');
+  const magnifierCanvas = document.getElementById('magnifierCanvas');
+  const magnifierCtx = magnifierCanvas.getContext('2d');
 
   document.querySelectorAll('[data-close]').forEach(el=>{
     el.addEventListener('click', ()=>{
@@ -1717,7 +1739,7 @@
       ctx.stroke();
       ctx.setLineDash([]);
       if(scaleMode){
-        // guide box: shows the draggable area (move) and the corner handle (scale)
+        // guide box: shows the draggable area (move) and the four corner handles (scale)
         const box = getBox(pts);
         ctx.strokeStyle = 'rgba(17,17,17,0.35)';
         ctx.lineWidth = 1;
@@ -1725,12 +1747,14 @@
         ctx.strokeRect(box.minX, box.minY, box.maxX-box.minX, box.maxY-box.minY);
         ctx.setLineDash([]);
         ctx.fillStyle = '#111111';
-        ctx.fillRect(box.maxX-4, box.maxY-4, 10, 10);
+        boxCorners(box).forEach(c => ctx.fillRect(c.x-4, c.y-4, 10, 10));
       } else {
-        pts.forEach(p=>{
+        pts.forEach((p,i)=>{
+          const isActive = dragTarget && dragTarget.mode === 'vertex' &&
+            dragTarget.side === side && dragTarget.index === i;
           ctx.beginPath();
-          ctx.fillStyle = '#111111';
-          ctx.arc(p.x, p.y, 4.5, 0, Math.PI*2);
+          ctx.fillStyle = isActive ? '#ff3366' : '#111111';
+          ctx.arc(p.x, p.y, isActive ? 7 : 4.5, 0, Math.PI*2);
           ctx.fill();
         });
       }
@@ -1794,12 +1818,23 @@
     return null;
   }
 
+  function boxCorners(box){
+    return [
+      {corner:'tl', x:box.minX, y:box.minY},
+      {corner:'tr', x:box.maxX, y:box.minY},
+      {corner:'bl', x:box.minX, y:box.maxY},
+      {corner:'br', x:box.maxX, y:box.maxY}
+    ];
+  }
+
   function hitTestScaleMode(pos, r){
-    // corner scale handles take priority over the move area
+    // corner scale handles (all four) take priority over the move area
     for(const side of ['left','right']){
       const box = getBox(toScreenPoints(side, r));
-      if(Math.hypot(pos.x-box.maxX, pos.y-box.maxY) < 18){
-        return {side, mode:'scale'};
+      for(const c of boxCorners(box)){
+        if(Math.hypot(pos.x-c.x, pos.y-c.y) < 18){
+          return {side, mode:'scale', corner:c.corner};
+        }
       }
     }
     for(const side of ['left','right']){
@@ -1815,12 +1850,31 @@
     dragHint.textContent = scaleMode ? t('scaleModeHint') : t('dragHint');
   }
 
-  function startScaleDrag(side, pos, r){
+  function startMirrorLongPress(side, pos){
+    // holding still on a lens body (not a vertex/scale handle) for 3s offers
+    // to mirror that lens's shape onto the other one — works in both normal
+    // and outline (scale) mode
+    longPressStartPos = pos;
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(()=>{
+      longPressTimer = null;
+      dragTarget = null;
+      mirrorSourceSide = side;
+      mirrorConfirmOverlay.classList.add('show');
+    }, LONG_PRESS_MS);
+  }
+
+  function startScaleDrag(side, pos, r, corner){
     const l = lenses[side];
     const xs = l.points.map(p=>p.x), ys = l.points.map(p=>p.y);
-    // the handle sits at the box's bottom-right corner, so the fixed pivot
-    // for scaling is the diagonally opposite corner (top-left)
-    const pivot = {x: Math.min(...xs), y: Math.min(...ys)};
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    // the fixed pivot for scaling is always the corner diagonally opposite
+    // whichever corner handle was grabbed
+    const pivot = {
+      x: (corner === 'tl' || corner === 'bl') ? maxX : minX,
+      y: (corner === 'tl' || corner === 'tr') ? maxY : minY
+    };
     const relPos = {x:(pos.x-r.x)/r.w, y:(pos.y-r.y)/r.h};
     const dx0 = relPos.x - pivot.x, dy0 = relPos.y - pivot.y;
     const MIN_AXIS = 0.02;
@@ -1882,21 +1936,12 @@
       if(hit){
         pushUndoSnapshot();
         if(hit.mode === 'scale'){
-          startScaleDrag(hit.side, pos, r);
+          startScaleDrag(hit.side, pos, r, hit.corner);
         } else {
           dragTarget = hit;
           dragOffset.x = pos.x;
           dragOffset.y = pos.y;
-          // holding still inside the outline (not the scale handle) for 3s
-          // offers to mirror that lens's shape onto the other one
-          longPressStartPos = pos;
-          clearTimeout(longPressTimer);
-          longPressTimer = setTimeout(()=>{
-            longPressTimer = null;
-            dragTarget = null;
-            mirrorSourceSide = hit.side;
-            mirrorConfirmOverlay.classList.add('show');
-          }, LONG_PRESS_MS);
+          startMirrorLongPress(hit.side, pos);
         }
         evt.preventDefault();
       } else if(tryStartPan(pos)){
@@ -1914,6 +1959,9 @@
       dragOffset.x = pos.x;
       dragOffset.y = pos.y;
       evt.preventDefault();
+      if(hit.mode === 'move'){
+        startMirrorLongPress(hit.side, pos);
+      }
     } else if(tryStartPan(pos)){
       evt.preventDefault();
     } else {
@@ -1965,9 +2013,39 @@
       dragOffset.y = pos.y;
     }
     draw();
+    if(dragTarget.mode === 'vertex'){
+      updateMagnifier(pos);
+    } else {
+      hideMagnifier();
+    }
   }
   const SWIPE_MAX_MS = 600;
   const SWIPE_MIN_PX = 40;
+
+  function updateMagnifier(pos){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const srcCss = 36; // CSS-pixel region sampled around the touch point
+    const size = magnifierCanvas.width;
+    magnifierCtx.clearRect(0, 0, size, size);
+    magnifierCtx.drawImage(canvas,
+      (pos.x - srcCss/2) * dpr, (pos.y - srcCss/2) * dpr, srcCss * dpr, srcCss * dpr,
+      0, 0, size, size);
+    const viewportX = rect.left + pos.x;
+    const viewportY = rect.top + pos.y;
+    const GAP = 30;
+    let top = viewportY - size - GAP;
+    if(top < 8) top = viewportY + GAP; // flip below if too close to the screen's top edge
+    let left = viewportX - size/2;
+    left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+    dragMagnifier.style.left = left + 'px';
+    dragMagnifier.style.top = top + 'px';
+    dragMagnifier.classList.add('show');
+  }
+
+  function hideMagnifier(){
+    dragMagnifier.classList.remove('show');
+  }
 
   function onPointerUp(evt){
     clearTimeout(longPressTimer);
@@ -1975,6 +2053,7 @@
     dragTarget = null;
     scaleDragData = null;
     panStart = null;
+    hideMagnifier();
 
     if(swipeCandidate && evt){
       const pos = getPos(evt);
