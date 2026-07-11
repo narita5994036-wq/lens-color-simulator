@@ -613,6 +613,19 @@
   </div>
 </div>
 
+<!-- mirror confirm modal (opened via 5-second long-press on a lens) -->
+<div class="overlay" id="mirrorConfirmOverlay">
+  <div class="sheet">
+    <button class="close-x" data-close="mirrorConfirmOverlay">×</button>
+    <h4 data-i18n="mirrorConfirmTitle">形状をミラーリングしますか？</h4>
+    <div class="note" data-i18n="mirrorConfirmNote">この形状を左右反転し、もう片方のレンズに反映します。</div>
+    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
+      <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
+      <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <!-- tab capture-source choice modal -->
 <div class="overlay" id="tabChooseOverlay">
   <div class="sheet">
@@ -723,6 +736,9 @@
       customColorFallback:"カスタムカラー",
       resetConfirmTitle:"画像をリセットしますか？",
       resetConfirmNote:"写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。",
+      mirrorConfirmTitle:"形状をミラーリングしますか？",
+      mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
+      mirrorBtn:"ミラーリング",
       tabChooseTitle:"写真の追加方法",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット"
@@ -765,6 +781,9 @@
       customColorFallback:"Custom Colour",
       resetConfirmTitle:"Reset the photo?",
       resetConfirmNote:"The photo, lens position, and selected colour will all be cleared. This cannot be undone.",
+      mirrorConfirmTitle:"Mirror this shape?",
+      mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
+      mirrorBtn:"Mirror",
       tabChooseTitle:"Add Photo",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo"
@@ -823,8 +842,9 @@
 
   let longPressTimer = null;
   let longPressStartPos = {x:0, y:0};
-  const LONG_PRESS_MS = 600;
+  const LONG_PRESS_MS = 5000;
   const LONG_PRESS_MOVE_PX = 12;
+  let mirrorSourceSide = null;
 
   // ---------- helpers ----------
   function loadJSON(key, fallback){
@@ -897,6 +917,8 @@
 
 
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
+  const mirrorConfirmOverlay = document.getElementById('mirrorConfirmOverlay');
+  const btnMirrorConfirm = document.getElementById('btnMirrorConfirm');
   const tabChooseOverlay = document.getElementById('tabChooseOverlay');
   const btnTabTakePhoto = document.getElementById('btnTabTakePhoto');
   const btnTabChooseLibrary = document.getElementById('btnTabChooseLibrary');
@@ -1480,6 +1502,37 @@
     resetConfirmOverlay.classList.add('show');
   }
 
+  function applyMirrorToOtherSide(sourceSide){
+    if(!lenses) return;
+    const targetSide = sourceSide === 'left' ? 'right' : 'left';
+    const srcBox = lensBoundingBox(lenses[sourceSide].points);
+    const tgtBox = lensBoundingBox(lenses[targetSide].points);
+    // normalize the source shape to its own box, flip horizontally, then
+    // reverse the point order to restore clockwise winding (flipping x
+    // alone would leave the polygon traced counter-clockwise)
+    const mirroredPoints = lenses[sourceSide].points.map(p => ({
+      x: -(p.x - srcBox.cx) / srcBox.rx,
+      y: (p.y - srcBox.cy) / srcBox.ry
+    })).reverse();
+    const newTargetPoints = mirroredPoints.map(p => ({
+      x: tgtBox.cx + p.x * tgtBox.rx,
+      y: tgtBox.cy + p.y * tgtBox.ry
+    }));
+    pushUndoSnapshot();
+    const updated = {left: lenses.left, right: lenses.right};
+    updated[targetSide] = {points: newTargetPoints};
+    lenses = updated;
+    scaleMode = false;
+    updateHintText();
+    draw();
+  }
+
+  btnMirrorConfirm.addEventListener('click', ()=>{
+    if(mirrorSourceSide) applyMirrorToOtherSide(mirrorSourceSide);
+    mirrorSourceSide = null;
+    mirrorConfirmOverlay.classList.remove('show');
+  });
+
   btnResetImage.addEventListener('click', ()=>{
     resetImage();
     resetConfirmOverlay.classList.remove('show');
@@ -1830,6 +1883,18 @@
       dragOffset.x = pos.x;
       dragOffset.y = pos.y;
       evt.preventDefault();
+      if(hit.mode === 'move'){
+        // holding still on a lens body (not a vertex handle) for 5s offers
+        // to mirror that lens's shape onto the other one
+        longPressStartPos = pos;
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(()=>{
+          longPressTimer = null;
+          dragTarget = null;
+          mirrorSourceSide = hit.side;
+          mirrorConfirmOverlay.classList.add('show');
+        }, LONG_PRESS_MS);
+      }
     } else if(tryStartPan(pos)){
       evt.preventDefault();
     } else {
