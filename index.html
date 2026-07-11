@@ -839,6 +839,7 @@
   let compareMode = false;  // true = show "before" only
   let showHandles = true;   // whether the editable outline/vertex points are drawn
   let activeSide = 'left';  // which lens is in edit mode (shows points/outline); the other shows a passive grey outline only
+  let selectedVertices = null; // {side, indices:[i] or [i,j]} — tapped point(s) queued for a group drag; only adjacent pairs can combine
 
   function pointsVisible(){
     // points are shown only when the on-screen toggle is both switched on
@@ -851,7 +852,9 @@
   let swipeCandidate = null; // {x,y,time} recorded when a background (non-hit) drag starts, used to detect a Before/After swipe
   let editingPresetId = null;
 
-  let dragTarget = null;    // {side:'left'|'right', mode:'move'|'vertex'|'scale', index?}
+  let dragTarget = null;    // {side:'left'|'right', mode:'move'|'vertex'|'vertices'|'scale', index?, indices?}
+  let vertexPressStart = null; // {x,y} pointer-down position, used to tell a tap (select) apart from a drag
+  let pressedVertexIndex = null; // which vertex index was pressed down on, for tap-to-select
   let dragOffset = {x:0,y:0};
 
   let scaleMode = false;      // whether outline-scale mode is active (applies to both lenses at once)
@@ -867,6 +870,7 @@
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
   const DOUBLE_TAP_PX = 40;
+  const TAP_MOVE_PX = 6; // pointer travel below this = a tap (toggles vertex selection) rather than a drag
 
   let longPressTimer = null;
   let longPressStartPos = {x:0, y:0};
@@ -1041,6 +1045,7 @@
         imgNatH = image.naturalHeight;
         lenses = defaultLensRegions();
         activeSide = 'left';
+        selectedVertices = null;
         undoStack = [];
         activeStockSlot = (typeof targetSlot === 'number') ? targetSlot : -1;
         currentColor = null;
@@ -1135,6 +1140,7 @@
       left:  buildShapePolygon(shapeKey, lensBoundingBox(lenses.left.points)),
       right: buildShapePolygon(shapeKey, lensBoundingBox(lenses.right.points))
     };
+    selectedVertices = null;
     scaleMode = false;
     updateHintText();
     closeSidebar();
@@ -1417,6 +1423,8 @@
       imgNatW = snap.imgNatW;
       imgNatH = snap.imgNatH;
       lenses = JSON.parse(JSON.stringify(snap.lenses));
+      activeSide = 'left';
+      selectedVertices = null;
       undoStack = [];
       scaleMode = false;
       zoomLevel = snap.zoomLevel; panX = snap.panX; panY = snap.panY;
@@ -1531,6 +1539,7 @@
     pushUndoSnapshot();
     lenses = defaultLensRegions();
     activeSide = 'left';
+    selectedVertices = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1562,6 +1571,7 @@
     const updated = {left: lenses.left, right: lenses.right};
     updated[targetSide] = {points: newTargetPoints};
     lenses = updated;
+    selectedVertices = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1574,6 +1584,7 @@
     updated[side] = defaultLensRegions()[side];
     lenses = updated;
     activeSide = side;
+    selectedVertices = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1794,8 +1805,11 @@
         });
       } else {
         pts.forEach((p,i)=>{
-          const isDragging = dragTarget && dragTarget.mode === 'vertex' &&
-            dragTarget.side === side && dragTarget.index === i;
+          const isDragging = dragTarget && dragTarget.side === side &&
+            ((dragTarget.mode === 'vertex' && dragTarget.index === i) ||
+             (dragTarget.mode === 'vertices' && dragTarget.indices.includes(i)));
+          const isSelected = selectedVertices && selectedVertices.side === side &&
+            selectedVertices.indices.includes(i);
           const radius = isDragging ? 7 : 4.5;
           // white outline around each point keeps it visible against dark lens frames
           ctx.beginPath();
@@ -1804,7 +1818,7 @@
           ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
           ctx.stroke();
           ctx.beginPath();
-          ctx.fillStyle = isDragging ? 'rgba(17,17,17,0.4)' : '#111111';
+          ctx.fillStyle = isDragging ? 'rgba(17,17,17,0.4)' : (isSelected ? '#2f6fed' : '#111111');
           ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
           ctx.fill();
         });
@@ -1961,6 +1975,7 @@
       clearTimeout(longPressTimer);
       lastTap = {time:0, x:0, y:0, side:null, count:0};
       activeSide = tappedSide;
+      selectedVertices = null;
       scaleMode = !scaleMode;
       updateHintText();
       draw();
@@ -1983,6 +1998,7 @@
       // tapping the other lens switches which one is in edit mode; the same
       // touch continues below so it can also start a drag immediately
       activeSide = tappedSide;
+      selectedVertices = null;
       draw();
     }
 
@@ -2010,7 +2026,16 @@
     const hit = hitTest(pos, r);
     if(hit){
       pushUndoSnapshot();
-      dragTarget = hit;
+      if(hit.mode === 'vertex'){
+        pressedVertexIndex = hit.index;
+        vertexPressStart = {x: pos.x, y: pos.y};
+        const isGroupDrag = selectedVertices && selectedVertices.side === hit.side &&
+          selectedVertices.indices.length === 2 && selectedVertices.indices.includes(hit.index);
+        dragTarget = isGroupDrag ?
+          {side: hit.side, mode:'vertices', indices: selectedVertices.indices.slice()} : hit;
+      } else {
+        dragTarget = hit;
+      }
       dragOffset.x = pos.x;
       dragOffset.y = pos.y;
       evt.preventDefault();
@@ -2022,6 +2047,30 @@
     } else {
       swipeCandidate = {x:pos.x, y:pos.y, time:now};
     }
+  }
+
+  // toggles a tapped vertex in/out of the pending selection; only two
+  // adjacent points (by polygon index) can be combined into a group-drag pair
+  function toggleVertexSelection(side, index){
+    if(!lenses) return;
+    if(!selectedVertices || selectedVertices.side !== side){
+      selectedVertices = {side, indices: [index]};
+      draw();
+      return;
+    }
+    const indices = selectedVertices.indices;
+    if(indices.includes(index)){
+      const remaining = indices.filter(i => i !== index);
+      selectedVertices = remaining.length ? {side, indices: remaining} : null;
+    } else if(indices.length === 1){
+      const n = lenses[side].points.length;
+      const diff = Math.abs(indices[0] - index);
+      const isAdjacent = diff === 1 || diff === n-1;
+      selectedVertices = isAdjacent ? {side, indices: [indices[0], index]} : {side, indices: [index]};
+    } else {
+      selectedVertices = {side, indices: [index]};
+    }
+    draw();
   }
   function onPointerMove(evt){
     if(!dragTarget) return;
@@ -2047,6 +2096,16 @@
       const p = l.points[dragTarget.index];
       p.x = Math.min(1, Math.max(0, (pos.x - r.x)/r.w));
       p.y = Math.min(1, Math.max(0, (pos.y - r.y)/r.h));
+    } else if(dragTarget.mode === 'vertices'){
+      const dx = (pos.x - dragOffset.x)/r.w;
+      const dy = (pos.y - dragOffset.y)/r.h;
+      dragTarget.indices.forEach(idx=>{
+        const p = l.points[idx];
+        p.x = Math.min(1, Math.max(0, p.x + dx));
+        p.y = Math.min(1, Math.max(0, p.y + dy));
+      });
+      dragOffset.x = pos.x;
+      dragOffset.y = pos.y;
     } else if(dragTarget.mode === 'scale'){
       const data = scaleDragData;
       const relPos = {x:(pos.x-r.x)/r.w, y:(pos.y-r.y)/r.h};
@@ -2068,7 +2127,7 @@
       dragOffset.y = pos.y;
     }
     draw();
-    if(dragTarget.mode === 'vertex'){
+    if(dragTarget.mode === 'vertex' || dragTarget.mode === 'vertices'){
       updateMagnifier(pos);
     } else {
       hideMagnifier();
@@ -2105,10 +2164,30 @@
   function onPointerUp(evt){
     clearTimeout(longPressTimer);
     longPressTimer = null;
+
+    let tapToggle = null;
+    if(dragTarget && (dragTarget.mode === 'vertex' || dragTarget.mode === 'vertices') && vertexPressStart && evt){
+      const pos = getPos(evt);
+      const travel = Math.hypot(pos.x - vertexPressStart.x, pos.y - vertexPressStart.y);
+      if(travel < TAP_MOVE_PX && pressedVertexIndex !== null){
+        tapToggle = {side: dragTarget.side, index: pressedVertexIndex};
+      }
+    }
+    vertexPressStart = null;
+    pressedVertexIndex = null;
+
+    const wasDragging = !!dragTarget;
     dragTarget = null;
     scaleDragData = null;
     panStart = null;
     hideMagnifier();
+    // resolve the tap-to-select only after dragTarget is cleared, so the
+    // redraw it triggers doesn't still render the point in its drag state
+    if(tapToggle){
+      toggleVertexSelection(tapToggle.side, tapToggle.index);
+    } else if(wasDragging && lenses){
+      draw(); // otherwise the canvas is left showing the mid-drag (enlarged) frame
+    }
 
     if(swipeCandidate && evt){
       const pos = getPos(evt);
