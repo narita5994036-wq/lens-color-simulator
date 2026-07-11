@@ -613,7 +613,7 @@
   </div>
 </div>
 
-<!-- mirror confirm modal (opened via 5-second long-press on a lens) -->
+<!-- mirror confirm modal (opened via 3-second long-press on a lens outline, in scale mode) -->
 <div class="overlay" id="mirrorConfirmOverlay">
   <div class="sheet">
     <button class="close-x" data-close="mirrorConfirmOverlay">×</button>
@@ -621,6 +621,7 @@
     <div class="note" data-i18n="mirrorConfirmNote">この形状を左右反転し、もう片方のレンズに反映します。</div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
+      <button class="btn" id="btnMirrorResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
       <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
     </div>
   </div>
@@ -842,7 +843,7 @@
 
   let longPressTimer = null;
   let longPressStartPos = {x:0, y:0};
-  const LONG_PRESS_MS = 5000;
+  const LONG_PRESS_MS = 3000;
   const LONG_PRESS_MOVE_PX = 12;
   let mirrorSourceSide = null;
 
@@ -919,6 +920,7 @@
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
   const mirrorConfirmOverlay = document.getElementById('mirrorConfirmOverlay');
   const btnMirrorConfirm = document.getElementById('btnMirrorConfirm');
+  const btnMirrorResetPoints = document.getElementById('btnMirrorResetPoints');
   const tabChooseOverlay = document.getElementById('tabChooseOverlay');
   const btnTabTakePhoto = document.getElementById('btnTabTakePhoto');
   const btnTabChooseLibrary = document.getElementById('btnTabChooseLibrary');
@@ -1514,9 +1516,11 @@
       x: -(p.x - srcBox.cx) / srcBox.rx,
       y: (p.y - srcBox.cy) / srcBox.ry
     })).reverse();
+    // carry over the source's size as well as its shape, only keeping the
+    // target's own position so the mirrored lens still lines up with that eye
     const newTargetPoints = mirroredPoints.map(p => ({
-      x: tgtBox.cx + p.x * tgtBox.rx,
-      y: tgtBox.cy + p.y * tgtBox.ry
+      x: tgtBox.cx + p.x * srcBox.rx,
+      y: tgtBox.cy + p.y * srcBox.ry
     }));
     pushUndoSnapshot();
     const updated = {left: lenses.left, right: lenses.right};
@@ -1526,6 +1530,23 @@
     updateHintText();
     draw();
   }
+
+  function resetSideToDefault(side){
+    if(!img || !lenses) return;
+    pushUndoSnapshot();
+    const updated = {left: lenses.left, right: lenses.right};
+    updated[side] = defaultLensRegions()[side];
+    lenses = updated;
+    scaleMode = false;
+    updateHintText();
+    draw();
+  }
+
+  btnMirrorResetPoints.addEventListener('click', ()=>{
+    if(mirrorSourceSide) resetSideToDefault(mirrorSourceSide);
+    mirrorSourceSide = null;
+    mirrorConfirmOverlay.classList.remove('show');
+  });
 
   btnMirrorConfirm.addEventListener('click', ()=>{
     if(mirrorSourceSide) applyMirrorToOtherSide(mirrorSourceSide);
@@ -1866,6 +1887,16 @@
           dragTarget = hit;
           dragOffset.x = pos.x;
           dragOffset.y = pos.y;
+          // holding still inside the outline (not the scale handle) for 3s
+          // offers to mirror that lens's shape onto the other one
+          longPressStartPos = pos;
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(()=>{
+            longPressTimer = null;
+            dragTarget = null;
+            mirrorSourceSide = hit.side;
+            mirrorConfirmOverlay.classList.add('show');
+          }, LONG_PRESS_MS);
         }
         evt.preventDefault();
       } else if(tryStartPan(pos)){
@@ -1883,18 +1914,6 @@
       dragOffset.x = pos.x;
       dragOffset.y = pos.y;
       evt.preventDefault();
-      if(hit.mode === 'move'){
-        // holding still on a lens body (not a vertex handle) for 5s offers
-        // to mirror that lens's shape onto the other one
-        longPressStartPos = pos;
-        clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(()=>{
-          longPressTimer = null;
-          dragTarget = null;
-          mirrorSourceSide = hit.side;
-          mirrorConfirmOverlay.classList.add('show');
-        }, LONG_PRESS_MS);
-      }
     } else if(tryStartPan(pos)){
       evt.preventDefault();
     } else {
