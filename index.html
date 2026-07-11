@@ -245,7 +245,6 @@
     font-size:11px; letter-spacing:0.03em; color:var(--black); white-space:nowrap;
     cursor:pointer;
   }
-  .stage-color-badge.showing-before{opacity:0.55;}
   .stage-color-badge .dot{
     width:12px; height:12px; border-radius:50%; border:1px solid rgba(17,17,17,0.2); flex-shrink:0;
   }
@@ -423,6 +422,13 @@
   .shape-swatch .circle svg path{fill:none; stroke:var(--black); stroke-width:5; stroke-linejoin:round;}
   .shape-swatch.selected .circle{border:2px solid var(--black); background:var(--white);}
 
+  .no-color-circle{
+    background:var(--white);
+    background-image:linear-gradient(to top right,
+      transparent calc(50% - 1px), var(--gray-mid) calc(50% - 1px),
+      var(--gray-mid) calc(50% + 1px), transparent calc(50% + 1px));
+  }
+
   /* ---- modal ---- */
   .overlay{
     position:fixed; inset:0; background:rgba(17,17,17,0.4); display:none; align-items:flex-end; justify-content:center; z-index:50;
@@ -577,6 +583,7 @@
 
   <div class="sidebar-section">
     <h3 data-i18n="sectionColors">カラープリセット</h3>
+    <div class="swatch-row" id="noColorRow"></div>
     <div id="presetGroups"></div>
   </div>
 
@@ -797,6 +804,7 @@
       sharePreviewTitle:"この画像をシェア",
       shareDisclaimer:"シュミレーターによるサンプルです。実際の色とは多少異なります。",
       sectionColors:"カラープリセット",
+      noColor:"カラー無し",
       sectionFavorites:"お気に入り",
       addFavoriteBtn:"現在のカラーをお気に入りに追加",
       favoritesEmpty:"まだお気に入りがありません",
@@ -847,6 +855,7 @@
       sharePreviewTitle:"Share This Photo",
       shareDisclaimer:"This is a simulated sample. Actual colours may vary slightly.",
       sectionColors:"Colour Presets",
+      noColor:"No Colour",
       sectionFavorites:"Favourites",
       addFavoriteBtn:"Add Current Colour to Favourites",
       favoritesEmpty:"No favourites yet",
@@ -893,7 +902,6 @@
   let opacity = 0.55;
   let currentDensitySteps = null; // allowed density percentages for the selected preset, or null if unrestricted
   let gradientBottomPct = null; // adjustable bottom-of-gradient density (percent), only used for non-twin gradient presets
-  let compareMode = false;  // true = show "before" only
   let showHandles = true;   // whether the editable outline/vertex points are drawn
   let activeSide = 'left';  // which lens is in edit mode (shows points/outline); the other shows a passive grey outline only
   let selectedVertices = null; // {side, indices:[i] or [i,j]} — tapped point(s) queued for a group drag; only adjacent pairs can combine
@@ -998,6 +1006,7 @@
   const zoomValue = document.getElementById('zoomValue');
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
+  const noColorRow = document.getElementById('noColorRow');
   const shapePresetRow = document.getElementById('shapePresetRow');
   const btnMirrorSelected = document.getElementById('btnMirrorSelected');
   const historyRow = document.getElementById('historyRow');
@@ -1790,7 +1799,7 @@
     const r = getFitRect();
     ctx.drawImage(img, r.x, r.y, r.w, r.h);
 
-    if(lenses && currentColor && !compareMode){
+    if(lenses && currentColor){
       drawTint(ctx, r);
     }
     if(lenses && pointsVisible()){
@@ -2651,8 +2660,29 @@
     swatchTooltip.style.display = 'none';
   }
 
+  function clearColor(){
+    currentColor = null;
+    currentPreset = null;
+    gradientBottomPct = null;
+    currentDensitySteps = null;
+    renderDensityTrack();
+    updateColorBadge();
+    renderAll();
+    draw();
+  }
+
+  function renderNoColorOption(){
+    noColorRow.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'swatch' + (!currentColor ? ' selected' : '');
+    el.innerHTML = '<div class="circle no-color-circle"></div><div class="name">' + t('noColor') + '</div>';
+    el.addEventListener('click', clearColor);
+    noColorRow.appendChild(el);
+  }
+
   function renderAll(){
     renderShapePresets();
+    renderNoColorOption();
     presetGroups.innerHTML = '';
     const groupOrder = [
       {key:'arriate', labelKey:'groupArriate'},
@@ -2721,7 +2751,6 @@
   function applyResolvedColorState(preset, pct, bottomPct){
     currentColor = preset.hex;
     currentPreset = preset;
-    compareMode = false;
     if(typeof pct === 'number') opacity = pct/100;
     applyDensityConstraints(preset);
     if(preset.gradient && !preset.twin){
@@ -2756,7 +2785,7 @@
     targetCtx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
     if(!img) return;
     targetCtx.drawImage(img, r.x, r.y, r.w, r.h);
-    if(lenses && currentColor && !compareMode){
+    if(lenses && currentColor){
       drawTint(targetCtx, r);
     }
   }
@@ -2834,15 +2863,12 @@
     colorBadgeDot.style.background = currentColor;
     colorBadgeName.textContent = currentPreset ? displayName(currentPreset) : t('customColorFallback');
     colorBadgePct.textContent = (currentPreset && currentPreset.twin) ? '' : Math.round(opacity*100) + '%';
-    colorBadge.classList.toggle('showing-before', compareMode);
     colorBadge.style.display = 'flex';
   }
 
   colorBadge.addEventListener('click', ()=>{
     if(!currentColor) return;
-    compareMode = !compareMode;
-    updateColorBadge();
-    draw();
+    openSidebar();
   });
 
   function updateToggleVisibility(){
@@ -2950,7 +2976,7 @@
     cctx.fillRect(0, 0, cw, chh);
     cctx.drawImage(img, borderSide, borderTop, pw, ph);
 
-    if(currentColor && !compareMode){
+    if(currentColor){
       drawTint(cctx, {x:borderSide, y:borderTop, w:pw, h:ph});
     }
 
