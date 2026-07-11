@@ -638,7 +638,7 @@
     <div class="note" data-i18n="mirrorConfirmNote">この形状を左右反転し、もう片方のレンズに反映します。</div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
-      <button class="btn" id="btnMirrorResetPoints" data-i18n="mirrorResetPointsBtn">デフォルトのポイントリセット</button>
+      <button class="btn" id="btnMirrorResetPoints" data-i18n="mirrorResetPointsBtn">操作ポイントをリセット</button>
       <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
     </div>
   </div>
@@ -757,7 +757,7 @@
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
-      mirrorResetPointsBtn:"デフォルトのポイントリセット",
+      mirrorResetPointsBtn:"操作ポイントをリセット",
       tabChooseTitle:"写真の追加方法",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット"
@@ -803,7 +803,7 @@
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
-      mirrorResetPointsBtn:"Reset to Default Points",
+      mirrorResetPointsBtn:"Reset Control Points",
       tabChooseTitle:"Add Photo",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo"
@@ -1753,7 +1753,7 @@
           const isActive = dragTarget && dragTarget.mode === 'vertex' &&
             dragTarget.side === side && dragTarget.index === i;
           ctx.beginPath();
-          ctx.fillStyle = isActive ? '#ff3366' : '#111111';
+          ctx.fillStyle = isActive ? 'rgba(17,17,17,0.4)' : '#111111';
           ctx.arc(p.x, p.y, isActive ? 7 : 4.5, 0, Math.PI*2);
           ctx.fill();
         });
@@ -2025,7 +2025,7 @@
   function updateMagnifier(pos){
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const srcCss = 36; // CSS-pixel region sampled around the touch point
+    const srcCss = 37.8; // CSS-pixel region sampled around the touch point (36 + 5%)
     const size = magnifierCanvas.width;
     magnifierCtx.clearRect(0, 0, size, size);
     magnifierCtx.drawImage(canvas,
