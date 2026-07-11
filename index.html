@@ -538,8 +538,7 @@
 
   <div class="sidebar-section">
     <h3 data-i18n="sectionMirror">ミラーリング</h3>
-    <button class="btn" id="btnMirrorFromLeft" data-i18n="mirrorFromLeftBtn">左のレンズを右にミラーリング</button>
-    <button class="btn" id="btnMirrorFromRight" style="margin-top:8px;" data-i18n="mirrorFromRightBtn">右のレンズを左にミラーリング</button>
+    <button class="btn" id="btnMirrorSelected" data-i18n="mirrorSelectedBtn">選択中のシェイプをミラーリング</button>
   </div>
 
   <div class="sidebar-section">
@@ -737,8 +736,7 @@
       sidebarTitle:"メニュー",
       sectionShape:"レンズ形状",
       sectionMirror:"ミラーリング",
-      mirrorFromLeftBtn:"左のレンズを右にミラーリング",
-      mirrorFromRightBtn:"右のレンズを左にミラーリング",
+      mirrorSelectedBtn:"選択中のシェイプをミラーリング",
       shapeOval:"オーバル",
       shapeBox:"ボックス",
       shapeWellington:"ウェリントン",
@@ -785,8 +783,7 @@
       sidebarTitle:"Menu",
       sectionShape:"Lens Shape",
       sectionMirror:"Mirroring",
-      mirrorFromLeftBtn:"Mirror Left Lens to Right",
-      mirrorFromRightBtn:"Mirror Right Lens to Left",
+      mirrorSelectedBtn:"Mirror Selected Shape",
       shapeOval:"Oval",
       shapeBox:"Box",
       shapeWellington:"Wellington",
@@ -937,8 +934,7 @@
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
   const shapePresetRow = document.getElementById('shapePresetRow');
-  const btnMirrorFromLeft = document.getElementById('btnMirrorFromLeft');
-  const btnMirrorFromRight = document.getElementById('btnMirrorFromRight');
+  const btnMirrorSelected = document.getElementById('btnMirrorSelected');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1628,8 +1624,7 @@
     closeSidebar();
     mirrorConfirmOverlay.classList.add('show');
   }
-  btnMirrorFromLeft.addEventListener('click', ()=> openMirrorConfirmFor('left'));
-  btnMirrorFromRight.addEventListener('click', ()=> openMirrorConfirmFor('right'));
+  btnMirrorSelected.addEventListener('click', ()=> openMirrorConfirmFor(activeSide));
 
   // ---------- drawing ----------
   function getFitRect(){
