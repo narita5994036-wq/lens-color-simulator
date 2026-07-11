@@ -2455,7 +2455,7 @@
     if(isPlainGradient){
       const bottomVal = typeof gradientBottomPct === 'number' ? gradientBottomPct : 0;
       const bottomFrac = Math.min(1, Math.max(0, (bottomVal - range.min) / span));
-      densityHandleBottom.style.display = 'block';
+      densityHandleBottom.style.display = 'flex';
       densityHandleBottom.style.left = (bottomFrac*100) + '%';
       densityHandleBottom.classList.toggle('locked', topPct !== 50);
       densityTagBottom.textContent = bottomVal + '%';
@@ -2967,7 +2967,12 @@
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
       lines.push({text: 'Lens: ' + name, role:'spec'});
       if(!(currentPreset && currentPreset.twin)){
-        lines.push({text: 'Density: ' + Math.round(opacity*100) + '%', role:'spec'});
+        const topPct = Math.round(opacity*100);
+        const isPlainGradient = !!(currentPreset && currentPreset.gradient);
+        const bottomPct = isPlainGradient && typeof gradientBottomPct === 'number' ? gradientBottomPct : 0;
+        const densityText = (isPlainGradient && bottomPct > 0) ?
+          `Density: ${topPct}%/${bottomPct}%` : `Density: ${topPct}%`;
+        lines.push({text: densityText, role:'spec'});
       }
     }
 
