@@ -31,20 +31,29 @@
 
   /* ---- header ---- */
   header.topbar{
-    display:flex; align-items:center; justify-content:center; position:relative;
+    display:flex; align-items:center;
     padding:22px 0 18px;
     border-bottom:1px solid var(--gray-line);
   }
-  .brand-block{text-align:center;}
+  /* an invisible spacer matching .header-icons' width keeps .brand-block
+     genuinely centered on the bar instead of just centered in the leftover
+     space, which used to collide with the icons on narrow screens */
+  .header-spacer{width:78px; flex-shrink:0;}
+  .brand-block{flex:1; min-width:0; text-align:center;}
   .brand{
     font-size:19px; letter-spacing:0.16em; text-transform:uppercase; color:var(--black); font-weight:400;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .title{
     font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gray-mid); margin-top:5px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  @media (max-width:340px){
+    .brand{font-size:13px; letter-spacing:0.06em;}
+    .title{font-size:9px; letter-spacing:0.06em;}
   }
   .header-icons{
-    position:absolute; right:0; top:50%; transform:translateY(-50%);
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:10px; flex-shrink:0;
   }
   .gear{
     width:34px; height:34px; border:1px solid var(--gray-line); border-radius:50%;
@@ -466,6 +475,7 @@
 <div class="app">
 
   <header class="topbar">
+    <div class="header-spacer" aria-hidden="true"></div>
     <div class="brand-block">
       <div class="brand">MYKITA OSAKA</div>
       <div class="title">Lens Colour Simulator</div>
