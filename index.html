@@ -740,6 +740,7 @@
       shapeOval:"オーバル",
       shapeBox:"ボックス",
       shapeWellington:"ウェリントン",
+      shapeBoston:"ボストン",
       sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
@@ -787,6 +788,7 @@
       shapeOval:"Oval",
       shapeBox:"Box",
       shapeWellington:"Wellington",
+      shapeBoston:"Boston",
       sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
@@ -1109,9 +1111,13 @@
     wellington: [
       [-0.800,-1.0],[0.800,-1.0],[1.0,-0.737],[0.689,0.725],
       [0.444,1.0],[-0.444,1.0],[-0.689,0.725],[-1.0,-0.737]
+    ],
+    boston: [
+      [-0.75,-1.0],[0.75,-1.0],[1.0,-0.65],[0.92,0.55],
+      [0.6,1.0],[-0.6,1.0],[-0.92,0.55],[-1.0,-0.65]
     ]
   };
-  const LENS_SHAPE_KEYS = ['oval','box','wellington'];
+  const LENS_SHAPE_KEYS = ['oval','box','wellington','boston'];
 
   function lensBoundingBox(pts){
     const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
@@ -1761,13 +1767,14 @@
     ['left','right'].forEach(side=>{
       const pts = toScreenPoints(side, r);
       if(side !== activeSide){
-        // inactive lens: a passive grey reference outline only — no
+        // inactive lens: a passive dashed reference outline only — no
         // points, no scale box, not interactive
-        ctx.strokeStyle = 'rgba(140,140,140,0.6)';
+        ctx.strokeStyle = 'rgba(17,17,17,0.6)';
         ctx.lineWidth = 1;
-        ctx.setLineDash([]);
+        ctx.setLineDash([4,4]);
         tracePolygon(ctx, pts);
         ctx.stroke();
+        ctx.setLineDash([]);
         return;
       }
       ctx.strokeStyle = scaleMode ? 'rgba(17,17,17,0.85)' : 'rgba(17,17,17,0.55)';
