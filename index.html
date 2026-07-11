@@ -2965,7 +2965,7 @@
     }
     if(currentColor){
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
-      lines.push({text: 'Lens: ' + name, role:'spec'});
+      lines.push({text: 'Lens Color: ' + name, role:'spec', icon:currentColor});
       if(!(currentPreset && currentPreset.twin)){
         const topPct = Math.round(opacity*100);
         const isPlainGradient = !!(currentPreset && currentPreset.gradient);
@@ -2995,7 +2995,29 @@
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
-      cctx.fillText(line.text, cw/2, y);
+      if(line.icon){
+        // draw the text and a small colour swatch together as one centered
+        // unit, without touching the line's own vertical position
+        const fontSizePx = Math.round(borderBottom*0.10);
+        const iconDiameter = fontSizePx * 0.7;
+        const gap = fontSizePx * 0.4;
+        cctx.textAlign = 'left';
+        const textWidth = cctx.measureText(line.text).width;
+        const startX = cw/2 - (textWidth + gap + iconDiameter)/2;
+        cctx.fillText(line.text, startX, y);
+        const iconCx = startX + textWidth + gap + iconDiameter/2;
+        const iconCy = y - fontSizePx*0.35;
+        cctx.beginPath();
+        cctx.fillStyle = line.icon;
+        cctx.arc(iconCx, iconCy, iconDiameter/2, 0, Math.PI*2);
+        cctx.fill();
+        cctx.lineWidth = 1;
+        cctx.strokeStyle = 'rgba(17,17,17,0.2)';
+        cctx.stroke();
+        cctx.textAlign = 'center';
+      } else {
+        cctx.fillText(line.text, cw/2, y);
+      }
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
 
