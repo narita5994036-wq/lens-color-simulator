@@ -63,15 +63,25 @@
     position:absolute; top:0; height:100%; background:var(--black); pointer-events:none;
   }
   .density-handle{
-    position:absolute; top:50%; width:16px; height:16px; border-radius:50%;
+    /* the box is a wider invisible tap/drag target; the visible dot is the
+       nested .dot span so enlarging it here doesn't change its look */
+    position:absolute; top:50%; width:28px; height:28px;
     transform:translate(-50%,-50%); cursor:pointer; box-sizing:border-box;
+    display:flex; align-items:center; justify-content:center;
   }
-  .density-handle.top{background:var(--black); z-index:2;}
-  .density-handle.bottom{background:var(--white); border:2px solid var(--black); z-index:1;}
-  .density-handle.bottom.locked{border-color:var(--gray-line); background:var(--gray-bg); cursor:default;}
-  .density-handle.top.locked{background:var(--gray-line); cursor:default;}
+  .density-handle .dot{
+    width:16px; height:16px; border-radius:50%; box-sizing:border-box; pointer-events:none;
+  }
+  .density-handle.top{z-index:2;}
+  .density-handle.bottom{z-index:1;}
+  .density-handle.top .dot{background:var(--black);}
+  .density-handle.bottom .dot{background:var(--white); border:2px solid var(--black);}
+  .density-handle.bottom.locked{cursor:default;}
+  .density-handle.bottom.locked .dot{border-color:var(--gray-line); background:var(--gray-bg);}
+  .density-handle.top.locked{cursor:default;}
+  .density-handle.top.locked .dot{background:var(--gray-line);}
   .density-handle .tag{
-    position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+    position:absolute; bottom:26px; left:50%; transform:translateX(-50%);
     font-size:9px; color:var(--gray-mid); white-space:nowrap; letter-spacing:0.02em;
   }
   .lang-btn.active{background:var(--black); color:var(--white);}
@@ -502,8 +512,8 @@
     <div class="density-track-wrap" id="densityTrackWrap">
       <div class="density-track">
         <div class="density-fill" id="densityFill"></div>
-        <div class="density-handle bottom" id="densityHandleBottom" style="display:none;"><span class="tag" id="densityTagBottom"></span></div>
-        <div class="density-handle top" id="densityHandleTop"><span class="tag" id="densityTagTop"></span></div>
+        <div class="density-handle bottom" id="densityHandleBottom" style="display:none;"><span class="dot"></span><span class="tag" id="densityTagBottom"></span></div>
+        <div class="density-handle top" id="densityHandleTop"><span class="dot"></span><span class="tag" id="densityTagTop"></span></div>
       </div>
     </div>
     <span class="value" id="opacityValue">55%</span>
@@ -2024,6 +2034,11 @@
     }
 
     const hit = hitTest(pos, r);
+    if(selectedVertices && (!hit || hit.mode !== 'vertex')){
+      // tapping anywhere other than a point clears the pending point selection
+      selectedVertices = null;
+      draw();
+    }
     if(hit){
       pushUndoSnapshot();
       if(hit.mode === 'vertex'){
