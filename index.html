@@ -889,7 +889,7 @@
   let tabPressTimer = null;
   let tabLongPressFired = false;
   let pendingStockSlot = null; // set just before opening the camera for a specific tab slot
-  let pendingResetTarget = null; // {type:'slot', index} or {type:'current'} — which photo the reset-confirm modal will erase
+  let pendingResetTargets = []; // [{type:'slot', index}, ...] or {type:'current'} — which photo(s) the reset-confirm modal will erase
   const UNDO_MAX = 20;
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
@@ -1556,7 +1556,13 @@
     tab.addEventListener('mouseup', onStageTabPressEnd);
     tab.addEventListener('mouseleave', onStageTabPressEnd);
     tab.addEventListener('touchend', onStageTabPressEnd);
-    tab.addEventListener('click', ()=> onStageTabClick(i));
+    tab.addEventListener('click', (evt)=>{
+      // without this, the click bubbles up to the stage's own "tap empty
+      // area to open the camera" listener, which can fire spuriously if
+      // `img` is still momentarily null while switching to another tab
+      evt.stopPropagation();
+      onStageTabClick(i);
+    });
   });
 
 
@@ -1580,32 +1586,42 @@
     return targets;
   }
 
-  function selectResetTarget(target, el){
-    pendingResetTarget = target;
-    Array.from(resetTabPicker.children).forEach(c => c.classList.remove('selected'));
-    el.classList.add('selected');
+  function toggleResetTarget(target, el){
+    const idx = pendingResetTargets.indexOf(target);
+    if(idx === -1){
+      pendingResetTargets.push(target);
+      el.classList.add('selected');
+    } else {
+      pendingResetTargets.splice(idx, 1);
+      el.classList.remove('selected');
+    }
+    btnResetImage.disabled = pendingResetTargets.length === 0;
   }
 
   function showResetConfirm(){
     const targets = buildResetTargets();
     resetTabPicker.innerHTML = '';
+    pendingResetTargets = [];
     if(targets.length <= 1){
       // only one photo exists across all tabs — reset it directly, no need to ask which
-      pendingResetTarget = targets[0] || null;
+      pendingResetTargets = targets.length ? [targets[0]] : [];
       resetTabPickerField.style.display = 'none';
     } else {
       resetTabPickerField.style.display = 'block';
-      const initial = targets.find(t => t.active) || targets[0];
       targets.forEach(t=>{
         const el = document.createElement('button');
         el.type = 'button';
         el.className = 'reset-tab-thumb';
         el.style.backgroundImage = `url(${t.dataURL})`;
-        el.addEventListener('click', ()=> selectResetTarget(t, el));
+        el.addEventListener('click', ()=> toggleResetTarget(t, el));
         resetTabPicker.appendChild(el);
-        if(t === initial) selectResetTarget(t, el);
+        if(t.active){
+          pendingResetTargets.push(t);
+          el.classList.add('selected');
+        }
       });
     }
+    btnResetImage.disabled = pendingResetTargets.length === 0;
     resetConfirmOverlay.classList.add('show');
   }
 
@@ -1663,18 +1679,18 @@
   });
 
   btnResetImage.addEventListener('click', ()=>{
-    if(pendingResetTarget && pendingResetTarget.type === 'slot'){
-      const idx = pendingResetTarget.index;
-      imageStock[idx] = null;
-      if(activeStockSlot === idx){
-        resetImage();
-      } else {
-        updateStageTabsUI();
-      }
-    } else {
+    if(!pendingResetTargets.length) return;
+    const clearsCurrent = pendingResetTargets.some(t =>
+      t.type === 'current' || (t.type === 'slot' && t.index === activeStockSlot));
+    pendingResetTargets.forEach(t=>{
+      if(t.type === 'slot') imageStock[t.index] = null;
+    });
+    if(clearsCurrent){
       resetImage();
+    } else {
+      updateStageTabsUI();
     }
-    pendingResetTarget = null;
+    pendingResetTargets = [];
     resetConfirmOverlay.classList.remove('show');
   });
 
