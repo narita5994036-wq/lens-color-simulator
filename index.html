@@ -2949,7 +2949,7 @@
       drawTint(cctx, {x:borderSide, y:borderTop, w:pw, h:ph});
     }
 
-    cctx.textAlign = 'left';
+    cctx.textAlign = 'center';
     cctx.textBaseline = 'alphabetic';
 
     // build the caption lines: a bold title (frame name, or the brand as a
@@ -2997,7 +2997,7 @@
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
       cctx.letterSpacing = letterSpacingFor[line.role];
-      cctx.fillText(line.text, borderSide, y);
+      cctx.fillText(line.text, cw/2, y);
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
 
@@ -3007,7 +3007,7 @@
     cctx.letterSpacing = letterSpacingFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
     wrapTextByChar(cctx, disclaimerText, cw - borderSide*2).forEach(line=>{
-      cctx.fillText(line, borderSide, y);
+      cctx.fillText(line, cw/2, y);
       y += disclaimerLineHeight;
     });
 
