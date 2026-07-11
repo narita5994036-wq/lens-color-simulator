@@ -31,15 +31,20 @@
 
   /* ---- header ---- */
   header.topbar{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:center; position:relative;
     padding:22px 0 18px;
     border-bottom:1px solid var(--gray-line);
   }
+  .brand-block{text-align:center;}
   .brand{
-    font-size:12px; letter-spacing:0.28em; text-transform:uppercase; color:var(--black);
+    font-size:19px; letter-spacing:0.16em; text-transform:uppercase; color:var(--black); font-weight:400;
   }
   .title{
-    font-size:14px; letter-spacing:0.05em; color:var(--gray-mid); margin-top:4px;
+    font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--gray-mid); margin-top:5px;
+  }
+  .header-icons{
+    position:absolute; right:0; top:50%; transform:translateY(-50%);
+    display:flex; align-items:center; gap:10px;
   }
   .gear{
     width:34px; height:34px; border:1px solid var(--gray-line); border-radius:50%;
@@ -93,7 +98,7 @@
   .stage{
     margin-top:28px;
     border:1px solid var(--gray-line);
-    background:var(--gray-bg);
+    background:#ececec;
     aspect-ratio: 4 / 5;
     position:relative;
     overflow:hidden;
@@ -122,7 +127,7 @@
   button.btn{
     flex:1; min-width:120px;
     padding:13px 14px;
-    font-family:inherit; font-weight:300; font-size:13px; letter-spacing:0.04em;
+    font-family:inherit; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase;
     background:var(--white); color:var(--black);
     border:1px solid var(--black);
     cursor:pointer;
@@ -257,7 +262,7 @@
     background:rgba(255,255,255,0.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     border:1px solid rgba(17,17,17,0.25);
     padding:9px 10px;
-    font-family:inherit; font-weight:300; font-size:12px; letter-spacing:0.04em; color:var(--black);
+    font-family:inherit; font-weight:700; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--black);
     cursor:pointer;
   }
   .stage-action-btn:disabled{opacity:0.4; cursor:default;}
@@ -403,6 +408,7 @@
 
   .shape-swatch .circle{
     display:flex; align-items:center; justify-content:center; background:var(--gray-bg);
+    border-radius:0;
   }
   .shape-swatch .circle svg{width:26px; height:26px; overflow:visible;}
   .shape-swatch .circle svg path{fill:none; stroke:var(--black); stroke-width:5; stroke-linejoin:round;}
@@ -460,11 +466,11 @@
 <div class="app">
 
   <header class="topbar">
-    <div>
+    <div class="brand-block">
       <div class="brand">MYKITA OSAKA</div>
       <div class="title">Lens Colour Simulator</div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div class="header-icons">
       <button class="gear" id="btnSettings" aria-label="設定">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></svg>
       </button>
@@ -2897,31 +2903,26 @@
     cctx.textAlign = 'center';
     cctx.textBaseline = 'alphabetic';
 
-    // build the caption lines that fit the available data
+    // build the caption lines: a bold title (frame name, or the brand as a
+    // fallback) followed by plain "Label: value" spec lines, echoing the
+    // product-page style of a bold model name over a plain spec list
     const lines = [];
     const trimmedFrame = frameName.trim();
-    if(trimmedFrame){
-      lines.push({text: trimmedFrame, role:'frame'});
-    }
+    lines.push({text: (trimmedFrame || 'MYKITA OSAKA').toUpperCase(), role:'title'});
     if(currentColor){
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
-      lines.push({text: name, role:'color'});
+      lines.push({text: 'Lens: ' + name, role:'spec'});
       if(!(currentPreset && currentPreset.twin)){
-        lines.push({text: Math.round(opacity*100) + '%', role:'pct'});
+        lines.push({text: 'Density: ' + Math.round(opacity*100) + '%', role:'spec'});
       }
-    }
-    if(lines.length === 0){
-      lines.push({text:'MYKITA OSAKA', role:'brand'});
     }
 
     const fontFor = {
-      frame: `500 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
-      color: `italic 400 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
-      pct:   `300 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`,
-      brand: `300 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`
+      title: `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
+      spec:  `400 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`
     };
     const colorFor = {
-      frame:'#111111', color:'#111111', pct:'#8c8c8c', brand:'#8c8c8c'
+      title:'#111111', spec:'#111111'
     };
 
     const n = lines.length;
