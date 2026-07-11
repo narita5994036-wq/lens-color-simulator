@@ -2972,39 +2972,31 @@
     }
 
     const fontFor = {
-      title:         `600 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
-      brandFallback: `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
-      spec:          `300 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`,
+      title:         `600 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
+      brandFallback: `700 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
+      spec:          `300 ${Math.round(borderBottom*0.10)}px Inter, sans-serif`,
       disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
       title:'#111111', brandFallback:'#8c8c8c', spec:'#111111', disclaimer:'#8c8c8c'
     };
-    // a little extra tracking so the caption text doesn't feel cramped
-    const letterSpacingFor = {
-      title: (borderBottom*0.0076) + 'px', brandFallback: (borderBottom*0.0076) + 'px',
-      spec: (borderBottom*0.0039) + 'px', disclaimer: (borderBottom*0.0015) + 'px'
-    };
 
-    // centered, top-anchored block with evenly spaced lines, matching the
-    // balance of a reference cheki export (title, then evenly-gapped spec
-    // lines, then the smaller disclaimer note)
-    const titleLineHeight = borderBottom * 0.22;
-    const specLineHeight = borderBottom * 0.22;
-    const disclaimerLineHeight = borderBottom * 0.09;
-    let y = borderTop + ph + borderBottom * 0.28;
+    // centered, top-anchored block with evenly spaced lines, leaving generous
+    // room at the bottom so the disclaimer note never sits flush with the edge
+    const titleLineHeight = borderBottom * 0.19;
+    const specLineHeight = borderBottom * 0.17;
+    const disclaimerLineHeight = borderBottom * 0.075;
+    let y = borderTop + ph + borderBottom * 0.22;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
-      cctx.letterSpacing = letterSpacingFor[line.role];
       cctx.fillText(line.text, cw/2, y);
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
 
-    y += disclaimerLineHeight * 0.4;
+    y += disclaimerLineHeight * 0.6;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
-    cctx.letterSpacing = letterSpacingFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
     wrapTextByChar(cctx, disclaimerText, cw - borderSide*2).forEach(line=>{
       cctx.fillText(line, cw/2, y);
