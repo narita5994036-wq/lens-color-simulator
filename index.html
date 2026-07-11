@@ -2972,13 +2972,18 @@
     }
 
     const fontFor = {
-      title:         `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
+      title:         `600 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
       brandFallback: `700 ${Math.round(borderBottom*0.19)}px Inter, sans-serif`,
       spec:          `300 ${Math.round(borderBottom*0.13)}px Inter, sans-serif`,
       disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
       title:'#111111', brandFallback:'#8c8c8c', spec:'#111111', disclaimer:'#8c8c8c'
+    };
+    // a little extra tracking so the caption text doesn't feel cramped
+    const letterSpacingFor = {
+      title: (borderBottom*0.0076) + 'px', brandFallback: (borderBottom*0.0076) + 'px',
+      spec: (borderBottom*0.0039) + 'px', disclaimer: (borderBottom*0.0015) + 'px'
     };
 
     // left-aligned, top-anchored block (matching the reference product page's
@@ -2991,6 +2996,7 @@
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
+      cctx.letterSpacing = letterSpacingFor[line.role];
       cctx.fillText(line.text, borderSide, y);
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
@@ -2998,6 +3004,7 @@
     y += disclaimerLineHeight * 0.4;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
+    cctx.letterSpacing = letterSpacingFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
     wrapTextByChar(cctx, disclaimerText, cw - borderSide*2).forEach(line=>{
       cctx.fillText(line, borderSide, y);
