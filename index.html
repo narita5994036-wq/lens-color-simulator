@@ -440,6 +440,13 @@
   }
   .autocomplete-item:last-child{border-bottom:none;}
   .autocomplete-item:active{background:var(--gray-bg);}
+  .reset-tab-picker{display:flex; gap:8px; margin-top:4px;}
+  .reset-tab-thumb{
+    width:48px; height:48px; border-radius:6px; padding:0;
+    background:var(--gray-bg); background-size:cover; background-position:center;
+    border:1px solid var(--gray-line); cursor:pointer;
+  }
+  .reset-tab-thumb.selected{border:2px solid var(--black);}
   .sheet-actions{display:flex; gap:10px; margin-top:22px;}
   .sheet-actions button{flex:1;}
   .sheet .close-x{
@@ -638,6 +645,10 @@
     <button class="close-x" data-close="resetConfirmOverlay">×</button>
     <h4 data-i18n="resetConfirmTitle">画像をリセットしますか？</h4>
     <div class="note" data-i18n="resetConfirmNote">写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。</div>
+    <div class="field" id="resetTabPickerField" style="display:none;">
+      <label data-i18n="resetPickerLabel">リセットする画像を選択</label>
+      <div class="reset-tab-picker" id="resetTabPicker"></div>
+    </div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnResetImage" data-i18n="resetImageBtn">画像をリセット</button>
       <button class="btn" data-close="resetConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
@@ -771,6 +782,7 @@
       customColorFallback:"カスタムカラー",
       resetConfirmTitle:"画像をリセットしますか？",
       resetConfirmNote:"写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。",
+      resetPickerLabel:"リセットする画像を選択",
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
@@ -818,6 +830,7 @@
       customColorFallback:"Custom Colour",
       resetConfirmTitle:"Reset the photo?",
       resetConfirmNote:"The photo, lens position, and selected colour will all be cleared. This cannot be undone.",
+      resetPickerLabel:"Select which photo to reset",
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
@@ -876,6 +889,7 @@
   let tabPressTimer = null;
   let tabLongPressFired = false;
   let pendingStockSlot = null; // set just before opening the camera for a specific tab slot
+  let pendingResetTarget = null; // {type:'slot', index} or {type:'current'} — which photo the reset-confirm modal will erase
   const UNDO_MAX = 20;
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
@@ -960,6 +974,8 @@
 
 
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
+  const resetTabPickerField = document.getElementById('resetTabPickerField');
+  const resetTabPicker = document.getElementById('resetTabPicker');
   const mirrorConfirmOverlay = document.getElementById('mirrorConfirmOverlay');
   const btnMirrorConfirm = document.getElementById('btnMirrorConfirm');
   const btnMirrorResetPoints = document.getElementById('btnMirrorResetPoints');
@@ -1555,7 +1571,41 @@
     draw();
   }
 
+  function buildResetTargets(){
+    const targets = [];
+    imageStock.forEach((snap, i)=>{
+      if(snap) targets.push({type:'slot', index:i, dataURL: snap.dataURL, active: activeStockSlot === i});
+    });
+    if(img && activeStockSlot === -1) targets.push({type:'current', dataURL: img.src, active:true});
+    return targets;
+  }
+
+  function selectResetTarget(target, el){
+    pendingResetTarget = target;
+    Array.from(resetTabPicker.children).forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
   function showResetConfirm(){
+    const targets = buildResetTargets();
+    resetTabPicker.innerHTML = '';
+    if(targets.length <= 1){
+      // only one photo exists across all tabs — reset it directly, no need to ask which
+      pendingResetTarget = targets[0] || null;
+      resetTabPickerField.style.display = 'none';
+    } else {
+      resetTabPickerField.style.display = 'block';
+      const initial = targets.find(t => t.active) || targets[0];
+      targets.forEach(t=>{
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'reset-tab-thumb';
+        el.style.backgroundImage = `url(${t.dataURL})`;
+        el.addEventListener('click', ()=> selectResetTarget(t, el));
+        resetTabPicker.appendChild(el);
+        if(t === initial) selectResetTarget(t, el);
+      });
+    }
     resetConfirmOverlay.classList.add('show');
   }
 
@@ -1613,7 +1663,18 @@
   });
 
   btnResetImage.addEventListener('click', ()=>{
-    resetImage();
+    if(pendingResetTarget && pendingResetTarget.type === 'slot'){
+      const idx = pendingResetTarget.index;
+      imageStock[idx] = null;
+      if(activeStockSlot === idx){
+        resetImage();
+      } else {
+        updateStageTabsUI();
+      }
+    } else {
+      resetImage();
+    }
+    pendingResetTarget = null;
     resetConfirmOverlay.classList.remove('show');
   });
 
