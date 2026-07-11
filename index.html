@@ -105,8 +105,9 @@
 
   /* ---- stage ---- */
   .stage{
-    margin-top:28px;
-    border:1px solid var(--gray-line);
+    /* breaks out of .app's side padding so the photo runs edge-to-edge,
+       like the full-bleed hero image on MYKITA's own product pages */
+    margin:28px -20px 0;
     background:#ececec;
     aspect-ratio: 4 / 5;
     position:relative;
@@ -2936,11 +2937,13 @@
 
   function generateChekiCanvas(){
     const pw = imgNatW, ph = imgNatH;
-    const borderSide = Math.round(pw * 0.045);
-    const borderTop = borderSide;
+    // the photo runs edge-to-edge (no side/top border), matching the stage's
+    // own full-bleed display; textPadding just keeps caption text off the
+    // very edges without adding any visible border around the photo
+    const textPadding = Math.round(pw * 0.045);
     const borderBottom = Math.round(pw * 0.35);
-    const cw = pw + borderSide * 2;
-    const chh = ph + borderTop + borderBottom;
+    const cw = pw;
+    const chh = ph + borderBottom;
 
     const c = document.createElement('canvas');
     c.width = cw;
@@ -2949,10 +2952,10 @@
 
     cctx.fillStyle = '#ffffff';
     cctx.fillRect(0, 0, cw, chh);
-    cctx.drawImage(img, borderSide, borderTop, pw, ph);
+    cctx.drawImage(img, 0, 0, pw, ph);
 
     if(currentColor){
-      drawTint(cctx, {x:borderSide, y:borderTop, w:pw, h:ph});
+      drawTint(cctx, {x:0, y:0, w:pw, h:ph});
     }
 
     cctx.textAlign = 'center';
@@ -2997,7 +3000,7 @@
     const titleLineHeight = borderBottom * 0.19;
     const specLineHeight = borderBottom * 0.17;
     const disclaimerLineHeight = borderBottom * 0.075;
-    let y = borderTop + ph + borderBottom * 0.22;
+    let y = ph + borderBottom * 0.22;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
@@ -3031,7 +3034,7 @@
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
-    wrapTextByChar(cctx, disclaimerText, cw - borderSide*2).forEach(line=>{
+    wrapTextByChar(cctx, disclaimerText, cw - textPadding*2).forEach(line=>{
       cctx.fillText(line, cw/2, y);
       y += disclaimerLineHeight;
     });
