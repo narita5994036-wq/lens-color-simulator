@@ -738,7 +738,6 @@
       sectionMirror:"ミラーリング",
       mirrorSelectedBtn:"選択中のシェイプをミラーリング",
       shapeOval:"オーバル",
-      shapeBox:"ボックス",
       shapeWellington:"ウェリントン",
       shapeBoston:"ボストン",
       sectionShare:"シェア",
@@ -786,7 +785,6 @@
       sectionMirror:"Mirroring",
       mirrorSelectedBtn:"Mirror Selected Shape",
       shapeOval:"Oval",
-      shapeBox:"Box",
       shapeWellington:"Wellington",
       shapeBoston:"Boston",
       sectionShare:"Share",
@@ -1104,10 +1102,6 @@
   // template that falls short of ±1 causes the lens to shrink a little
   // every time a preset is (re-)selected.
   const LENS_SHAPE_TEMPLATES = {
-    box: [
-      [-0.788,-1],[0.788,-1],[1,-0.788],[1,0.788],
-      [0.788,1],[-0.788,1],[-1,0.788],[-1,-0.788]
-    ],
     wellington: [
       [-0.75,-1.0],[0.75,-1.0],[1.0,-0.65],[0.92,0.55],
       [0.6,1.0],[-0.6,1.0],[-0.92,0.55],[-1.0,-0.65]
@@ -1117,7 +1111,7 @@
       [0.6,1.0],[-0.6,1.0],[-1.0,0.6],[-1.0,-0.6]
     ]
   };
-  const LENS_SHAPE_KEYS = ['oval','box','wellington','boston'];
+  const LENS_SHAPE_KEYS = ['oval','wellington','boston'];
 
   function lensBoundingBox(pts){
     const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
