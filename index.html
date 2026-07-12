@@ -2860,8 +2860,10 @@
     // the badge carries its own menu icon once it's visible, so the header's
     // hamburger (which opens the same sidebar) is only shown as a fallback
     // once a photo is loaded but the badge itself has been turned off in
-    // settings — before a photo exists there's no menu icon in the header
-    btnSidebarOpen.style.display = (img && !badgeWillShow) ? 'flex' : 'none';
+    // settings — before a photo exists there's no menu icon in the header.
+    // visibility (not display) is toggled so .header-icons keeps its width,
+    // keeping .brand-block centered against the fixed-width .header-spacer
+    btnSidebarOpen.style.visibility = (img && !badgeWillShow) ? 'visible' : 'hidden';
     if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
