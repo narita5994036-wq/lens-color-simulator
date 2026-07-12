@@ -230,6 +230,28 @@
   }
   .stage-tab.active{border:2px solid var(--black);}
 
+  .vertex-nudge-pad{
+    /* a floating d-pad for nudging a selected point one pixel at a time —
+       an alternative to dragging, for fine adjustments that are hard to
+       land precisely with a fingertip */
+    position:absolute; right:16px; bottom:72px; z-index:6;
+    display:none;
+    grid-template-columns:repeat(3, 30px); grid-template-rows:repeat(3, 30px);
+    gap:2px;
+  }
+  .vertex-nudge-pad.show{display:grid;}
+  .nudge-btn{
+    background:rgba(255,255,255,0.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(17,17,17,0.15); border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--black); cursor:pointer; padding:0; font-size:11px;
+  }
+  .nudge-btn:active{background:rgba(17,17,17,0.12);}
+  .nudge-up{grid-column:2; grid-row:1;}
+  .nudge-left{grid-column:1; grid-row:2;}
+  .nudge-right{grid-column:3; grid-row:2;}
+  .nudge-down{grid-column:2; grid-row:3;}
+
   .swatch-tooltip{
     position:fixed; z-index:150; display:none;
     background:rgba(17,17,17,0.92); color:#fff;
@@ -541,6 +563,12 @@
           <div class="switch small on" id="handlesSwitch"><div class="knob"></div></div>
         </div>
       </div>
+    </div>
+    <div class="vertex-nudge-pad" id="vertexNudgePad">
+      <button class="nudge-btn nudge-up" data-dx="0" data-dy="-1" aria-label="up">▲</button>
+      <button class="nudge-btn nudge-left" data-dx="-1" data-dy="0" aria-label="left">◀</button>
+      <button class="nudge-btn nudge-right" data-dx="1" data-dy="0" aria-label="right">▶</button>
+      <button class="nudge-btn nudge-down" data-dx="0" data-dy="1" aria-label="down">▼</button>
     </div>
   </div>
 
@@ -1043,6 +1071,7 @@
   const btnSidebarResetImage = document.getElementById('btnSidebarResetImage');
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
+  const vertexNudgePad = document.getElementById('vertexNudgePad');
   const stageTabs = document.getElementById('stageTabs');
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
@@ -1845,6 +1874,7 @@
   }
 
   function draw(){
+    updateNudgePad();
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     ctx.clearRect(0,0,cw,ch);
     if(!img) return;
@@ -2300,6 +2330,34 @@
     }
     draw();
   }
+
+  function updateNudgePad(){
+    // the nudge d-pad is only meaningful for a selected point in the normal
+    // (non-scale) editing mode, matching where vertex selection itself applies
+    const show = !!(selectedVertices && lenses && !scaleMode && pointsVisible());
+    vertexNudgePad.classList.toggle('show', show);
+  }
+
+  function nudgeSelectedVertices(dx, dy){
+    if(!selectedVertices || !lenses) return;
+    pushUndoSnapshot();
+    const r = getFitRect();
+    const fdx = dx / r.w, fdy = dy / r.h;
+    const l = lenses[selectedVertices.side];
+    selectedVertices.indices.forEach(idx=>{
+      const p = l.points[idx];
+      p.x = Math.min(1, Math.max(0, p.x + fdx));
+      p.y = Math.min(1, Math.max(0, p.y + fdy));
+    });
+    draw();
+  }
+
+  document.querySelectorAll('.nudge-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      nudgeSelectedVertices(parseFloat(btn.dataset.dx), parseFloat(btn.dataset.dy));
+    });
+  });
+
   function onPointerMove(evt){
     if(!dragTarget) return;
     evt.preventDefault();
