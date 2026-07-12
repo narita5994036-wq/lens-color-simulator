@@ -676,15 +676,15 @@
     <svg class="camera-guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
       <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
       <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
-      <line class="guide-h" x1="0" y1="52.4" x2="300" y2="52.4" />
+      <line class="guide-h" x1="0" y1="55.4" x2="300" y2="55.4" />
       <line class="guide-h" x1="0" y1="166.6" x2="300" y2="166.6" />
-      <line class="guide-h" x1="0" y1="287.6" x2="300" y2="287.6" />
-      <line class="guide-tick" x1="6" y1="46.4" x2="6" y2="58.4" />
-      <line class="guide-tick" x1="294" y1="46.4" x2="294" y2="58.4" />
+      <line class="guide-h" x1="0" y1="300.6" x2="300" y2="300.6" />
+      <line class="guide-tick" x1="6" y1="49.4" x2="6" y2="61.4" />
+      <line class="guide-tick" x1="294" y1="49.4" x2="294" y2="61.4" />
       <line class="guide-tick" x1="6" y1="160.6" x2="6" y2="172.6" />
       <line class="guide-tick" x1="294" y1="160.6" x2="294" y2="172.6" />
-      <line class="guide-tick" x1="6" y1="281.6" x2="6" y2="293.6" />
-      <line class="guide-tick" x1="294" y1="281.6" x2="294" y2="293.6" />
+      <line class="guide-tick" x1="6" y1="294.6" x2="6" y2="306.6" />
+      <line class="guide-tick" x1="294" y1="294.6" x2="294" y2="306.6" />
       <ellipse class="guide-oval" cx="150" cy="178" rx="87.4" ry="122.6" />
     </svg>
   </div>
@@ -1446,6 +1446,7 @@
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
+    applyChinSlim(captureCtx, sw, sh, 0.02);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
       pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
@@ -1527,6 +1528,52 @@
       d[p+2] = b + (targetB-b)*m;
     }
     ctx.putImageData(imageData, 0, 0);
+  }
+
+  // ---------- subtle chin slimming ----------
+  // locates the chin using the camera guide overlay's own oval (cx=150,
+  // cy=178, rx=87.4, ry=122.6 in its 300x400 viewBox) rather than a
+  // separate hardcoded constant: its bottommost point is the chin, and
+  // these fractions are that point's position after accounting for how
+  // the viewBox gets slice-cropped to fit the 390:499 capture frame
+  const CHIN_CENTER_X_FRAC = 0.5;
+  const CHIN_CENTER_Y_FRAC = 0.7621;
+  // pinches a small elliptical area around the chin inward, strongest at
+  // its center and fading to zero at the region's edge so it blends
+  // seamlessly rather than leaving a visible boundary
+  function applyChinSlim(ctx, w, h, amount){
+    if(!w || !h) return;
+    const cx = CHIN_CENTER_X_FRAC * w, cy = CHIN_CENTER_Y_FRAC * h;
+    const rx = w * 0.16, ry = h * 0.11;
+    const x0 = Math.max(0, Math.floor(cx-rx)), x1 = Math.min(w, Math.ceil(cx+rx));
+    const y0 = Math.max(0, Math.floor(cy-ry)), y1 = Math.min(h, Math.ceil(cy+ry));
+    if(x1<=x0 || y1<=y0) return;
+    const src = ctx.getImageData(0, 0, w, h).data;
+    const region = ctx.getImageData(x0, y0, x1-x0, y1-y0);
+    const rd = region.data;
+    const rw = x1-x0;
+    for(let y=y0; y<y1; y++){
+      for(let x=x0; x<x1; x++){
+        const dx = (x-cx)/rx, dy = (y-cy)/ry;
+        const t = Math.sqrt(dx*dx + dy*dy);
+        const ri = ((y-y0)*rw + (x-x0))*4;
+        if(t >= 1) continue; // already holds the untouched source pixel
+        const shrink = amount * (1-t) * (1-t);
+        const sx = Math.min(w-1.001, Math.max(0, cx + (x-cx)/(1-shrink)));
+        const sy = Math.min(h-1.001, Math.max(0, cy + (y-cy)/(1-shrink)));
+        const x0i = Math.floor(sx), y0i = Math.floor(sy);
+        const x1i = Math.min(w-1, x0i+1), y1i = Math.min(h-1, y0i+1);
+        const fx = sx-x0i, fy = sy-y0i;
+        for(let c=0; c<4; c++){
+          const p00=src[(y0i*w+x0i)*4+c], p10=src[(y0i*w+x1i)*4+c];
+          const p01=src[(y1i*w+x0i)*4+c], p11=src[(y1i*w+x1i)*4+c];
+          const top = p00 + (p10-p00)*fx;
+          const bot = p01 + (p11-p01)*fx;
+          rd[ri+c] = top + (bot-top)*fy;
+        }
+      }
+    }
+    ctx.putImageData(region, x0, y0);
   }
 
   function resetImage(){
