@@ -3025,7 +3025,7 @@
       disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
-      title:'#111111', brandFallback:'#8c8c8c', spec:'#111111', disclaimer:'#8c8c8c'
+      title:'#111111', brandFallback:'#b8b8b8', spec:'#111111', disclaimer:'#8c8c8c'
     };
 
     // centered, top-anchored block with evenly spaced lines, leaving generous
@@ -3063,7 +3063,10 @@
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
 
-    y += disclaimerLineHeight * 0.6;
+    // the disclaimer always sits at the same fixed position — as if both the
+    // lens color and density spec lines were present — so it doesn't jump up
+    // when no lens color has been picked yet
+    y = ph + borderBottom*0.22 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
