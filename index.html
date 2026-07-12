@@ -40,7 +40,9 @@
   .header-spacer{width:34px; flex-shrink:0;}
   .brand-block{flex:1; min-width:0; text-align:center;}
   .brand{
-    font-size:19px; letter-spacing:0.16em; text-transform:uppercase; color:var(--black); font-weight:400;
+    /* sized to fit "LENS COLOUR SIMULATOR" (longer than the old brand-first
+       text) without truncating on typical phone widths */
+    font-size:15px; letter-spacing:0.09em; text-transform:uppercase; color:var(--black); font-weight:400;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .title{
@@ -48,7 +50,7 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   @media (max-width:340px){
-    .brand{font-size:13px; letter-spacing:0.06em;}
+    .brand{font-size:12px; letter-spacing:0.04em;}
     .title{font-size:9px; letter-spacing:0.06em;}
   }
   .header-icons{
@@ -106,7 +108,7 @@
   .stage{
     /* breaks out of .app's side padding so the photo runs edge-to-edge,
        like the full-bleed hero image on MYKITA's own product pages */
-    margin:28px -20px 0;
+    margin:14px -20px 0;
     background:#ececec;
     aspect-ratio: 4 / 5;
     position:relative;
@@ -2856,9 +2858,10 @@
     btnAddFavorite.disabled = !currentColor;
     const badgeWillShow = img && showColorBadgeSetting;
     // the badge carries its own menu icon once it's visible, so the header's
-    // hamburger (which opens the same sidebar) only needs to appear when the
-    // badge isn't there to open it instead
-    btnSidebarOpen.style.display = badgeWillShow ? 'none' : 'flex';
+    // hamburger (which opens the same sidebar) is only shown as a fallback
+    // once a photo is loaded but the badge itself has been turned off in
+    // settings — before a photo exists there's no menu icon in the header
+    btnSidebarOpen.style.display = (img && !badgeWillShow) ? 'flex' : 'none';
     if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
