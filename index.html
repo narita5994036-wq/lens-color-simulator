@@ -2669,20 +2669,26 @@
     swatchTooltip.style.display = 'none';
   }
 
-  function clearColor(){
+  function applyNoColorState(){
     currentColor = null;
     currentPreset = null;
     gradientBottomPct = null;
     currentDensitySteps = null;
     renderDensityTrack();
     updateColorBadge();
+    renderAll();
+  }
+
+  function clearColor(){
+    applyNoColorState();
     // "no colour" gets its own history entry too, so it can be picked again
     // straight from "recently used" like any other colour
     history = history.filter(h => !h.noColor);
     history.unshift({noColor:true});
     history = history.slice(0,5);
     saveJSON(STORAGE_HISTORY, history);
-    renderAll();
+    renderAll(); // re-render so the new history entry (added above) shows up
+    historyRow.scrollLeft = 0;
     draw();
     closeSidebar();
   }
@@ -2855,7 +2861,12 @@
     // swipe cycles through the "recently used" colours, even if none has
     // been picked yet in this session (as long as history has entries)
     if(history.length === 0) return;
-    let idx = history.findIndex(e => e.hex===currentColor && e.id === (currentPreset ? (currentPreset.id||null) : null));
+    // a "no colour" entry has no hex, so currentColor (also null when no
+    // colour is active) must be matched via its own noColor flag rather
+    // than the hex comparison below, or the current position is never
+    // found and every swipe resets back to index 0 instead of advancing
+    let idx = history.findIndex(e => e.noColor ? !currentColor :
+      (e.hex===currentColor && e.id === (currentPreset ? (currentPreset.id||null) : null)));
     if(idx === -1){
       idx = direction > 0 ? 0 : history.length - 1;
     } else if(history.length > 1){
@@ -2866,6 +2877,10 @@
     const entry = history[idx];
     if(!entry) return;
     animateColorSwipe(direction, ()=>{
+      if(entry.noColor){
+        applyNoColorState();
+        return;
+      }
       const preset = resolvePresetForItem(entry);
       applyResolvedColorState(preset, entry.pct, entry.bottomPct);
     });
