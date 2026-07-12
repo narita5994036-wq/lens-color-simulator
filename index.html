@@ -1384,12 +1384,24 @@
     // clamp so the source rect can never extend past the actual video frame
     // (some devices report videoWidth/videoHeight slightly inconsistent with
     // the frame actually available at capture time) — sampling outside it
-    // draws as solid black, which showed up as a stray margin along one edge
+    // draws as transparent, which turns solid black once flattened to JPEG
     sx = Math.max(0, Math.min(sx, w - sw));
     sy = Math.max(0, Math.min(sy, h - sh));
+    // canvas.width/height truncate a fractional value, but the drawImage
+    // call below still uses the untruncated sw/sh as its destination size —
+    // rounding both first keeps the two in agreement, so drawImage can't be
+    // asked to paint past the buffer's actual edge (which, again, would
+    // otherwise leave a sliver of transparent-turned-black along that edge)
+    sw = Math.round(sw);
+    sh = Math.round(sh);
     captureCanvas.width = sw;
     captureCanvas.height = sh;
     const captureCtx = captureCanvas.getContext('2d');
+    // belt-and-braces: fill with white first so any remaining gap (from a
+    // cause we haven't pinned down) reads as a blown-out edge rather than a
+    // solid black margin
+    captureCtx.fillStyle = '#ffffff';
+    captureCtx.fillRect(0, 0, sw, sh);
     // a punchier, more contrasty and saturated look (like a product-page
     // photo) on top of the existing skin tone-up; applied via the canvas
     // filter at draw time since it only needs to affect this one drawImage
