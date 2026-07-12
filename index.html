@@ -3178,13 +3178,16 @@
     const titleLineHeight = borderBottom * 0.19;
     const specLineHeight = borderBottom * 0.17;
     const disclaimerLineHeight = borderBottom * 0.075;
-    // +5px nudges the title and (since they're positioned relative to it)
-    // both spec lines down together; the disclaimer gets 1px more on top of
-    // that shared shift, landing 6px down overall
-    let y = ph + borderBottom * 0.22 + 5;
+    // shared vertical nudge (title's own shift); spec lines inherit this
+    // automatically since their position derives from title's, then get
+    // roleExtraY's own additional nudge on top so their total shift can
+    // differ from the title's
+    let y = ph + borderBottom * 0.22 + 10;
+    const roleExtraY = {spec: 5};
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
+      const drawY = y + (roleExtraY[line.role] || 0);
       if(line.icon){
         // draw the text and a small colour swatch together as one centered
         // unit, without touching the line's own vertical position
@@ -3194,9 +3197,9 @@
         cctx.textAlign = 'left';
         const textWidth = cctx.measureText(line.text).width;
         const startX = cw/2 - (textWidth + gap + iconDiameter)/2;
-        cctx.fillText(line.text, startX, y);
+        cctx.fillText(line.text, startX, drawY);
         const iconCx = startX + textWidth + gap + iconDiameter/2;
-        const iconCy = y - fontSizePx*0.35;
+        const iconCy = drawY - fontSizePx*0.35;
         cctx.beginPath();
         cctx.fillStyle = line.icon;
         cctx.arc(iconCx, iconCy, iconDiameter/2, 0, Math.PI*2);
@@ -3206,7 +3209,7 @@
         cctx.stroke();
         cctx.textAlign = 'center';
       } else {
-        cctx.fillText(line.text, cw/2, y);
+        cctx.fillText(line.text, cw/2, drawY);
       }
       y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
     });
@@ -3214,7 +3217,7 @@
     // the disclaimer always sits at the same fixed position — as if both the
     // lens color and density spec lines were present — so it doesn't jump up
     // when no lens color has been picked yet
-    y = ph + borderBottom*0.22 + 6 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
+    y = ph + borderBottom*0.22 + 11 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
