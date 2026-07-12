@@ -322,7 +322,7 @@
   .camera-modal.show{display:flex;}
   .camera-frame{
     position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
-    width:100%; aspect-ratio:4/5; max-height:100%; overflow:hidden; background:#000;
+    width:100%; aspect-ratio:390/499; max-height:100%; overflow:hidden; background:#000;
     touch-action:none;
   }
   .camera-frame video{
@@ -1364,9 +1364,9 @@
   btnCameraShutter.addEventListener('click', ()=>{
     const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
     if(!w || !h) return;
-    // crop to the same 4:5 (width:height) frame shown on screen behind the guide,
-    // matching the stage's own aspect ratio so the photo fills it with no letterboxing
-    const targetRatio = 4/5;
+    // crop to the same 390:499 (width:height) frame shown on screen behind
+    // the guide, matching a specific reference photo's exact ratio (1170x1497)
+    const targetRatio = 390/499;
     let sx=0, sy=0, sw=w, sh=h;
     if(w/h > targetRatio){
       sw = h*targetRatio;
