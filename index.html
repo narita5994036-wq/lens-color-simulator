@@ -112,10 +112,14 @@
     aspect-ratio: 4 / 5;
     position:relative;
     overflow:hidden;
-    touch-action:none;
+    /* pan-y (rather than none) lets a single-finger vertical drag fall
+       through to the page's native scroll when our own JS isn't handling
+       it (e.g. dragging a point); horizontal gestures (swipe, pinch, the
+       two-finger pan below) are still handled entirely by our own JS */
+    touch-action:pan-y;
   }
   #canvas{
-    width:100%; height:100%; display:block; touch-action:none;
+    width:100%; height:100%; display:block; touch-action:pan-y;
   }
   .empty-state{
     position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -179,7 +183,7 @@
   }
 
   .stage-bottom-bar{
-    position:absolute; left:10px; right:10px; bottom:10px; z-index:5;
+    position:absolute; left:16px; right:16px; bottom:16px; z-index:5;
     display:flex; align-items:center; justify-content:space-between; gap:8px;
   }
   .stage-toggle-group{display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0;}
@@ -192,7 +196,7 @@
   }
 
   .stage-undo-btn{
-    position:absolute; top:10px; right:10px; z-index:6;
+    position:absolute; top:16px; right:16px; z-index:6;
     width:34px; height:34px; border-radius:50%;
     background:rgba(255,255,255,0.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     border:1px solid rgba(17,17,17,0.15);
@@ -205,7 +209,7 @@
   .stage-undo-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
 
   .stage-tabs{
-    position:absolute; top:10px; left:10px; z-index:6;
+    position:absolute; top:16px; left:16px; z-index:6;
     display:flex; gap:6px;
   }
   .stage-tab{
@@ -252,7 +256,7 @@
   .stage-color-badge .pct{color:var(--gray-mid); flex-shrink:0;}
 
   .stage-controls-top{
-    position:absolute; top:10px; left:10px; right:10px; z-index:5;
+    position:absolute; top:16px; left:16px; right:16px; z-index:5;
     display:flex; flex-direction:column; gap:6px;
   }
   .stage-slider-row{
@@ -484,8 +488,8 @@
   <header class="topbar">
     <div class="header-spacer" aria-hidden="true"></div>
     <div class="brand-block">
-      <div class="brand">MYKITA OSAKA</div>
-      <div class="title">Lens Colour Simulator</div>
+      <div class="brand">Lens Colour Simulator</div>
+      <div class="title">MYKITA OSAKA</div>
     </div>
     <div class="header-icons">
       <button class="gear" id="btnSidebarOpen" aria-label="メニュー">
@@ -889,7 +893,6 @@
   }
   let zoomLevel = 1;        // stepless zoom factor (1 = fit to stage)
   let panX = 0, panY = 0;   // screen-pixel pan offset while zoomed in
-  let panStart = null;      // {x,y,panX,panY} snapshot when a pan-drag starts
   let swipeCandidate = null; // {x,y,time} recorded when a background (non-hit) drag starts, used to detect a Before/After swipe
   let editingPresetId = null;
 
@@ -2062,13 +2065,6 @@
     dragTarget = {side, mode:'scale'};
   }
 
-  function tryStartPan(pos){
-    if(zoomLevel <= 1.001) return false;
-    dragTarget = {mode:'pan'};
-    panStart = {x:pos.x, y:pos.y, panX, panY};
-    return true;
-  }
-
   function onPointerDown(evt){
     if(!lenses) return;
     const pos = getPos(evt);
@@ -2128,8 +2124,6 @@
           startMirrorLongPress(hit.side, pos);
         }
         evt.preventDefault();
-      } else if(tryStartPan(pos)){
-        evt.preventDefault();
       } else {
         swipeCandidate = {x:pos.x, y:pos.y, time:now};
       }
@@ -2160,8 +2154,6 @@
       if(hit.mode === 'move'){
         startMirrorLongPress(hit.side, pos);
       }
-    } else if(tryStartPan(pos)){
-      evt.preventDefault();
     } else {
       swipeCandidate = {x:pos.x, y:pos.y, time:now};
     }
@@ -2199,13 +2191,6 @@
     if(longPressTimer && Math.hypot(pos.x-longPressStartPos.x, pos.y-longPressStartPos.y) > LONG_PRESS_MOVE_PX){
       clearTimeout(longPressTimer);
       longPressTimer = null;
-    }
-
-    if(dragTarget.mode === 'pan'){
-      panX = panStart.panX + (pos.x - panStart.x);
-      panY = panStart.panY + (pos.y - panStart.y);
-      draw();
-      return;
     }
 
     if(!lenses) return;
@@ -2297,7 +2282,6 @@
     const wasDragging = !!dragTarget;
     dragTarget = null;
     scaleDragData = null;
-    panStart = null;
     hideMagnifier();
     // resolve the tap-to-select only after dragTarget is cleared, so the
     // redraw it triggers doesn't still render the point in its drag state
@@ -2322,12 +2306,17 @@
 
 
 
-  let pinchData = null; // {dist0, zoomStart} while a 2-finger pinch is active
+  let pinchData = null; // {dist0, zoomStart, cx0, cy0, panX0, panY0} while a 2-finger pinch/pan is active
   let pinchWasActive = false; // guards against a stray swipe firing as pinch fingers lift off
 
   function touchDistance(evt){
     const [t0, t1] = evt.touches;
     return Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+  }
+
+  function touchCentroid(evt){
+    const [t0, t1] = evt.touches;
+    return {x: (t0.clientX+t1.clientX)/2, y: (t0.clientY+t1.clientY)/2};
   }
 
   function applyPinchZoom(z){
@@ -2347,10 +2336,10 @@
       clearTimeout(longPressTimer);
       longPressTimer = null;
       dragTarget = null;
-      panStart = null;
       swipeCandidate = null; // a second finger landing mid-gesture must not leave a stale swipe candidate
       pinchWasActive = true;
-      pinchData = {dist0: touchDistance(evt) || 1, zoomStart: zoomLevel};
+      const centroid = touchCentroid(evt);
+      pinchData = {dist0: touchDistance(evt) || 1, zoomStart: zoomLevel, cx0: centroid.x, cy0: centroid.y, panX0: panX, panY0: panY};
       return;
     }
     onPointerDown(evt);
@@ -2360,6 +2349,15 @@
     if(evt.touches.length === 2 && pinchData){
       evt.preventDefault();
       swipeCandidate = null;
+      // two-finger drag pans the (zoomed-in) photo, while the same two
+      // touches' changing distance apart still zooms — both derived from
+      // one gesture, same as most photo apps; single-finger drags are left
+      // free for normal page scrolling instead of panning the photo
+      if(zoomLevel > 1.001){
+        const centroid = touchCentroid(evt);
+        panX = pinchData.panX0 + (centroid.x - pinchData.cx0);
+        panY = pinchData.panY0 + (centroid.y - pinchData.cy0);
+      }
       const dist = touchDistance(evt) || 1;
       applyPinchZoom(pinchData.zoomStart * (dist / pinchData.dist0));
       return;
