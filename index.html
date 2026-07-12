@@ -33,7 +33,6 @@
   header.topbar{
     display:flex; align-items:center;
     padding:22px 0 18px;
-    border-bottom:1px solid var(--gray-line);
   }
   /* an invisible spacer matching .header-icons' width keeps .brand-block
      genuinely centered on the bar instead of just centered in the leftover
@@ -254,6 +253,7 @@
   }
   .stage-color-badge .name{overflow:hidden; text-overflow:ellipsis;}
   .stage-color-badge .pct{color:var(--gray-mid); flex-shrink:0;}
+  .stage-color-badge .badge-menu-icon{width:14px; height:14px; flex-shrink:0; margin-left:2px;}
 
   .stage-controls-top{
     position:absolute; top:16px; left:16px; right:16px; z-index:5;
@@ -519,6 +519,7 @@
         <span class="dot" id="colorBadgeDot"></span>
         <span class="name" id="colorBadgeName"></span>
         <span class="pct" id="colorBadgePct"></span>
+        <svg class="badge-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
       </div>
       <div class="stage-toggle-group">
         <div class="stage-toggle" id="handlesToggleWrap" style="display:none;">
@@ -2853,7 +2854,12 @@
 
   function updateColorBadge(){
     btnAddFavorite.disabled = !currentColor;
-    if(!img || !showColorBadgeSetting){
+    const badgeWillShow = img && showColorBadgeSetting;
+    // the badge carries its own menu icon once it's visible, so the header's
+    // hamburger (which opens the same sidebar) only needs to appear when the
+    // badge isn't there to open it instead
+    btnSidebarOpen.style.display = badgeWillShow ? 'none' : 'flex';
+    if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
     }
@@ -3162,6 +3168,7 @@
   applyLang();
   renderDensityTrack();
   updateStageTabsUI();
+  updateColorBadge();
   resizeCanvas();
 })();
 </script>
