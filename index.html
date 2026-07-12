@@ -447,6 +447,11 @@
     position:fixed; inset:0; background:rgba(17,17,17,0.4); display:none; align-items:flex-end; justify-content:center; z-index:50;
   }
   .overlay.show{display:flex;}
+  #capturePreviewOverlay{
+    /* sits on top of the camera modal (z-index:200) it's shown over, unlike
+       every other .overlay use which only ever appears over the main app */
+    z-index:210;
+  }
   .sheet{
     background:var(--white); width:100%; max-width:900px; padding:26px 24px 32px;
     border-top:1px solid var(--gray-line);
@@ -709,6 +714,19 @@
   </div>
 </div>
 
+<!-- capture confirm modal (shown right after taking a photo with the guided camera, before it's used) -->
+<div class="overlay" id="capturePreviewOverlay">
+  <div class="sheet">
+    <button class="close-x" data-close="capturePreviewOverlay">×</button>
+    <h4 data-i18n="capturePreviewTitle">この写真を使用しますか？</h4>
+    <img id="capturePreviewImg" class="share-preview-img" alt="">
+    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
+      <button class="btn primary" id="btnCapturePreviewConfirm" data-i18n="useCaptureBtn">この写真を使用</button>
+      <button class="btn" data-close="capturePreviewOverlay" data-i18n="retakeBtn">撮り直す</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -791,6 +809,9 @@
       shareBtn:"画像を共有",
       sharePreviewTitle:"この画像をシェア",
       shareDisclaimer:"シュミレーターによるサンプルです。実際の色とは多少異なります。",
+      capturePreviewTitle:"この写真を使用しますか？",
+      useCaptureBtn:"この写真を使用",
+      retakeBtn:"撮り直す",
       sectionColors:"カラープリセット",
       noColor:"カラー無し",
       sectionFavorites:"お気に入り",
@@ -840,6 +861,9 @@
       shareBtn:"Share Photo",
       sharePreviewTitle:"Share This Photo",
       shareDisclaimer:"This is a simulated sample. Actual colours may vary slightly.",
+      capturePreviewTitle:"Use this photo?",
+      useCaptureBtn:"Use This Photo",
+      retakeBtn:"Retake",
       sectionColors:"Colour Presets",
       noColor:"No Colour",
       sectionFavorites:"Favourites",
@@ -966,12 +990,16 @@
   let cameraStream = null;
   let cameraFacingMode = 'environment';
   let cameraZoom = 1;
+  let pendingCaptureFile = null; // set after a shutter capture, until confirmed (or retaken) in the preview overlay
   const CAMERA_ZOOM_MAX = 4;
   const libLink = document.getElementById('libLink');
   const btnShare = document.getElementById('btnShare');
   const sharePreviewOverlay = document.getElementById('sharePreviewOverlay');
   const sharePreviewImg = document.getElementById('sharePreviewImg');
   const btnSharePreviewConfirm = document.getElementById('btnSharePreviewConfirm');
+  const capturePreviewOverlay = document.getElementById('capturePreviewOverlay');
+  const capturePreviewImg = document.getElementById('capturePreviewImg');
+  const btnCapturePreviewConfirm = document.getElementById('btnCapturePreviewConfirm');
   const btnAddFavorite = document.getElementById('btnAddFavorite');
   const favoritesRow = document.getElementById('favoritesRow');
   const favoritesEmptyNote = document.getElementById('favoritesEmptyNote');
@@ -1289,6 +1317,8 @@
       cameraStream = null;
     }
     cameraModal.classList.remove('show');
+    capturePreviewOverlay.classList.remove('show');
+    pendingCaptureFile = null;
     pendingStockSlot = null;
   }
 
@@ -1354,14 +1384,34 @@
     captureCanvas.width = sw;
     captureCanvas.height = sh;
     const captureCtx = captureCanvas.getContext('2d');
+    // a punchier, more contrasty look (like a product-page photo) on top of
+    // the existing skin tone-up; applied via the canvas filter at draw time
+    // since it only needs to affect this one drawImage call, not the tone-up
+    // pass below (which reads/writes raw pixel data directly)
+    captureCtx.filter = 'contrast(125%)';
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
+    captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
-      const file = new File([blob], 'capture.jpg', {type:'image/jpeg'});
-      loadImageFile(file);
-      closeCameraModal();
+      pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
+      // release the previous preview's blob URL (if any) before creating the
+      // new one, so retaking a shot repeatedly doesn't leak one per attempt
+      if(capturePreviewImg.dataset.blobUrl) URL.revokeObjectURL(capturePreviewImg.dataset.blobUrl);
+      const url = URL.createObjectURL(blob);
+      capturePreviewImg.src = url;
+      capturePreviewImg.dataset.blobUrl = url;
+      capturePreviewOverlay.classList.add('show');
     }, 'image/jpeg', 0.92);
+  });
+
+  btnCapturePreviewConfirm.addEventListener('click', ()=>{
+    capturePreviewOverlay.classList.remove('show');
+    if(pendingCaptureFile){
+      loadImageFile(pendingCaptureFile);
+      closeCameraModal();
+    }
+    pendingCaptureFile = null;
   });
 
   // ---------- automatic skin tone-up ----------
