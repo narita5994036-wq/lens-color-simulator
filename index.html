@@ -161,11 +161,14 @@
     position:relative; width:40px; height:22px; border:1px solid var(--black); cursor:pointer; flex-shrink:0;
   }
   .switch .knob{
-    position:absolute; top:1px; left:1px; width:18px; height:18px; background:var(--black); transition:transform .15s ease;
+    /* fills the track's full interior height (no vertical inset) so no
+       sliver of the track's own background shows above/below the knob as a
+       stray line; only the left/right inset remains, for the slide travel */
+    position:absolute; top:0; left:1px; width:18px; height:20px; background:var(--black); transition:transform .15s ease;
   }
   .switch.on .knob{transform:translateX(18px);}
   .switch.small{width:30px; height:17px;}
-  .switch.small .knob{width:13px; height:13px;}
+  .switch.small .knob{width:13px; height:15px;}
   .switch.small.on .knob{transform:translateX(13px);}
 
   .frame-name-block{
@@ -2600,23 +2603,27 @@
     container.innerHTML = '';
     list.forEach(item=>{
       const el = document.createElement('div');
-      const isSelected = currentColor === item.hex &&
-        (item.id ? (currentPreset ? currentPreset.id === item.id : false) : true);
+      const isSelected = item.noColor ? !currentColor : (currentColor === item.hex &&
+        (item.id ? (currentPreset ? currentPreset.id === item.id : false) : true));
       el.className = 'swatch' + (isSelected ? ' selected' : '');
-      const nameLabel = (typeof item.pct === 'number' && !resolveTwinInfo(item)) ? `${displayName(item)} ${item.pct}%` : displayName(item);
-      el.innerHTML = `<div class="circle" style="background:${swatchBackground(item)}">${opts.deletable ? '<div class="del">×</div>' : ''}</div><div class="name">${nameLabel}</div>`;
+      const nameLabel = item.noColor ? t('noColor') :
+        ((typeof item.pct === 'number' && !resolveTwinInfo(item)) ? `${displayName(item)} ${item.pct}%` : displayName(item));
+      const circleHtml = item.noColor ? '<div class="circle no-color-circle"></div>' :
+        `<div class="circle" style="background:${swatchBackground(item)}">${opts.deletable ? '<div class="del">×</div>' : ''}</div>`;
+      el.innerHTML = `${circleHtml}<div class="name">${nameLabel}</div>`;
       el.addEventListener('click', (e)=>{
         if(e.target.classList.contains('del')){
           opts.onDelete(item);
           return;
         }
+        if(item.noColor){ clearColor(); return; }
         applyColor(item);
       });
 
       // long-press any swatch to see its full (untruncated) name
       let tooltipTimer;
       const startTooltip = ()=>{
-        tooltipTimer = setTimeout(()=> showSwatchTooltip(el, displayName(item)), 380);
+        tooltipTimer = setTimeout(()=> showSwatchTooltip(el, item.noColor ? t('noColor') : displayName(item)), 380);
       };
       const cancelTooltip = ()=>{
         clearTimeout(tooltipTimer);
@@ -2665,6 +2672,12 @@
     currentDensitySteps = null;
     renderDensityTrack();
     updateColorBadge();
+    // "no colour" gets its own history entry too, so it can be picked again
+    // straight from "recently used" like any other colour
+    history = history.filter(h => !h.noColor);
+    history.unshift({noColor:true});
+    history = history.slice(0,5);
+    saveJSON(STORAGE_HISTORY, history);
     renderAll();
     draw();
     closeSidebar();
