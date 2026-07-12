@@ -554,6 +554,8 @@
 
   <div class="hint" id="dragHint" style="display:none;" data-i18n="dragHint">頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット</div>
 
+  <button class="stage-action-btn" id="btnShare" disabled style="margin-top:18px;" data-i18n="shareBtn">画像を共有</button>
+
 </div>
 
 <div class="drag-magnifier" id="dragMagnifier">
@@ -589,11 +591,6 @@
     <button class="stage-action-btn" id="btnAddFavorite" disabled data-i18n="addFavoriteBtn">現在のカラーをお気に入りに追加</button>
     <div class="swatch-row" id="favoritesRow" style="margin-top:14px;"></div>
     <div class="empty-note" id="favoritesEmptyNote" data-i18n="favoritesEmpty">まだお気に入りがありません</div>
-  </div>
-
-  <div class="sidebar-section">
-    <h3 data-i18n="sectionShare">シェア</h3>
-    <button class="stage-action-btn" id="btnShare" disabled data-i18n="shareBtn">画像を共有</button>
   </div>
 
   <div class="sidebar-section">
@@ -780,7 +777,6 @@
       shapeOval:"オーバル",
       shapeWellington:"ウェリントン",
       shapeBoston:"ボストン",
-      sectionShare:"シェア",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
       sharePreviewTitle:"この画像をシェア",
@@ -830,7 +826,6 @@
       shapeOval:"Oval",
       shapeWellington:"Wellington",
       shapeBoston:"Boston",
-      sectionShare:"Share",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
       sharePreviewTitle:"Share This Photo",
@@ -2319,8 +2314,36 @@
     return {x: (t0.clientX+t1.clientX)/2, y: (t0.clientY+t1.clientY)/2};
   }
 
+  // keeps panX/panY within whatever range still leaves the zoomed photo
+  // fully covering the stage — otherwise panning could drag it far enough
+  // to expose blank canvas beyond its edges
+  function clampPan(){
+    if(!img) return;
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const baseScale = Math.min(cw/imgNatW, ch/imgNatH);
+    const baseW = imgNatW*baseScale, baseH = imgNatH*baseScale;
+    const baseX = (cw-baseW)/2, baseY = (ch-baseH)/2;
+    const w = baseW*zoomLevel, h = baseH*zoomLevel;
+
+    if(w <= cw){
+      panX = 0;
+    } else {
+      const panXMax = (w-baseW)/2 - baseX;
+      const panXMin = cw - baseX - (w+baseW)/2;
+      panX = Math.min(panXMax, Math.max(panXMin, panX));
+    }
+    if(h <= ch){
+      panY = 0;
+    } else {
+      const panYMax = (h-baseH)/2 - baseY;
+      const panYMin = ch - baseY - (h+baseH)/2;
+      panY = Math.min(panYMax, Math.max(panYMin, panY));
+    }
+  }
+
   function applyPinchZoom(z){
     zoomLevel = Math.min(4, Math.max(1, z));
+    clampPan();
     zoomSlider.value = Math.round(zoomLevel*100);
     zoomValue.textContent = Math.round(zoomLevel*100) + '%';
     draw();
@@ -2381,6 +2404,7 @@
   // ---------- zoom ----------
   zoomSlider.addEventListener('input', ()=>{
     zoomLevel = zoomSlider.value/100;
+    clampPan();
     zoomValue.textContent = Math.round(zoomSlider.value) + '%';
     draw();
   });
