@@ -1384,11 +1384,11 @@
     captureCanvas.width = sw;
     captureCanvas.height = sh;
     const captureCtx = captureCanvas.getContext('2d');
-    // a punchier, more contrasty look (like a product-page photo) on top of
-    // the existing skin tone-up; applied via the canvas filter at draw time
-    // since it only needs to affect this one drawImage call, not the tone-up
-    // pass below (which reads/writes raw pixel data directly)
-    captureCtx.filter = 'contrast(145%)';
+    // a punchier, more contrasty and saturated look (like a product-page
+    // photo) on top of the existing skin tone-up; applied via the canvas
+    // filter at draw time since it only needs to affect this one drawImage
+    // call, not the tone-up pass below (which reads/writes raw pixel data directly)
+    captureCtx.filter = 'contrast(145%) saturate(110%)';
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
