@@ -1388,7 +1388,7 @@
     // the existing skin tone-up; applied via the canvas filter at draw time
     // since it only needs to affect this one drawImage call, not the tone-up
     // pass below (which reads/writes raw pixel data directly)
-    captureCtx.filter = 'contrast(125%)';
+    captureCtx.filter = 'contrast(145%)';
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
@@ -1461,9 +1461,11 @@
       const m = softMask[i];
       if(m <= 0.01) continue;
       const r=d[p], g=d[p+1], b=d[p+2];
-      const targetR = Math.min(255, r*1.05 + 14);
-      const targetG = Math.min(255, g*1.05 + 16);
-      const targetB = Math.min(255, b*1.05 + 20);
+      // boosted 20% further: the brightening multiplier's own delta above 1
+      // (0.05) and each additive offset (14/16/20) both scaled by 1.2
+      const targetR = Math.min(255, r*1.06 + 16.8);
+      const targetG = Math.min(255, g*1.06 + 19.2);
+      const targetB = Math.min(255, b*1.06 + 24);
       d[p]   = r + (targetR-r)*m;
       d[p+1] = g + (targetG-g)*m;
       d[p+2] = b + (targetB-b)*m;
@@ -3176,7 +3178,10 @@
     const titleLineHeight = borderBottom * 0.19;
     const specLineHeight = borderBottom * 0.17;
     const disclaimerLineHeight = borderBottom * 0.075;
-    let y = ph + borderBottom * 0.22;
+    // +5px nudges the title and (since they're positioned relative to it)
+    // both spec lines down together; the disclaimer gets 1px more on top of
+    // that shared shift, landing 6px down overall
+    let y = ph + borderBottom * 0.22 + 5;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
@@ -3209,7 +3214,7 @@
     // the disclaimer always sits at the same fixed position — as if both the
     // lens color and density spec lines were present — so it doesn't jump up
     // when no lens color has been picked yet
-    y = ph + borderBottom*0.22 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
+    y = ph + borderBottom*0.22 + 6 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
