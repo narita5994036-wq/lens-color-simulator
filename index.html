@@ -3115,13 +3115,26 @@
 
   function generateChekiCanvas(){
     const pw = imgNatW, ph = imgNatH;
+    // the photo area is always fit to the same 4:5 ratio as the live editing
+    // stage, regardless of the source photo's own aspect ratio — camera
+    // captures are already cropped to exactly 4:5 so this is a no-op for
+    // them, but a library-uploaded photo of any other ratio now letterboxes
+    // here the same way it already does on the stage, instead of using its
+    // raw dimensions. Without this, every export's overall height and the
+    // caption's start position shifted around depending on whatever ratio
+    // the source photo happened to be, so two shares side by side (one from
+    // the camera, one from a library photo) never lined up.
+    const cw = pw;
+    const photoAreaH = Math.round(cw * 5/4);
+    const photoScale = Math.min(cw/pw, photoAreaH/ph);
+    const drawW = pw*photoScale, drawH = ph*photoScale;
+    const photoX = (cw-drawW)/2, photoY = (photoAreaH-drawH)/2;
     // the photo runs edge-to-edge (no side/top border), matching the stage's
     // own full-bleed display; textPadding just keeps caption text off the
     // very edges without adding any visible border around the photo
     const textPadding = Math.round(pw * 0.045);
     const borderBottom = Math.round(pw * 0.35);
-    const cw = pw;
-    const chh = ph + borderBottom;
+    const chh = photoAreaH + borderBottom;
 
     const c = document.createElement('canvas');
     c.width = cw;
@@ -3130,10 +3143,14 @@
 
     cctx.fillStyle = '#ffffff';
     cctx.fillRect(0, 0, cw, chh);
-    cctx.drawImage(img, 0, 0, pw, ph);
+    // matches the stage's own background, so any letterbox bars around a
+    // non-4:5 photo look the same as they do during editing
+    cctx.fillStyle = '#ececec';
+    cctx.fillRect(0, 0, cw, photoAreaH);
+    cctx.drawImage(img, photoX, photoY, drawW, drawH);
 
     if(currentColor){
-      drawTint(cctx, {x:0, y:0, w:pw, h:ph});
+      drawTint(cctx, {x:photoX, y:photoY, w:drawW, h:drawH});
     }
 
     cctx.textAlign = 'center';
@@ -3180,7 +3197,7 @@
     const disclaimerLineHeight = borderBottom * 0.075;
     // +5px nudges the title and (since they're positioned relative to it)
     // both spec lines down together
-    let y = ph + borderBottom * 0.22 + 5;
+    let y = photoAreaH + borderBottom * 0.22 + 5;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
@@ -3213,7 +3230,7 @@
     // the disclaimer always sits at the same fixed position — as if both the
     // lens color and density spec lines were present — so it doesn't jump up
     // when no lens color has been picked yet
-    y = ph + borderBottom*0.22 + 6 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
+    y = photoAreaH + borderBottom*0.22 + 6 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
