@@ -245,6 +245,10 @@
     border:1px solid rgba(17,17,17,0.15); border-radius:4px;
     display:flex; align-items:center; justify-content:center;
     color:var(--black); cursor:pointer; padding:0; font-size:11px;
+    /* holding one of these down repeats the nudge; without these, a long
+       press is instead read as a text-selection gesture (the glyph inside
+       gets "selected" and iOS pops up its copy/paste callout) */
+    touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
   }
   .nudge-btn:active{background:rgba(17,17,17,0.12);}
   .nudge-up{grid-column:2; grid-row:1;}
@@ -2321,7 +2325,6 @@
 
   function nudgeSelectedVertices(dx, dy){
     if(!selectedVertex || !lenses) return;
-    pushUndoSnapshot();
     const r = getFitRect();
     const fdx = dx / r.w, fdy = dy / r.h;
     const p = lenses[selectedVertex.side].points[selectedVertex.index];
@@ -2330,10 +2333,35 @@
     draw();
   }
 
+  const NUDGE_REPEAT_DELAY = 400; // ms held before repeating kicks in
+  const NUDGE_REPEAT_INTERVAL = 80; // ms between repeats while held
+
   document.querySelectorAll('.nudge-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      nudgeSelectedVertices(parseFloat(btn.dataset.dx), parseFloat(btn.dataset.dy));
+    const dx = parseFloat(btn.dataset.dx), dy = parseFloat(btn.dataset.dy);
+    let repeatTimer = null, repeatInterval = null;
+    const stopRepeat = ()=>{
+      clearTimeout(repeatTimer);
+      clearInterval(repeatInterval);
+      repeatTimer = null;
+      repeatInterval = null;
+    };
+    btn.addEventListener('pointerdown', (evt)=>{
+      // suppresses the browser's own long-press text-selection/callout
+      // gesture, which would otherwise fire during a held-down repeat
+      evt.preventDefault();
+      if(!selectedVertex || !lenses) return;
+      // one snapshot covers the whole press (single tap or held repeat),
+      // the same way a single undo covers an entire drag gesture
+      pushUndoSnapshot();
+      nudgeSelectedVertices(dx, dy);
+      stopRepeat();
+      repeatTimer = setTimeout(()=>{
+        repeatInterval = setInterval(()=> nudgeSelectedVertices(dx, dy), NUDGE_REPEAT_INTERVAL);
+      }, NUDGE_REPEAT_DELAY);
     });
+    btn.addEventListener('pointerup', stopRepeat);
+    btn.addEventListener('pointerleave', stopRepeat);
+    btn.addEventListener('pointercancel', stopRepeat);
   });
 
   function onPointerMove(evt){
