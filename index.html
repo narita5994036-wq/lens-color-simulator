@@ -395,6 +395,14 @@
   }
   .camera-btn.flip svg{width:20px; height:20px;}
   .camera-btn.flip:active{background:rgba(255,255,255,0.28);}
+  .camera-btn.blur-toggle{
+    position:absolute; top:16px; right:16px; z-index:6;
+    width:36px; height:36px; border-radius:50%; background:rgba(17,17,17,0.55);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:#fff;
+    transition:background .15s ease, color .15s ease;
+  }
+  .camera-btn.blur-toggle svg{width:18px; height:18px;}
+  .camera-btn.blur-toggle.active{background:rgba(66,232,224,0.9); color:#111;}
 
   /* ---- opacity ---- */
   .opacity-row{
@@ -687,6 +695,9 @@
       <line class="guide-tick" x1="294" y1="294.6" x2="294" y2="306.6" />
       <ellipse class="guide-oval" cx="150" cy="178" rx="87.4" ry="122.6" />
     </svg>
+    <button class="camera-btn blur-toggle active" id="btnCameraBlurToggle" aria-label="toggle background blur" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
   </div>
   <div class="camera-guide-label" data-i18n="cameraGuideLabel">枠に顔とフレームを合わせてください</div>
   <div class="camera-controls">
@@ -759,6 +770,11 @@
   </div>
 </div>
 
+<!-- powers the experimental background-blur camera feature below; loaded
+     from a CDN since the model itself is far too large to inline. If this
+     fails to load (offline, blocked), the capture flow below detects that
+     and simply skips the blur rather than failing the whole capture -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1017,11 +1033,13 @@
   const btnCameraShutter = document.getElementById('btnCameraShutter');
   const btnCameraCancel = document.getElementById('btnCameraCancel');
   const btnCameraFlip = document.getElementById('btnCameraFlip');
+  const btnCameraBlurToggle = document.getElementById('btnCameraBlurToggle');
   const cameraFrame = document.getElementById('cameraFrame');
   const cameraZoomBadge = document.getElementById('cameraZoomBadge');
   let cameraStream = null;
   let cameraFacingMode = 'environment';
   let cameraZoom = 1;
+  let cameraBlurEnabled = true;
   let pendingCaptureFile = null; // set after a shutter capture, until confirmed (or retaken) in the preview overlay
   const CAMERA_ZOOM_MAX = 4;
   const libLink = document.getElementById('libLink');
@@ -1370,6 +1388,12 @@
     }
   });
 
+  btnCameraBlurToggle.addEventListener('click', ()=>{
+    cameraBlurEnabled = !cameraBlurEnabled;
+    btnCameraBlurToggle.classList.toggle('active', cameraBlurEnabled);
+    btnCameraBlurToggle.setAttribute('aria-pressed', String(cameraBlurEnabled));
+  });
+
   // pinch-to-zoom on the live camera preview (digital zoom via CSS transform,
   // matching what the shutter capture crops out below)
   let cameraPinchData = null; // {dist0, zoomStart} while a 2-finger pinch is active
@@ -1394,7 +1418,7 @@
     if(evt.touches.length < 2) cameraPinchData = null;
   });
 
-  btnCameraShutter.addEventListener('click', ()=>{
+  btnCameraShutter.addEventListener('click', async ()=>{
     const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
     if(!w || !h) return;
     // crop to the same 390:499 (width:height) frame shown on screen behind
@@ -1447,6 +1471,7 @@
     captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
     applyChinSlim(captureCtx, sw, sh, 0.02);
+    if(cameraBlurEnabled) await applyBackgroundBlur(captureCtx, sw, sh);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
       pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
@@ -1574,6 +1599,62 @@
       }
     }
     ctx.putImageData(region, x0, y0);
+  }
+
+  // ---------- pseudo depth-of-field background blur ----------
+  // MediaPipe's Selfie Segmentation runs entirely client-side (no server
+  // round trip); if its script failed to load (offline, blocked by the
+  // network), window.SelfieSegmentation is simply undefined and the capture
+  // flow skips the blur instead of failing
+  let selfieSegmentation = null;
+  function getSelfieSegmentation(){
+    if(!selfieSegmentation && window.SelfieSegmentation){
+      selfieSegmentation = new SelfieSegmentation({
+        locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+      });
+      selfieSegmentation.setOptions({modelSelection: 0});
+    }
+    return selfieSegmentation;
+  }
+  // results are delivered through a single shared onResults callback, so
+  // only one segmentation request can be in flight at a time — fine here
+  // since it's only ever called once per shutter press
+  function getPersonMask(source){
+    const seg = getSelfieSegmentation();
+    if(!seg) return Promise.resolve(null);
+    return new Promise(resolve=>{
+      seg.onResults(results => resolve(results.segmentationMask));
+      seg.send({image: source}).catch(()=> resolve(null));
+    });
+  }
+  // blurs everything the segmentation model doesn't consider part of the
+  // person, feathered by the mask's own (already anti-aliased) edge rather
+  // than a hard cutout, approximating an optical depth-of-field effect
+  async function applyBackgroundBlur(ctx, w, h){
+    if(!w || !h) return;
+    let mask;
+    try{ mask = await getPersonMask(ctx.canvas); }catch(e){ mask = null; }
+    if(!mask) return;
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = w; maskCanvas.height = h;
+    const maskCtx = maskCanvas.getContext('2d');
+    maskCtx.drawImage(mask, 0, 0, w, h);
+    const maskData = maskCtx.getImageData(0, 0, w, h).data;
+    const blurCanvas = document.createElement('canvas');
+    blurCanvas.width = w; blurCanvas.height = h;
+    const blurCtx = blurCanvas.getContext('2d');
+    blurCtx.filter = `blur(${Math.round(Math.min(w, h) * 0.025)}px)`;
+    blurCtx.drawImage(ctx.canvas, 0, 0, w, h);
+    const sharp = ctx.getImageData(0, 0, w, h);
+    const blurred = blurCtx.getImageData(0, 0, w, h);
+    const sd = sharp.data, bd = blurred.data;
+    for(let i=0, p=0; i<w*h; i++, p+=4){
+      const m = maskData[p] / 255;
+      sd[p]   = sd[p]  *m + bd[p]  *(1-m);
+      sd[p+1] = sd[p+1]*m + bd[p+1]*(1-m);
+      sd[p+2] = sd[p+2]*m + bd[p+2]*(1-m);
+    }
+    ctx.putImageData(sharp, 0, 0);
   }
 
   function resetImage(){
