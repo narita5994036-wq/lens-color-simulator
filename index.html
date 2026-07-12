@@ -163,13 +163,17 @@
   .switch .knob{
     /* fills the track's full interior height (no vertical inset) so no
        sliver of the track's own background shows above/below the knob as a
-       stray line; only the left/right inset remains, for the slide travel */
-    position:absolute; top:0; left:1px; width:18px; height:20px; background:var(--black); transition:transform .15s ease;
+       stray line; only the left/right inset remains, for the slide travel.
+       animates via "left" rather than a transform: a transformed element
+       gets promoted to its own compositing layer, which on WebKit can seam
+       against this switch's blurred (backdrop-filter) parent and show up as
+       a stray hairline through the knob */
+    position:absolute; top:0; left:1px; width:18px; height:20px; background:var(--black); transition:left .15s ease;
   }
-  .switch.on .knob{transform:translateX(18px);}
+  .switch.on .knob{left:19px;}
   .switch.small{width:30px; height:17px;}
   .switch.small .knob{width:13px; height:15px;}
-  .switch.small.on .knob{transform:translateX(13px);}
+  .switch.small.on .knob{left:14px;}
 
   .frame-name-block{
     margin-top:24px; position:relative; text-align:center;
