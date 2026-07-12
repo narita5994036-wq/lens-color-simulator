@@ -1381,6 +1381,12 @@
       sx += (sw-zsw)/2; sy += (sh-zsh)/2;
       sw = zsw; sh = zsh;
     }
+    // clamp so the source rect can never extend past the actual video frame
+    // (some devices report videoWidth/videoHeight slightly inconsistent with
+    // the frame actually available at capture time) — sampling outside it
+    // draws as solid black, which showed up as a stray margin along one edge
+    sx = Math.max(0, Math.min(sx, w - sw));
+    sy = Math.max(0, Math.min(sy, h - sh));
     captureCanvas.width = sw;
     captureCanvas.height = sh;
     const captureCtx = captureCanvas.getContext('2d');
