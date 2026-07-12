@@ -2485,7 +2485,7 @@
       draw(); // otherwise the canvas is left showing the mid-drag (enlarged) frame
     }
 
-    if(swipeCandidate && evt){
+    if(swipeCandidate && evt && zoomLevel <= 1.001){
       const pos = getPos(evt);
       const dx = pos.x - swipeCandidate.x;
       const dy = pos.y - swipeCandidate.y;
