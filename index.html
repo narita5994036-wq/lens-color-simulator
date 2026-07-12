@@ -941,7 +941,7 @@
   let gradientBottomPct = null; // adjustable bottom-of-gradient density (percent), only used for non-twin gradient presets
   let showHandles = true;   // whether the editable outline/vertex points are drawn
   let activeSide = 'left';  // which lens is in edit mode (shows points/outline); the other shows a passive grey outline only
-  let selectedVertices = null; // {side, indices:[i] or [i,j]} — tapped point(s) queued for a group drag; only adjacent pairs can combine
+  let selectedVertex = null; // {side, index} — the single tapped point, shown highlighted for the nudge d-pad
 
   function pointsVisible(){
     // points are shown only when the on-screen toggle is both switched on
@@ -953,7 +953,7 @@
   let swipeCandidate = null; // {x,y,time} recorded when a background (non-hit) drag starts, used to detect a Before/After swipe
   let editingPresetId = null;
 
-  let dragTarget = null;    // {side:'left'|'right', mode:'move'|'vertex'|'vertices'|'scale', index?, indices?}
+  let dragTarget = null;    // {side:'left'|'right', mode:'move'|'vertex'|'scale'|'rotate', index?, corner?}
   let vertexPressStart = null; // {x,y} pointer-down position, used to tell a tap (select) apart from a drag
   let pressedVertexIndex = null; // which vertex index was pressed down on, for tap-to-select
   let dragOffset = {x:0,y:0};
@@ -1145,7 +1145,7 @@
         imgNatH = image.naturalHeight;
         lenses = defaultLensRegions();
         activeSide = 'left';
-        selectedVertices = null;
+        selectedVertex = null;
         undoStack = [];
         activeStockSlot = (typeof targetSlot === 'number') ? targetSlot : -1;
         currentColor = null;
@@ -1240,7 +1240,7 @@
       left:  buildShapePolygon(shapeKey, lensBoundingBox(lenses.left.points)),
       right: buildShapePolygon(shapeKey, lensBoundingBox(lenses.right.points))
     };
-    selectedVertices = null;
+    selectedVertex = null;
     scaleMode = false;
     updateHintText();
     closeSidebar();
@@ -1573,7 +1573,7 @@
       imgNatH = snap.imgNatH;
       lenses = JSON.parse(JSON.stringify(snap.lenses));
       activeSide = 'left';
-      selectedVertices = null;
+      selectedVertex = null;
       undoStack = [];
       scaleMode = false;
       zoomLevel = snap.zoomLevel; panX = snap.panX; panY = snap.panY;
@@ -1704,7 +1704,7 @@
     pushUndoSnapshot();
     lenses = defaultLensRegions();
     activeSide = 'left';
-    selectedVertices = null;
+    selectedVertex = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1781,7 +1781,7 @@
     const updated = {left: lenses.left, right: lenses.right};
     updated[targetSide] = {points: newTargetPoints};
     lenses = updated;
-    selectedVertices = null;
+    selectedVertex = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -1794,7 +1794,7 @@
     updated[side] = defaultLensRegions()[side];
     lenses = updated;
     activeSide = side;
-    selectedVertices = null;
+    selectedVertex = null;
     scaleMode = false;
     updateHintText();
     draw();
@@ -2044,10 +2044,9 @@
       } else {
         pts.forEach((p,i)=>{
           const isDragging = dragTarget && dragTarget.side === side &&
-            ((dragTarget.mode === 'vertex' && dragTarget.index === i) ||
-             (dragTarget.mode === 'vertices' && dragTarget.indices.includes(i)));
-          const isSelected = selectedVertices && selectedVertices.side === side &&
-            selectedVertices.indices.includes(i);
+            dragTarget.mode === 'vertex' && dragTarget.index === i;
+          const isSelected = selectedVertex && selectedVertex.side === side &&
+            selectedVertex.index === i;
           const radius = isDragging ? 7 : 4.5;
           // white outline around each point keeps it visible against dark lens frames
           ctx.beginPath();
@@ -2230,7 +2229,7 @@
       clearTimeout(longPressTimer);
       lastTap = {time:0, x:0, y:0, side:null, count:0};
       activeSide = tappedSide;
-      selectedVertices = null;
+      selectedVertex = null;
       scaleMode = !scaleMode;
       updateHintText();
       draw();
@@ -2253,7 +2252,7 @@
       // tapping the other lens switches which one is in edit mode; the same
       // touch continues below so it can also start a drag immediately
       activeSide = tappedSide;
-      selectedVertices = null;
+      selectedVertex = null;
       draw();
     }
 
@@ -2279,9 +2278,9 @@
     }
 
     const hit = hitTest(pos, r);
-    if(selectedVertices && (!hit || hit.mode !== 'vertex')){
+    if(selectedVertex && (!hit || hit.mode !== 'vertex')){
       // tapping anywhere other than a point clears the pending point selection
-      selectedVertices = null;
+      selectedVertex = null;
       draw();
     }
     if(hit){
@@ -2289,13 +2288,8 @@
       if(hit.mode === 'vertex'){
         pressedVertexIndex = hit.index;
         vertexPressStart = {x: pos.x, y: pos.y};
-        const isGroupDrag = selectedVertices && selectedVertices.side === hit.side &&
-          selectedVertices.indices.length === 2 && selectedVertices.indices.includes(hit.index);
-        dragTarget = isGroupDrag ?
-          {side: hit.side, mode:'vertices', indices: selectedVertices.indices.slice()} : hit;
-      } else {
-        dragTarget = hit;
       }
+      dragTarget = hit;
       dragOffset.x = pos.x;
       dragOffset.y = pos.y;
       evt.preventDefault();
@@ -2307,26 +2301,13 @@
     }
   }
 
-  // toggles a tapped vertex in/out of the pending selection; only two
-  // adjacent points (by polygon index) can be combined into a group-drag pair
+  // toggles a tapped vertex as the single selected point (for the nudge d-pad)
   function toggleVertexSelection(side, index){
     if(!lenses) return;
-    if(!selectedVertices || selectedVertices.side !== side){
-      selectedVertices = {side, indices: [index]};
-      draw();
-      return;
-    }
-    const indices = selectedVertices.indices;
-    if(indices.includes(index)){
-      const remaining = indices.filter(i => i !== index);
-      selectedVertices = remaining.length ? {side, indices: remaining} : null;
-    } else if(indices.length === 1){
-      const n = lenses[side].points.length;
-      const diff = Math.abs(indices[0] - index);
-      const isAdjacent = diff === 1 || diff === n-1;
-      selectedVertices = isAdjacent ? {side, indices: [indices[0], index]} : {side, indices: [index]};
+    if(selectedVertex && selectedVertex.side === side && selectedVertex.index === index){
+      selectedVertex = null;
     } else {
-      selectedVertices = {side, indices: [index]};
+      selectedVertex = {side, index};
     }
     draw();
   }
@@ -2334,21 +2315,18 @@
   function updateNudgePad(){
     // the nudge d-pad is only meaningful for a selected point in the normal
     // (non-scale) editing mode, matching where vertex selection itself applies
-    const show = !!(selectedVertices && lenses && !scaleMode && pointsVisible());
+    const show = !!(selectedVertex && lenses && !scaleMode && pointsVisible());
     vertexNudgePad.classList.toggle('show', show);
   }
 
   function nudgeSelectedVertices(dx, dy){
-    if(!selectedVertices || !lenses) return;
+    if(!selectedVertex || !lenses) return;
     pushUndoSnapshot();
     const r = getFitRect();
     const fdx = dx / r.w, fdy = dy / r.h;
-    const l = lenses[selectedVertices.side];
-    selectedVertices.indices.forEach(idx=>{
-      const p = l.points[idx];
-      p.x = Math.min(1, Math.max(0, p.x + fdx));
-      p.y = Math.min(1, Math.max(0, p.y + fdy));
-    });
+    const p = lenses[selectedVertex.side].points[selectedVertex.index];
+    p.x = Math.min(1, Math.max(0, p.x + fdx));
+    p.y = Math.min(1, Math.max(0, p.y + fdy));
     draw();
   }
 
@@ -2375,16 +2353,6 @@
       const p = l.points[dragTarget.index];
       p.x = Math.min(1, Math.max(0, (pos.x - r.x)/r.w));
       p.y = Math.min(1, Math.max(0, (pos.y - r.y)/r.h));
-    } else if(dragTarget.mode === 'vertices'){
-      const dx = (pos.x - dragOffset.x)/r.w;
-      const dy = (pos.y - dragOffset.y)/r.h;
-      dragTarget.indices.forEach(idx=>{
-        const p = l.points[idx];
-        p.x = Math.min(1, Math.max(0, p.x + dx));
-        p.y = Math.min(1, Math.max(0, p.y + dy));
-      });
-      dragOffset.x = pos.x;
-      dragOffset.y = pos.y;
     } else if(dragTarget.mode === 'scale'){
       const data = scaleDragData;
       const relPos = {x:(pos.x-r.x)/r.w, y:(pos.y-r.y)/r.h};
@@ -2423,7 +2391,7 @@
       dragOffset.y = pos.y;
     }
     draw();
-    if(dragTarget.mode === 'vertex' || dragTarget.mode === 'vertices'){
+    if(dragTarget.mode === 'vertex'){
       updateMagnifier(pos);
     } else {
       hideMagnifier();
@@ -2462,7 +2430,7 @@
     longPressTimer = null;
 
     let tapToggle = null;
-    if(dragTarget && (dragTarget.mode === 'vertex' || dragTarget.mode === 'vertices') && vertexPressStart && evt){
+    if(dragTarget && dragTarget.mode === 'vertex' && vertexPressStart && evt){
       const pos = getPos(evt);
       const travel = Math.hypot(pos.x - vertexPressStart.x, pos.y - vertexPressStart.y);
       if(travel < TAP_MOVE_PX && pressedVertexIndex !== null){
