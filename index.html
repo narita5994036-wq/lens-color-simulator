@@ -1435,11 +1435,14 @@
     // solid black margin
     captureCtx.fillStyle = '#ffffff';
     captureCtx.fillRect(0, 0, sw, sh);
-    // a punchier, more contrasty and saturated look (like a product-page
-    // photo) on top of the existing skin tone-up; applied via the canvas
+    // a gentle, natural-looking enhancement (like a phone camera's own auto
+    // processing) on top of the skin tone-up below; applied via the canvas
     // filter at draw time since it only needs to affect this one drawImage
-    // call, not the tone-up pass below (which reads/writes raw pixel data directly)
-    captureCtx.filter = 'contrast(145%) saturate(110%)';
+    // call, not the tone-up pass below (which reads/writes raw pixel data
+    // directly). Much lighter than earlier attempts (contrast 145%/saturate
+    // 110%), which crushed shadows and oversaturated skin into an unnatural,
+    // almost sunburnt look.
+    captureCtx.filter = 'contrast(112%) saturate(106%)';
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCtx.filter = 'none';
     applySkinToneUp(captureCtx, sw, sh);
@@ -1512,11 +1515,13 @@
       const m = softMask[i];
       if(m <= 0.01) continue;
       const r=d[p], g=d[p+1], b=d[p+2];
-      // boosted 20% further: the brightening multiplier's own delta above 1
-      // (0.05) and each additive offset (14/16/20) both scaled by 1.2
-      const targetR = Math.min(255, r*1.06 + 16.8);
-      const targetG = Math.min(255, g*1.06 + 19.2);
-      const targetB = Math.min(255, b*1.06 + 24);
+      // warms skin slightly (red gets the biggest lift, blue almost none)
+      // rather than the old formula's cool/blue-leaning shift, which was
+      // reported as making skin look pale and unhealthy; also considerably
+      // softer overall so it reads as a natural glow, not a color cast
+      const targetR = Math.min(255, r*1.03 + 8);
+      const targetG = Math.min(255, g*1.02 + 5);
+      const targetB = Math.min(255, b*1.00 + 1);
       d[p]   = r + (targetR-r)*m;
       d[p+1] = g + (targetG-g)*m;
       d[p+2] = b + (targetB-b)*m;
