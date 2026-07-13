@@ -118,9 +118,13 @@
        it (e.g. dragging a point); horizontal gestures (swipe, pinch, the
        two-finger pan below) are still handled entirely by our own JS */
     touch-action:pan-y;
+    /* without these, a long-press on the photo is read as an image/text
+       selection gesture and iOS pops up its copy/save-image callout */
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
   }
   #canvas{
     width:100%; height:100%; display:block; touch-action:pan-y;
+    -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
   }
   .empty-state{
     position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -403,6 +407,13 @@
   }
   .camera-btn.blur-toggle svg{width:18px; height:18px;}
   .camera-btn.blur-toggle.active{background:rgba(66,232,224,0.9); color:#111;}
+  .blur-toggle-badge{
+    position:absolute; top:56px; right:16px;
+    background:rgba(17,17,17,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    color:#fff; font-size:11px; letter-spacing:0.02em; padding:5px 10px; border-radius:20px;
+    opacity:0; transition:opacity .2s ease; pointer-events:none; z-index:6; white-space:nowrap;
+  }
+  .blur-toggle-badge.show{opacity:1;}
 
   /* ---- opacity ---- */
   .opacity-row{
@@ -698,6 +709,7 @@
     <button class="camera-btn blur-toggle active" id="btnCameraBlurToggle" aria-label="toggle background blur" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
+    <div class="blur-toggle-badge" id="blurToggleBadge"></div>
   </div>
   <div class="camera-guide-label" data-i18n="cameraGuideLabel">枠に顔とフレームを合わせてください</div>
   <div class="camera-controls">
@@ -849,6 +861,8 @@
       emptyState:"タップして撮影してください",
       chooseFromLibrary:"写真から選択",
       cameraGuideLabel:"枠に顔とフレームを合わせてください",
+      blurToggleOn:"背景ぼかし: ON",
+      blurToggleOff:"背景ぼかし: OFF",
       dragHint:"頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット",
       scaleModeHint:"ガイドボックス内をドラッグで移動、四隅の点で拡大・縮小、上のアンテナ点で回転できます（もう一度ダブルタップで解除）",
       handlesLabel:"操作点",
@@ -903,6 +917,8 @@
       emptyState:"Tap to take a photo",
       chooseFromLibrary:"Choose from library",
       cameraGuideLabel:"Align the face and frame within the guide",
+      blurToggleOn:"Background blur: ON",
+      blurToggleOff:"Background blur: OFF",
       dragHint:"Drag a point to reshape, drag inside to move, double-tap to toggle scale mode for both lenses. Swipe the background left/right to cycle your last 5 colours, triple-tap the background to reset zoom",
       scaleModeHint:"Drag inside the guide box to move, drag a corner dot to scale, and the antenna dot above to rotate (double-tap again to exit)",
       handlesLabel:"Points",
@@ -1048,6 +1064,7 @@
   const btnCameraCancel = document.getElementById('btnCameraCancel');
   const btnCameraFlip = document.getElementById('btnCameraFlip');
   const btnCameraBlurToggle = document.getElementById('btnCameraBlurToggle');
+  const blurToggleBadge = document.getElementById('blurToggleBadge');
   const cameraFrame = document.getElementById('cameraFrame');
   const cameraZoomBadge = document.getElementById('cameraZoomBadge');
   let cameraStream = null;
@@ -1375,12 +1392,23 @@
     }
   }
 
+  let blurToggleBadgeTimer = null;
+  function showBlurToggleBadge(duration){
+    blurToggleBadge.textContent = t(cameraBlurEnabled ? 'blurToggleOn' : 'blurToggleOff');
+    blurToggleBadge.classList.add('show');
+    clearTimeout(blurToggleBadgeTimer);
+    blurToggleBadgeTimer = setTimeout(()=>{ blurToggleBadge.classList.remove('show'); }, duration || 1200);
+  }
+
   async function openCameraModal(){
     try{
       cameraFacingMode = 'environment';
       await startCameraStream(cameraFacingMode);
       setCameraZoom(1, false);
       cameraModal.classList.add('show');
+      // briefly explain the blur toggle's icon/state the first time the
+      // viewfinder appears, since it otherwise has no visible label
+      showBlurToggleBadge(1800);
     }catch(err){
       console.error('Camera error:', err);
       // fall back to the native camera capture if getUserMedia isn't available
@@ -1418,6 +1446,7 @@
     cameraBlurEnabled = !cameraBlurEnabled;
     btnCameraBlurToggle.classList.toggle('active', cameraBlurEnabled);
     btnCameraBlurToggle.setAttribute('aria-pressed', String(cameraBlurEnabled));
+    showBlurToggleBadge();
   });
 
   // pinch-to-zoom on the live camera preview (digital zoom via CSS transform,
