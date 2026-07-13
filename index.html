@@ -533,6 +533,11 @@
   .reset-tab-thumb.selected{border:2px solid var(--black);}
   .share-preview-img{width:100%; display:block; border:1px solid var(--gray-line);}
   .capture-preview-wrap{position:relative;}
+  .blur-unavailable-note{
+    display:none; margin-top:10px; padding:8px 10px; font-size:11px; line-height:1.5;
+    color:#9a5a00; background:#fff6e6; border:1px solid #f0d8a8;
+  }
+  .blur-unavailable-note.show{display:block;}
   #maskOverlayCanvas{
     position:absolute; inset:0; width:100%; height:100%;
     pointer-events:none; display:none;
@@ -799,6 +804,7 @@
       <input type="range" id="blurStrengthSlider" min="0" max="100" value="50">
       <span class="value" id="blurStrengthValue">50%</span>
     </div>
+    <div class="blur-unavailable-note" id="blurUnavailableNote" data-i18n="blurUnavailableNote">背景ぼかしを利用できませんでした（通信環境をご確認のうえ、もう一度撮影してみてください）</div>
     <div class="field toggle-field" style="margin-top:14px; margin-bottom:0;">
       <label data-i18n="showMaskOverlayLabel">ぼかし範囲を表示</label>
       <div class="switch" id="maskOverlayToggle"><div class="knob"></div></div>
@@ -904,6 +910,7 @@
       smoothLabel:"なめらかさ",
       blurStrengthLabel:"ぼかしの強さ",
       showMaskOverlayLabel:"ぼかし範囲を表示",
+      blurUnavailableNote:"背景ぼかしを利用できませんでした（通信環境をご確認のうえ、もう一度撮影してみてください）",
       useCaptureBtn:"この写真を使用",
       retakeBtn:"撮り直す",
       sectionColors:"カラープリセット",
@@ -962,6 +969,7 @@
       smoothLabel:"Smoothing",
       blurStrengthLabel:"Blur strength",
       showMaskOverlayLabel:"Show blur range",
+      blurUnavailableNote:"Background blur wasn't available (check your connection and try taking the photo again)",
       useCaptureBtn:"Use This Photo",
       retakeBtn:"Retake",
       sectionColors:"Colour Presets",
@@ -1111,6 +1119,7 @@
   const blurStrengthValue = document.getElementById('blurStrengthValue');
   const maskOverlayToggle = document.getElementById('maskOverlayToggle');
   const maskOverlayCanvas = document.getElementById('maskOverlayCanvas');
+  const blurUnavailableNote = document.getElementById('blurUnavailableNote');
   let showMaskOverlay = false;
   // pristine (enhanced-but-unprocessed) frame plus its dimensions and a
   // cached person-segmentation mask, kept around so the tone-up/smoothing
@@ -1560,6 +1569,10 @@
     // result cached — retuning the sliders afterwards only replays the
     // cheap tone-up/smoothing/compositing math, not the ML inference
     captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, sw, sh) : null;
+    // lets someone who had the toggle on but got no blur (a failed/slow
+    // segmentation load) know why, instead of just seeing the slider
+    // appear to do nothing
+    blurUnavailableNote.classList.toggle('show', cameraBlurEnabled && !captureMaskData);
     toneUpSlider.value = 50;
     smoothSlider.value = 50;
     blurStrengthSlider.value = 50;
@@ -1811,14 +1824,32 @@
   // afterwards without rerunning the segmentation model each time
   async function getPersonMaskData(source, w, h){
     const seg = getSelfieSegmentation();
-    if(!seg) return null;
+    if(!seg){
+      console.warn('Background blur skipped: SelfieSegmentation script did not load (offline or blocked by the network).');
+      return null;
+    }
     let mask;
     try{
-      mask = await new Promise(resolve=>{
-        seg.onResults(results => resolve(results.segmentationMask));
-        seg.send({image: source}).catch(()=> resolve(null));
-      });
-    }catch(e){ mask = null; }
+      mask = await Promise.race([
+        new Promise(resolve=>{
+          seg.onResults(results => resolve(results.segmentationMask));
+          seg.send({image: source}).catch(err => {
+            console.warn('Background blur skipped: segmentation request failed.', err);
+            resolve(null);
+          });
+        }),
+        // guards against the model hanging (e.g. a stalled first-time model
+        // download on a slow connection) instead of blocking the capture
+        // indefinitely
+        new Promise(resolve=> setTimeout(()=>{
+          console.warn('Background blur skipped: segmentation timed out.');
+          resolve(null);
+        }, 4000)),
+      ]);
+    }catch(e){
+      console.warn('Background blur skipped: unexpected error.', e);
+      mask = null;
+    }
     if(!mask) return null;
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = w; maskCanvas.height = h;
