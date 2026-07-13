@@ -765,13 +765,13 @@
     <img id="capturePreviewImg" class="share-preview-img" alt="">
     <div class="opacity-row" style="margin-top:18px;">
       <span class="label" data-i18n="toneUpLabel">トーンアップ</span>
-      <input type="range" id="toneUpSlider" min="0" max="100" value="100">
-      <span class="value" id="toneUpValue">100%</span>
+      <input type="range" id="toneUpSlider" min="0" max="100" value="50">
+      <span class="value" id="toneUpValue">50%</span>
     </div>
     <div class="opacity-row" style="margin-top:10px;">
       <span class="label" data-i18n="smoothLabel">なめらかさ</span>
-      <input type="range" id="smoothSlider" min="0" max="100" value="100">
-      <span class="value" id="smoothValue">100%</span>
+      <input type="range" id="smoothSlider" min="0" max="100" value="50">
+      <span class="value" id="smoothValue">50%</span>
     </div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnCapturePreviewConfirm" data-i18n="useCaptureBtn">この写真を使用</button>
@@ -1076,7 +1076,6 @@
   let captureBaseImageData = null;
   let captureW = 0, captureH = 0;
   let captureMaskData = null;
-  let captureRenderScheduled = false;
   const btnAddFavorite = document.getElementById('btnAddFavorite');
   const favoritesRow = document.getElementById('favoritesRow');
   const favoritesEmptyNote = document.getElementById('favoritesEmptyNote');
@@ -1505,10 +1504,10 @@
     // result cached — retuning the sliders afterwards only replays the
     // cheap tone-up/smoothing/compositing math, not the ML inference
     captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, sw, sh) : null;
-    toneUpSlider.value = 100;
-    smoothSlider.value = 100;
-    toneUpValue.textContent = '100%';
-    smoothValue.textContent = '100%';
+    toneUpSlider.value = 50;
+    smoothSlider.value = 50;
+    toneUpValue.textContent = '50%';
+    smoothValue.textContent = '50%';
     renderCapturePreview();
   });
 
@@ -1536,24 +1535,21 @@
       capturePreviewOverlay.classList.add('show');
     }, 'image/jpeg', 0.92);
   }
-  // coalesces rapid slider drags into one re-render per frame instead of
-  // re-processing the full image on every single 'input' event
-  function scheduleCapturePreviewRender(){
-    if(captureRenderScheduled) return;
-    captureRenderScheduled = true;
-    requestAnimationFrame(()=>{
-      captureRenderScheduled = false;
-      renderCapturePreview();
-    });
-  }
+  // the full re-render (getImageData/putImageData + two box-blur passes
+  // over the whole photo) is heavy enough that running it on every
+  // continuous 'input' event blocked the main thread and made the slider
+  // itself feel laggy/sticky while dragging. The label now updates
+  // instantly on every 'input' (cheap), while the actual image processing
+  // only runs once via 'change', which fires when the user releases the
+  // slider — dragging stays smooth, and the preview updates right after
   toneUpSlider.addEventListener('input', ()=>{
     toneUpValue.textContent = Math.round(toneUpSlider.value) + '%';
-    scheduleCapturePreviewRender();
   });
+  toneUpSlider.addEventListener('change', renderCapturePreview);
   smoothSlider.addEventListener('input', ()=>{
     smoothValue.textContent = Math.round(smoothSlider.value) + '%';
-    scheduleCapturePreviewRender();
   });
+  smoothSlider.addEventListener('change', renderCapturePreview);
 
   btnCapturePreviewConfirm.addEventListener('click', ()=>{
     capturePreviewOverlay.classList.remove('show');
