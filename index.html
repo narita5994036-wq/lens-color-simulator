@@ -785,6 +785,11 @@
       <input type="range" id="smoothSlider" min="0" max="100" value="50">
       <span class="value" id="smoothValue">50%</span>
     </div>
+    <div class="opacity-row" style="margin-top:10px;">
+      <span class="label" data-i18n="blurStrengthLabel">ぼかしの強さ</span>
+      <input type="range" id="blurStrengthSlider" min="0" max="100" value="50">
+      <span class="value" id="blurStrengthValue">50%</span>
+    </div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnCapturePreviewConfirm" data-i18n="useCaptureBtn">この写真を使用</button>
       <button class="btn" data-close="capturePreviewOverlay" data-i18n="retakeBtn">撮り直す</button>
@@ -884,6 +889,7 @@
       capturePreviewTitle:"この写真を使用しますか？",
       toneUpLabel:"トーンアップ",
       smoothLabel:"なめらかさ",
+      blurStrengthLabel:"ぼかしの強さ",
       useCaptureBtn:"この写真を使用",
       retakeBtn:"撮り直す",
       sectionColors:"カラープリセット",
@@ -940,6 +946,7 @@
       capturePreviewTitle:"Use this photo?",
       toneUpLabel:"Tone-up",
       smoothLabel:"Smoothing",
+      blurStrengthLabel:"Blur strength",
       useCaptureBtn:"Use This Photo",
       retakeBtn:"Retake",
       sectionColors:"Colour Presets",
@@ -1085,6 +1092,8 @@
   const toneUpValue = document.getElementById('toneUpValue');
   const smoothSlider = document.getElementById('smoothSlider');
   const smoothValue = document.getElementById('smoothValue');
+  const blurStrengthSlider = document.getElementById('blurStrengthSlider');
+  const blurStrengthValue = document.getElementById('blurStrengthValue');
   // pristine (enhanced-but-unprocessed) frame plus its dimensions and a
   // cached person-segmentation mask, kept around so the tone-up/smoothing
   // sliders below can be retuned and re-rendered from scratch without
@@ -1535,8 +1544,10 @@
     captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, sw, sh) : null;
     toneUpSlider.value = 50;
     smoothSlider.value = 50;
+    blurStrengthSlider.value = 50;
     toneUpValue.textContent = '50%';
     smoothValue.textContent = '50%';
+    blurStrengthValue.textContent = '50%';
     renderCapturePreview();
   });
 
@@ -1549,9 +1560,10 @@
     captureCtx.putImageData(captureBaseImageData, 0, 0);
     const toneAmount = toneUpSlider.value / 100;
     const smoothAmount = smoothSlider.value / 100;
+    const blurAmount = blurStrengthSlider.value / 100;
     applySkinToneUp(captureCtx, captureW, captureH, toneAmount, smoothAmount);
     applyChinSlim(captureCtx, captureW, captureH, 0.02);
-    if(captureMaskData) compositeBackgroundBlur(captureCtx, captureW, captureH, captureMaskData);
+    if(captureMaskData) compositeBackgroundBlur(captureCtx, captureW, captureH, captureMaskData, blurAmount);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
       pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
@@ -1579,6 +1591,10 @@
     smoothValue.textContent = Math.round(smoothSlider.value) + '%';
   });
   smoothSlider.addEventListener('change', renderCapturePreview);
+  blurStrengthSlider.addEventListener('input', ()=>{
+    blurStrengthValue.textContent = Math.round(blurStrengthSlider.value) + '%';
+  });
+  blurStrengthSlider.addEventListener('change', renderCapturePreview);
 
   btnCapturePreviewConfirm.addEventListener('click', ()=>{
     capturePreviewOverlay.classList.remove('show');
@@ -1762,13 +1778,17 @@
   }
   // blurs everything the segmentation mask doesn't consider part of the
   // person, feathered by the mask's own (already anti-aliased) edge rather
-  // than a hard cutout, approximating an optical depth-of-field effect
-  function compositeBackgroundBlur(ctx, w, h, maskData){
-    if(!w || !h || !maskData) return;
+  // than a hard cutout, approximating an optical depth-of-field effect.
+  // strength (0..1, default 1) scales the blur radius, so a UI slider can
+  // dial the effect down to nothing (0) or up to the originally tuned
+  // amount (1)
+  function compositeBackgroundBlur(ctx, w, h, maskData, strength){
+    if(strength === undefined) strength = 1;
+    if(!w || !h || !maskData || strength <= 0) return;
     const blurCanvas = document.createElement('canvas');
     blurCanvas.width = w; blurCanvas.height = h;
     const blurCtx = blurCanvas.getContext('2d');
-    blurCtx.filter = `blur(${Math.round(Math.min(w, h) * 0.025)}px)`;
+    blurCtx.filter = `blur(${Math.round(Math.min(w, h) * 0.025 * strength)}px)`;
     blurCtx.drawImage(ctx.canvas, 0, 0, w, h);
     const sharp = ctx.getImageData(0, 0, w, h);
     const blurred = blurCtx.getImageData(0, 0, w, h);
