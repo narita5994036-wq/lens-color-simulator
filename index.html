@@ -344,6 +344,27 @@
   }
   .sidebar-section .btn{width:100%; flex:none;}
 
+  /* ---- iPad landscape: dock the sidebar permanently instead of as a
+     slide-in overlay, and keep the photo from growing taller than the
+     screen. min-width/min-height (not just orientation) keeps this from
+     also firing on a landscape phone, which is wide but short */
+  @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
+    body{display:flex; min-height:100vh;}
+    .app{flex:1; min-width:0; max-width:none;}
+    .stage{
+      max-height:min(72vh, 680px);
+      width:auto; margin-left:auto; margin-right:auto;
+    }
+    .sidebar{
+      /* bounded (rather than height:auto) so its own overflow-y:auto keeps
+         scrolling to the menu's content instead of growing the whole page
+         and scrolling the photo/main column away along with it */
+      position:static; height:100vh; width:320px; flex-shrink:0;
+      transform:none; border-left:1px solid var(--gray-line); border-right:none;
+    }
+    .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
+  }
+
   /* ---- camera capture modal ---- */
   .camera-modal{
     position:fixed; inset:0; background:#000; z-index:200;
