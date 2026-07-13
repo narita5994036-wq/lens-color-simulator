@@ -343,17 +343,40 @@
     margin:0 0 12px;
   }
   .sidebar-section .btn{width:100%; flex:none;}
+  /* target for #appControls when JS relocates it into the sidebar on
+     landscape (see updateControlsPlacement()); empty in portrait, where
+     #appControls stays in its original place below .stage, so this
+     collapses to nothing there */
+  .sidebar-controls-slot:empty{display:none;}
+  .sidebar-controls-slot{
+    margin:0 0 28px; padding-bottom:24px; border-bottom:1px solid var(--gray-line);
+  }
+  /* target for the stage tabs / current-color bar / recent-colors history
+     when JS relocates them below the stage on landscape (see
+     updateControlsPlacement()); empty (and collapses to nothing) in
+     portrait, where they stay in their normal in-image/below-image spots */
+  .below-stage-row:empty{display:none;}
+  .below-stage-row{display:flex; flex-direction:column; gap:14px; margin-top:16px;}
+  .below-stage-row .stage-tabs, .below-stage-row .stage-bottom-bar{
+    position:static; top:auto; left:auto; right:auto; bottom:auto;
+  }
 
   /* ---- iPad landscape: dock the sidebar permanently instead of as a
-     slide-in overlay, and keep the photo from growing taller than the
-     screen. min-width/min-height (not just orientation) keeps this from
+     slide-in overlay, move the frame-name/density/share controls into it
+     too, move the stage tabs/current-color bar/recent-colors history to
+     below the (now much wider) photo instead of overlaying it, show a
+     larger title, and let the photo use a wide/landscape frame instead of
+     the portrait 4:5 one (see updateControlsPlacement() for the relocation
+     logic). min-width/min-height (not just orientation) keeps this from
      also firing on a landscape phone, which is wide but short */
   @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
     body{display:flex; min-height:100vh;}
     .app{flex:1; min-width:0; max-width:none;}
+    .brand{font-size:22px;}
+    .title{font-size:14px;}
     .stage{
-      max-height:min(72vh, 680px);
-      width:auto; margin-left:auto; margin-right:auto;
+      aspect-ratio:3/2; max-height:82vh;
+      width:100%; margin-left:0; margin-right:0;
     }
     .sidebar{
       /* bounded (rather than height:auto) so its own overflow-y:auto keeps
@@ -605,7 +628,7 @@
       <input type="range" id="zoomSlider" min="100" max="400" value="100">
       <span class="value" id="zoomValue">100%</span>
     </div>
-    <div class="stage-bottom-bar">
+    <div class="stage-bottom-bar" id="stageBottomBar">
       <div class="stage-color-badge" id="colorBadge">
         <span class="dot" id="colorBadgeDot"></span>
         <span class="name" id="colorBadgeName"></span>
@@ -627,32 +650,36 @@
     </div>
   </div>
 
-  <div class="frame-name-block">
-    <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
-    <div class="autocomplete-list" id="frameAutocompleteList"></div>
-  </div>
+  <div class="below-stage-row" id="belowStageRow"></div>
 
-  <div class="opacity-row" style="margin-top:32px;">
-    <span class="label" data-i18n="opacityLabel">濃度</span>
-    <div class="density-track-wrap" id="densityTrackWrap">
-      <div class="density-track">
-        <div class="density-fill" id="densityFill"></div>
-        <div class="density-handle bottom" id="densityHandleBottom" style="display:none;"><span class="dot"></span><span class="tag" id="densityTagBottom"></span></div>
-        <div class="density-handle top" id="densityHandleTop"><span class="dot"></span><span class="tag" id="densityTagTop"></span></div>
-      </div>
+  <div class="app-controls" id="appControls">
+    <div class="frame-name-block">
+      <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
+      <div class="autocomplete-list" id="frameAutocompleteList"></div>
     </div>
-    <span class="value" id="opacityValue">55%</span>
+
+    <div class="opacity-row" style="margin-top:32px;">
+      <span class="label" data-i18n="opacityLabel">濃度</span>
+      <div class="density-track-wrap" id="densityTrackWrap">
+        <div class="density-track">
+          <div class="density-fill" id="densityFill"></div>
+          <div class="density-handle bottom" id="densityHandleBottom" style="display:none;"><span class="dot"></span><span class="tag" id="densityTagBottom"></span></div>
+          <div class="density-handle top" id="densityHandleTop"><span class="dot"></span><span class="tag" id="densityTagTop"></span></div>
+        </div>
+      </div>
+      <span class="value" id="opacityValue">55%</span>
+    </div>
+
+    <div class="history-block" id="historyBlock">
+      <h3 data-i18n="historyHeader">最近使用したカラー</h3>
+      <div class="swatch-row" id="historyRow"></div>
+      <div class="empty-note" id="historyEmptyNote" data-i18n="historyEmpty">まだ使用履歴がありません</div>
+    </div>
+
+    <div class="hint" id="dragHint" style="display:none;" data-i18n="dragHint">頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット</div>
+
+    <button class="stage-action-btn" id="btnShare" disabled style="margin-top:18px;" data-i18n="shareBtn">画像を共有</button>
   </div>
-
-  <div class="history-block">
-    <h3 data-i18n="historyHeader">最近使用したカラー</h3>
-    <div class="swatch-row" id="historyRow"></div>
-    <div class="empty-note" id="historyEmptyNote" data-i18n="historyEmpty">まだ使用履歴がありません</div>
-  </div>
-
-  <div class="hint" id="dragHint" style="display:none;" data-i18n="dragHint">頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット</div>
-
-  <button class="stage-action-btn" id="btnShare" disabled style="margin-top:18px;" data-i18n="shareBtn">画像を共有</button>
 
 </div>
 
@@ -667,6 +694,8 @@
     <span class="sidebar-title" data-i18n="sidebarTitle">メニュー</span>
     <button class="close-x" id="btnSidebarClose">×</button>
   </div>
+
+  <div class="sidebar-controls-slot" id="sidebarControlsSlot"></div>
 
   <div class="sidebar-section">
     <h3 data-i18n="sectionShape">レンズ形状</h3>
@@ -1189,12 +1218,39 @@
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const btnSidebarOpen = document.getElementById('btnSidebarOpen');
   const btnSidebarClose = document.getElementById('btnSidebarClose');
+  const appControls = document.getElementById('appControls');
+  const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
+  // matches the CSS media query that docks the sidebar on iPad landscape;
+  // #appControls (frame name, density, share button) relocates into the
+  // sidebar there too, rather than sitting below a now much wider photo;
+  // the stage tabs, current-color bar and recent-colors history relocate
+  // to a row below the stage instead of overlaying the image; everything
+  // moves back to its normal spot everywhere else
+  const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
+  function updateControlsPlacement(){
+    if(landscapeDockMql.matches){
+      sidebarControlsSlot.appendChild(appControls);
+      belowStageRow.appendChild(stageTabs);
+      belowStageRow.appendChild(stageBottomBar);
+      belowStageRow.appendChild(historyBlock);
+    }else{
+      stage.after(appControls);
+      btnUndo.before(stageTabs);
+      vertexNudgePad.before(stageBottomBar);
+      dragHint.before(historyBlock);
+    }
+    resizeCanvas();
+  }
+  landscapeDockMql.addEventListener('change', updateControlsPlacement);
   const btnSidebarResetPoints = document.getElementById('btnSidebarResetPoints');
   const btnSidebarResetImage = document.getElementById('btnSidebarResetImage');
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
   const vertexNudgePad = document.getElementById('vertexNudgePad');
   const stageTabs = document.getElementById('stageTabs');
+  const stageBottomBar = document.getElementById('stageBottomBar');
+  const historyBlock = document.getElementById('historyBlock');
+  const belowStageRow = document.getElementById('belowStageRow');
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
   const colorBadgeName = document.getElementById('colorBadgeName');
@@ -3789,7 +3845,7 @@
   renderDensityTrack();
   updateStageTabsUI();
   updateColorBadge();
-  resizeCanvas();
+  updateControlsPlacement();
 })();
 </script>
 </body>
