@@ -1542,14 +1542,27 @@
     // otherwise leave a sliver of transparent-turned-black along that edge)
     sw = Math.round(sw);
     sh = Math.round(sh);
-    captureCanvas.width = sw;
-    captureCanvas.height = sh;
+    // cap the working resolution: on modern phones the video frame (and
+    // therefore this crop) can be well over 3000px on a side, and running
+    // getImageData/putImageData repeatedly at that size across tone-up,
+    // chin-slim and (especially) background blur's extra full-frame
+    // buffers allocates enough memory in one burst to crash the tab
+    // outright on some devices. Downscaling the destination canvas first
+    // keeps every later pass bounded, with no visible quality loss at the
+    // sizes this app actually displays/shares photos at; sx/sy/sw/sh above
+    // stay in the original video's coordinate space for the source rect
+    const MAX_CAPTURE_DIMENSION = 1600;
+    const captureScale = Math.min(1, MAX_CAPTURE_DIMENSION / Math.max(sw, sh));
+    const dw = Math.round(sw * captureScale);
+    const dh = Math.round(sh * captureScale);
+    captureCanvas.width = dw;
+    captureCanvas.height = dh;
     const captureCtx = captureCanvas.getContext('2d');
     // belt-and-braces: fill with white first so any remaining gap (from a
     // cause we haven't pinned down) reads as a blown-out edge rather than a
     // solid black margin
     captureCtx.fillStyle = '#ffffff';
-    captureCtx.fillRect(0, 0, sw, sh);
+    captureCtx.fillRect(0, 0, dw, dh);
     // a gentle, natural-looking enhancement (like a phone camera's own auto
     // processing) on top of the skin tone-up below; applied via the canvas
     // filter at draw time since it only needs to affect this one drawImage
@@ -1558,17 +1571,17 @@
     // 110%), which crushed shadows and oversaturated skin into an unnatural,
     // almost sunburnt look.
     captureCtx.filter = 'contrast(112%) saturate(106%)';
-    captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
+    captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, dw, dh);
     captureCtx.filter = 'none';
     // keep a pristine copy of this enhanced-but-unprocessed frame so the
     // tone-up/smoothing sliders can be retuned and re-rendered from
     // scratch, without re-capturing from the camera
-    captureBaseImageData = captureCtx.getImageData(0, 0, sw, sh);
-    captureW = sw; captureH = sh;
+    captureBaseImageData = captureCtx.getImageData(0, 0, dw, dh);
+    captureW = dw; captureH = dh;
     // segmentation is comparatively slow, so it's run once here and its
     // result cached — retuning the sliders afterwards only replays the
     // cheap tone-up/smoothing/compositing math, not the ML inference
-    captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, sw, sh) : null;
+    captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, dw, dh) : null;
     // lets someone who had the toggle on but got no blur (a failed/slow
     // segmentation load) know why, instead of just seeing the slider
     // appear to do nothing
