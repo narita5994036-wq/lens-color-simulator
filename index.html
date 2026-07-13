@@ -653,7 +653,7 @@
   <div class="below-stage-row" id="belowStageRow"></div>
 
   <div class="app-controls" id="appControls">
-    <div class="frame-name-block">
+    <div class="frame-name-block" id="frameNameBlock">
       <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
       <div class="autocomplete-list" id="frameAutocompleteList"></div>
     </div>
@@ -697,17 +697,17 @@
 
   <div class="sidebar-controls-slot" id="sidebarControlsSlot"></div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="shapeSection">
     <h3 data-i18n="sectionShape">レンズ形状</h3>
     <div class="swatch-row" id="shapePresetRow"></div>
   </div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="mirrorSection">
     <h3 data-i18n="sectionMirror">ミラーリング</h3>
     <button class="btn" id="btnMirrorSelected" data-i18n="mirrorSelectedBtn">選択中のシェイプをミラーリング</button>
   </div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="colorsSection">
     <h3 data-i18n="sectionColors">カラープリセット</h3>
     <div class="swatch-row" id="noColorRow"></div>
     <div id="presetGroups"></div>
@@ -1221,22 +1221,29 @@
   const appControls = document.getElementById('appControls');
   const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
   // matches the CSS media query that docks the sidebar on iPad landscape;
-  // #appControls (frame name, density, share button) relocates into the
-  // sidebar there too, rather than sitting below a now much wider photo;
-  // the stage tabs, current-color bar and recent-colors history relocate
-  // to a row below the stage instead of overlaying the image; everything
-  // moves back to its normal spot everywhere else
+  // #appControls (now just density + share button) relocates into the
+  // sidebar there too, keeping density/colour presets as the sidebar's
+  // priority content; the stage tabs, current-color bar, frame name,
+  // lens shape, mirroring and recent-colors history relocate to a row
+  // below the stage instead of overlaying the image or living in the
+  // sidebar; everything moves back to its normal spot everywhere else
   const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
   function updateControlsPlacement(){
     if(landscapeDockMql.matches){
       sidebarControlsSlot.appendChild(appControls);
       belowStageRow.appendChild(stageTabs);
       belowStageRow.appendChild(stageBottomBar);
+      belowStageRow.appendChild(frameNameBlock);
+      belowStageRow.appendChild(shapeSection);
+      belowStageRow.appendChild(mirrorSection);
       belowStageRow.appendChild(historyBlock);
     }else{
       stage.after(appControls);
       btnUndo.before(stageTabs);
       vertexNudgePad.before(stageBottomBar);
+      appControls.prepend(frameNameBlock);
+      colorsSection.before(shapeSection);
+      colorsSection.before(mirrorSection);
       dragHint.before(historyBlock);
     }
     resizeCanvas();
@@ -1251,6 +1258,10 @@
   const stageBottomBar = document.getElementById('stageBottomBar');
   const historyBlock = document.getElementById('historyBlock');
   const belowStageRow = document.getElementById('belowStageRow');
+  const frameNameBlock = document.getElementById('frameNameBlock');
+  const shapeSection = document.getElementById('shapeSection');
+  const mirrorSection = document.getElementById('mirrorSection');
+  const colorsSection = document.getElementById('colorsSection');
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
   const colorBadgeName = document.getElementById('colorBadgeName');
