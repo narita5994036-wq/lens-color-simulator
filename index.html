@@ -1521,8 +1521,8 @@
     return dst;
   }
 
-  // brightens skin-toned pixels toward a cooler, more luminous tone while
-  // leaving hair, lenses, clothing and background essentially untouched
+  // warms skin-toned pixels slightly and softens fine pore/texture detail,
+  // while leaving hair, lenses, clothing and background essentially untouched
   function applySkinToneUp(ctx, w, h){
     if(!w || !h) return;
     const imageData = ctx.getImageData(0, 0, w, h);
@@ -1537,17 +1537,32 @@
     }
     const blurRadius = Math.max(2, Math.round(Math.min(w,h) * 0.01));
     const softMask = boxBlur(mask, w, h, blurRadius);
+    // frequency-separation smoothing: a blurred copy of each channel stands
+    // in for the low-frequency base (overall shading), and the fine
+    // high-frequency remainder — pores, small blemishes — is dialed back by
+    // smoothStrength rather than removed outright, so skin reads as
+    // smoother without going flat/plastic
+    const smoothRadius = Math.max(2, Math.round(Math.min(w,h) * 0.006));
+    const smoothStrength = 0.55;
+    const lowFreq = [0,1,2].map(c=>{
+      const chan = new Float32Array(n);
+      for(let i=0, p=c; i<n; i++, p+=4) chan[i] = d[p];
+      return boxBlur(chan, w, h, smoothRadius);
+    });
     for(let i=0, p=0; i<n; i++, p+=4){
       const m = softMask[i];
       if(m <= 0.01) continue;
       const r=d[p], g=d[p+1], b=d[p+2];
+      const r2 = r + (lowFreq[0][i]-r)*smoothStrength;
+      const g2 = g + (lowFreq[1][i]-g)*smoothStrength;
+      const b2 = b + (lowFreq[2][i]-b)*smoothStrength;
       // warms skin slightly (red gets the biggest lift, blue almost none)
       // rather than the old formula's cool/blue-leaning shift, which was
       // reported as making skin look pale and unhealthy; also considerably
       // softer overall so it reads as a natural glow, not a color cast
-      const targetR = Math.min(255, r*1.03 + 8);
-      const targetG = Math.min(255, g*1.02 + 5);
-      const targetB = Math.min(255, b*1.00 + 1);
+      const targetR = Math.min(255, r2*1.03 + 8);
+      const targetG = Math.min(255, g2*1.02 + 5);
+      const targetB = Math.min(255, b2*1.00 + 1);
       d[p]   = r + (targetR-r)*m;
       d[p+1] = g + (targetG-g)*m;
       d[p+2] = b + (targetB-b)*m;
