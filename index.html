@@ -763,6 +763,16 @@
     <button class="close-x" data-close="capturePreviewOverlay">×</button>
     <h4 data-i18n="capturePreviewTitle">この写真を使用しますか？</h4>
     <img id="capturePreviewImg" class="share-preview-img" alt="">
+    <div class="opacity-row" style="margin-top:18px;">
+      <span class="label" data-i18n="toneUpLabel">トーンアップ</span>
+      <input type="range" id="toneUpSlider" min="0" max="100" value="100">
+      <span class="value" id="toneUpValue">100%</span>
+    </div>
+    <div class="opacity-row" style="margin-top:10px;">
+      <span class="label" data-i18n="smoothLabel">なめらかさ</span>
+      <input type="range" id="smoothSlider" min="0" max="100" value="100">
+      <span class="value" id="smoothValue">100%</span>
+    </div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnCapturePreviewConfirm" data-i18n="useCaptureBtn">この写真を使用</button>
       <button class="btn" data-close="capturePreviewOverlay" data-i18n="retakeBtn">撮り直す</button>
@@ -858,6 +868,8 @@
       sharePreviewTitle:"この画像をシェア",
       shareDisclaimer:"シュミレーターによるサンプルです。実際の色とは多少異なります。",
       capturePreviewTitle:"この写真を使用しますか？",
+      toneUpLabel:"トーンアップ",
+      smoothLabel:"なめらかさ",
       useCaptureBtn:"この写真を使用",
       retakeBtn:"撮り直す",
       sectionColors:"カラープリセット",
@@ -910,6 +922,8 @@
       sharePreviewTitle:"Share This Photo",
       shareDisclaimer:"This is a simulated sample. Actual colours may vary slightly.",
       capturePreviewTitle:"Use this photo?",
+      toneUpLabel:"Tone-up",
+      smoothLabel:"Smoothing",
       useCaptureBtn:"Use This Photo",
       retakeBtn:"Retake",
       sectionColors:"Colour Presets",
@@ -1050,6 +1064,19 @@
   const capturePreviewOverlay = document.getElementById('capturePreviewOverlay');
   const capturePreviewImg = document.getElementById('capturePreviewImg');
   const btnCapturePreviewConfirm = document.getElementById('btnCapturePreviewConfirm');
+  const toneUpSlider = document.getElementById('toneUpSlider');
+  const toneUpValue = document.getElementById('toneUpValue');
+  const smoothSlider = document.getElementById('smoothSlider');
+  const smoothValue = document.getElementById('smoothValue');
+  // pristine (enhanced-but-unprocessed) frame plus its dimensions and a
+  // cached person-segmentation mask, kept around so the tone-up/smoothing
+  // sliders below can be retuned and re-rendered from scratch without
+  // re-capturing from the camera or rerunning the (comparatively slow)
+  // segmentation model each time
+  let captureBaseImageData = null;
+  let captureW = 0, captureH = 0;
+  let captureMaskData = null;
+  let captureRenderScheduled = false;
   const btnAddFavorite = document.getElementById('btnAddFavorite');
   const favoritesRow = document.getElementById('favoritesRow');
   const favoritesEmptyNote = document.getElementById('favoritesEmptyNote');
@@ -1469,9 +1496,34 @@
     captureCtx.filter = 'contrast(112%) saturate(106%)';
     captureCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, sw, sh);
     captureCtx.filter = 'none';
-    applySkinToneUp(captureCtx, sw, sh);
-    applyChinSlim(captureCtx, sw, sh, 0.02);
-    if(cameraBlurEnabled) await applyBackgroundBlur(captureCtx, sw, sh);
+    // keep a pristine copy of this enhanced-but-unprocessed frame so the
+    // tone-up/smoothing sliders can be retuned and re-rendered from
+    // scratch, without re-capturing from the camera
+    captureBaseImageData = captureCtx.getImageData(0, 0, sw, sh);
+    captureW = sw; captureH = sh;
+    // segmentation is comparatively slow, so it's run once here and its
+    // result cached — retuning the sliders afterwards only replays the
+    // cheap tone-up/smoothing/compositing math, not the ML inference
+    captureMaskData = cameraBlurEnabled ? await getPersonMaskData(captureCanvas, sw, sh) : null;
+    toneUpSlider.value = 100;
+    smoothSlider.value = 100;
+    toneUpValue.textContent = '100%';
+    smoothValue.textContent = '100%';
+    renderCapturePreview();
+  });
+
+  // re-renders the capture preview from the pristine base frame using the
+  // sliders' current values, then re-encodes it as the file that would be
+  // used if confirmed
+  function renderCapturePreview(){
+    if(!captureBaseImageData) return;
+    const captureCtx = captureCanvas.getContext('2d');
+    captureCtx.putImageData(captureBaseImageData, 0, 0);
+    const toneAmount = toneUpSlider.value / 100;
+    const smoothAmount = smoothSlider.value / 100;
+    applySkinToneUp(captureCtx, captureW, captureH, toneAmount, smoothAmount);
+    applyChinSlim(captureCtx, captureW, captureH, 0.02);
+    if(captureMaskData) compositeBackgroundBlur(captureCtx, captureW, captureH, captureMaskData);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
       pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
@@ -1483,6 +1535,24 @@
       capturePreviewImg.dataset.blobUrl = url;
       capturePreviewOverlay.classList.add('show');
     }, 'image/jpeg', 0.92);
+  }
+  // coalesces rapid slider drags into one re-render per frame instead of
+  // re-processing the full image on every single 'input' event
+  function scheduleCapturePreviewRender(){
+    if(captureRenderScheduled) return;
+    captureRenderScheduled = true;
+    requestAnimationFrame(()=>{
+      captureRenderScheduled = false;
+      renderCapturePreview();
+    });
+  }
+  toneUpSlider.addEventListener('input', ()=>{
+    toneUpValue.textContent = Math.round(toneUpSlider.value) + '%';
+    scheduleCapturePreviewRender();
+  });
+  smoothSlider.addEventListener('input', ()=>{
+    smoothValue.textContent = Math.round(smoothSlider.value) + '%';
+    scheduleCapturePreviewRender();
   });
 
   btnCapturePreviewConfirm.addEventListener('click', ()=>{
@@ -1521,13 +1591,20 @@
     return dst;
   }
 
-  // warms skin-toned pixels slightly and softens fine pore/texture detail,
-  // while leaving hair, lenses, clothing and background essentially untouched
-  function applySkinToneUp(ctx, w, h){
+  // warms skin-toned pixels and softens fine pore/texture detail, while
+  // leaving hair, lenses, clothing and background essentially untouched.
+  // toneAmount/smoothAmount (0..1, default 1) scale the two effects
+  // independently — 1 reproduces the original tuned look, 0 disables that
+  // effect entirely — so a UI slider can dial each back before the photo
+  // is confirmed
+  function applySkinToneUp(ctx, w, h, toneAmount, smoothAmount){
     if(!w || !h) return;
+    if(toneAmount === undefined) toneAmount = 1;
+    if(smoothAmount === undefined) smoothAmount = 1;
     const imageData = ctx.getImageData(0, 0, w, h);
     const d = imageData.data;
     const n = w*h;
+    if(toneAmount <= 0 && smoothAmount <= 0) return;
     const mask = new Float32Array(n);
     for(let i=0, p=0; i<n; i++, p+=4){
       const r=d[p], g=d[p+1], b=d[p+2];
@@ -1543,26 +1620,29 @@
     // smoothStrength rather than removed outright, so skin reads as
     // smoother without going flat/plastic
     const smoothRadius = Math.max(2, Math.round(Math.min(w,h) * 0.006));
-    const smoothStrength = 0.55;
-    const lowFreq = [0,1,2].map(c=>{
+    const smoothStrength = 0.55 * smoothAmount;
+    const lowFreq = smoothStrength > 0 ? [0,1,2].map(c=>{
       const chan = new Float32Array(n);
       for(let i=0, p=c; i<n; i++, p+=4) chan[i] = d[p];
       return boxBlur(chan, w, h, smoothRadius);
-    });
+    }) : null;
     for(let i=0, p=0; i<n; i++, p+=4){
       const m = softMask[i];
       if(m <= 0.01) continue;
       const r=d[p], g=d[p+1], b=d[p+2];
-      const r2 = r + (lowFreq[0][i]-r)*smoothStrength;
-      const g2 = g + (lowFreq[1][i]-g)*smoothStrength;
-      const b2 = b + (lowFreq[2][i]-b)*smoothStrength;
+      const r2 = lowFreq ? r + (lowFreq[0][i]-r)*smoothStrength : r;
+      const g2 = lowFreq ? g + (lowFreq[1][i]-g)*smoothStrength : g;
+      const b2 = lowFreq ? b + (lowFreq[2][i]-b)*smoothStrength : b;
       // warms skin slightly (red gets the biggest lift, blue almost none)
       // rather than the old formula's cool/blue-leaning shift, which was
       // reported as making skin look pale and unhealthy; also considerably
       // softer overall so it reads as a natural glow, not a color cast
-      const targetR = Math.min(255, r2*1.03 + 8);
-      const targetG = Math.min(255, g2*1.02 + 5);
-      const targetB = Math.min(255, b2*1.00 + 1);
+      const warmR = Math.min(255, r2*1.03 + 8);
+      const warmG = Math.min(255, g2*1.02 + 5);
+      const warmB = Math.min(255, b2*1.00 + 1);
+      const targetR = r2 + (warmR-r2)*toneAmount;
+      const targetG = g2 + (warmG-g2)*toneAmount;
+      const targetB = b2 + (warmB-b2)*toneAmount;
       d[p]   = r + (targetR-r)*m;
       d[p+1] = g + (targetG-g)*m;
       d[p+2] = b + (targetB-b)*m;
@@ -1633,28 +1713,33 @@
   }
   // results are delivered through a single shared onResults callback, so
   // only one segmentation request can be in flight at a time — fine here
-  // since it's only ever called once per shutter press
-  function getPersonMask(source){
+  // since it's only ever called once per shutter press. Returns the raw
+  // per-pixel mask (RGBA, the mask value replicated in each channel)
+  // resized to w x h, rather than a live blur, so it can be cached and
+  // reapplied cheaply if the tone-up/smoothing sliders are retuned
+  // afterwards without rerunning the segmentation model each time
+  async function getPersonMaskData(source, w, h){
     const seg = getSelfieSegmentation();
-    if(!seg) return Promise.resolve(null);
-    return new Promise(resolve=>{
-      seg.onResults(results => resolve(results.segmentationMask));
-      seg.send({image: source}).catch(()=> resolve(null));
-    });
-  }
-  // blurs everything the segmentation model doesn't consider part of the
-  // person, feathered by the mask's own (already anti-aliased) edge rather
-  // than a hard cutout, approximating an optical depth-of-field effect
-  async function applyBackgroundBlur(ctx, w, h){
-    if(!w || !h) return;
+    if(!seg) return null;
     let mask;
-    try{ mask = await getPersonMask(ctx.canvas); }catch(e){ mask = null; }
-    if(!mask) return;
+    try{
+      mask = await new Promise(resolve=>{
+        seg.onResults(results => resolve(results.segmentationMask));
+        seg.send({image: source}).catch(()=> resolve(null));
+      });
+    }catch(e){ mask = null; }
+    if(!mask) return null;
     const maskCanvas = document.createElement('canvas');
     maskCanvas.width = w; maskCanvas.height = h;
     const maskCtx = maskCanvas.getContext('2d');
     maskCtx.drawImage(mask, 0, 0, w, h);
-    const maskData = maskCtx.getImageData(0, 0, w, h).data;
+    return maskCtx.getImageData(0, 0, w, h).data;
+  }
+  // blurs everything the segmentation mask doesn't consider part of the
+  // person, feathered by the mask's own (already anti-aliased) edge rather
+  // than a hard cutout, approximating an optical depth-of-field effect
+  function compositeBackgroundBlur(ctx, w, h, maskData){
+    if(!w || !h || !maskData) return;
     const blurCanvas = document.createElement('canvas');
     blurCanvas.width = w; blurCanvas.height = h;
     const blurCtx = blurCanvas.getContext('2d');
