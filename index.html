@@ -360,33 +360,7 @@
   .below-stage-row .stage-tabs, .below-stage-row .stage-bottom-bar{
     position:static; top:auto; left:auto; right:auto; bottom:auto;
   }
-
-  /* ---- iPad landscape: dock the sidebar permanently instead of as a
-     slide-in overlay, move the frame-name/density/share controls into it
-     too, move the stage tabs/current-color bar/recent-colors history to
-     below the (now much wider) photo instead of overlaying it, show a
-     larger title, and let the photo use a wide/landscape frame instead of
-     the portrait 4:5 one (see updateControlsPlacement() for the relocation
-     logic). min-width/min-height (not just orientation) keeps this from
-     also firing on a landscape phone, which is wide but short */
-  @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
-    body{display:flex; min-height:100vh;}
-    .app{flex:1; min-width:0; max-width:none;}
-    .brand{font-size:22px;}
-    .title{font-size:14px;}
-    .stage{
-      aspect-ratio:3/2; max-height:82vh;
-      width:100%; margin-left:0; margin-right:0;
-    }
-    .sidebar{
-      /* bounded (rather than height:auto) so its own overflow-y:auto keeps
-         scrolling to the menu's content instead of growing the whole page
-         and scrolling the photo/main column away along with it */
-      position:static; height:100vh; width:320px; flex-shrink:0;
-      transform:none; border-left:1px solid var(--gray-line); border-right:none;
-    }
-    .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
-  }
+  #cameraGuideLandscape{display:none;}
 
   /* ---- camera capture modal ---- */
   .camera-modal{
@@ -395,8 +369,15 @@
   }
   .camera-modal.show{display:flex;}
   .camera-frame{
-    position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
-    width:100%; aspect-ratio:390/499; max-height:100%; overflow:hidden; background:#000;
+    /* sized in px by JS (sizeCameraFrame()), not by CSS aspect-ratio: this
+       element's children (video/canvas/svg) are all position:absolute, so
+       it has no in-flow content to derive an intrinsic width/height from,
+       and the previous width:100%+aspect-ratio+max-height:100% approach
+       silently went edge-to-edge on a wide/landscape viewport instead of
+       framing a properly-proportioned box (max-height clamped the
+       aspect-ratio-derived height, but width stayed forced at 100%) */
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    overflow:hidden; background:#000;
     touch-action:none;
   }
   .camera-frame video{
@@ -594,6 +575,42 @@
   }
   .sheet{position:relative;}
   .note{font-size:11px; color:var(--gray-mid); line-height:1.6; margin-top:-4px; margin-bottom:18px;}
+
+  /* ---- iPad landscape: dock the sidebar permanently instead of as a
+     slide-in overlay, move the frame-name/density/share controls into it
+     too, move the stage tabs/current-color bar/recent-colors history to
+     below the (now much wider) photo instead of overlaying it, show a
+     larger title, switch the guided camera capture to a wide 4:3
+     frame/guide (see #cameraGuideLandscape and targetRatio in the shutter
+     handler), and let the photo use a wide/landscape frame instead of the
+     portrait 4:5 one (see updateControlsPlacement() for the relocation
+     logic). min-width/min-height (not just orientation) keeps this from
+     also firing on a landscape phone, which is wide but short.
+     Placed at the very end of the stylesheet, after every rule it
+     overrides, so it always wins regardless of selector specificity —
+     several of its overrides (e.g. .camera-frame, #cameraGuidePortrait)
+     target rules declared further down in the markup than an earlier
+     placement would have reached */
+  @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
+    body{display:flex; min-height:100vh;}
+    .app{flex:1; min-width:0; max-width:none;}
+    .brand{font-size:22px;}
+    .title{font-size:14px;}
+    .stage{
+      aspect-ratio:3/2; max-height:82vh;
+      width:100%; margin-left:0; margin-right:0;
+    }
+    .sidebar{
+      /* bounded (rather than height:auto) so its own overflow-y:auto keeps
+         scrolling to the menu's content instead of growing the whole page
+         and scrolling the photo/main column away along with it */
+      position:static; height:100vh; width:320px; flex-shrink:0;
+      transform:none; border-left:1px solid var(--gray-line); border-right:none;
+    }
+    .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
+    #cameraGuidePortrait{display:none;}
+    #cameraGuideLandscape{display:block;}
+  }
 </style>
 </head>
 <body>
@@ -753,7 +770,7 @@
   <div class="camera-frame" id="cameraFrame">
     <video id="cameraVideo" autoplay playsinline muted></video>
     <div class="camera-zoom-badge" id="cameraZoomBadge">1.0x</div>
-    <svg class="camera-guide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
+    <svg class="camera-guide" id="cameraGuidePortrait" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
       <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
       <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
       <line class="guide-h" x1="0" y1="55.4" x2="300" y2="55.4" />
@@ -766,6 +783,24 @@
       <line class="guide-tick" x1="6" y1="294.6" x2="6" y2="306.6" />
       <line class="guide-tick" x1="294" y1="294.6" x2="294" y2="306.6" />
       <ellipse class="guide-oval" cx="150" cy="178" rx="87.4" ry="122.6" />
+    </svg>
+    <!-- shown instead of #cameraGuidePortrait on iPad landscape (see the
+         media query below); viewBox matches the frame's 4:3 aspect-ratio
+         there exactly, so there's no slice-crop offset to account for like
+         the portrait guide needs -->
+    <svg class="camera-guide" id="cameraGuideLandscape" viewBox="0 0 400 300">
+      <line class="guide-v" x1="133.3" y1="0" x2="133.3" y2="300" />
+      <line class="guide-v" x1="266.7" y1="0" x2="266.7" y2="300" />
+      <line class="guide-h" x1="0" y1="35" x2="400" y2="35" />
+      <line class="guide-h" x1="0" y1="145" x2="400" y2="145" />
+      <line class="guide-h" x1="0" y1="255" x2="400" y2="255" />
+      <line class="guide-tick" x1="6" y1="29" x2="6" y2="41" />
+      <line class="guide-tick" x1="394" y1="29" x2="394" y2="41" />
+      <line class="guide-tick" x1="6" y1="139" x2="6" y2="151" />
+      <line class="guide-tick" x1="394" y1="139" x2="394" y2="151" />
+      <line class="guide-tick" x1="6" y1="249" x2="6" y2="261" />
+      <line class="guide-tick" x1="394" y1="249" x2="394" y2="261" />
+      <ellipse class="guide-oval" cx="200" cy="145" rx="78" ry="110" />
     </svg>
     <button class="camera-btn blur-toggle active" id="btnCameraBlurToggle" aria-label="toggle background blur" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1524,12 +1559,35 @@
     blurToggleBadgeTimer = setTimeout(()=>{ blurToggleBadge.classList.remove('show'); }, duration || 1200);
   }
 
+  // sizes #cameraFrame in px to "contain"-fit the same target ratio the
+  // shutter handler crops to (390:499 normally, 4:3 on iPad landscape —
+  // see targetRatio there), clamped to whichever of the modal's width/
+  // height is more restrictive. Needed because .camera-frame has no
+  // in-flow children to derive an intrinsic size from, so CSS
+  // aspect-ratio alone can't sze it (see the .camera-frame comment)
+  function sizeCameraFrame(){
+    const availW = cameraModal.clientWidth, availH = cameraModal.clientHeight;
+    if(!availW || !availH) return;
+    const ratio = landscapeDockMql.matches ? 4/3 : 390/499;
+    let w = availW, h = w/ratio;
+    if(h > availH){ h = availH; w = h*ratio; }
+    cameraFrame.style.width = w + 'px';
+    cameraFrame.style.height = h + 'px';
+  }
+  window.addEventListener('resize', ()=>{
+    if(cameraModal.classList.contains('show')) sizeCameraFrame();
+  });
+  landscapeDockMql.addEventListener('change', ()=>{
+    if(cameraModal.classList.contains('show')) sizeCameraFrame();
+  });
+
   async function openCameraModal(){
     try{
       cameraFacingMode = 'environment';
       await startCameraStream(cameraFacingMode);
       setCameraZoom(1, false);
       cameraModal.classList.add('show');
+      sizeCameraFrame();
       // briefly explain the blur toggle's icon/state the first time the
       // viewfinder appears, since it otherwise has no visible label
       showBlurToggleBadge(1800);
@@ -1600,9 +1658,12 @@
   btnCameraShutter.addEventListener('click', async ()=>{
     const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
     if(!w || !h) return;
-    // crop to the same 390:499 (width:height) frame shown on screen behind
-    // the guide, matching a specific reference photo's exact ratio (1170x1497)
-    const targetRatio = 390/499;
+    // crop to the same frame shown on screen behind the guide: the portrait
+    // 390:499 ratio (matching a specific reference photo's exact ratio,
+    // 1170x1497) everywhere, or the wide 4:3 one on iPad landscape (see
+    // #cameraGuideLandscape and the .camera-frame media query above)
+    const isLandscapeCapture = landscapeDockMql.matches;
+    const targetRatio = isLandscapeCapture ? 4/3 : 390/499;
     let sx=0, sy=0, sw=w, sh=h;
     if(w/h > targetRatio){
       sw = h*targetRatio;
@@ -1721,7 +1782,13 @@
     const smoothAmount = smoothSlider.value / 100;
     const blurAmount = blurStrengthSlider.value / 100;
     applySkinToneUp(captureCtx, captureW, captureH, toneAmount, smoothAmount);
-    applyChinSlim(captureCtx, captureW, captureH, 0.02);
+    // the captured image's own shape (rather than the current device
+    // orientation, which may have changed since the photo was taken) says
+    // which guide/chin-position fractions actually apply to it
+    const isCaptureLandscapeShape = captureW > captureH;
+    const chinXFrac = isCaptureLandscapeShape ? CHIN_CENTER_X_FRAC_LANDSCAPE : CHIN_CENTER_X_FRAC;
+    const chinYFrac = isCaptureLandscapeShape ? CHIN_CENTER_Y_FRAC_LANDSCAPE : CHIN_CENTER_Y_FRAC;
+    applyChinSlim(captureCtx, captureW, captureH, 0.02, chinXFrac, chinYFrac);
     if(captureMaskData) compositeBackgroundBlur(captureCtx, captureW, captureH, captureMaskData, blurAmount);
     captureCanvas.toBlob(blob=>{
       if(!blob) return;
@@ -1863,12 +1930,19 @@
   // the viewBox gets slice-cropped to fit the 390:499 capture frame
   const CHIN_CENTER_X_FRAC = 0.5;
   const CHIN_CENTER_Y_FRAC = 0.7621;
+  // same derivation for #cameraGuideLandscape (cx=200, cy=145, ry=110 in
+  // its 400x300 viewBox) — no slice-crop correction needed there since
+  // that viewBox's 4:3 ratio matches the landscape capture frame exactly
+  const CHIN_CENTER_X_FRAC_LANDSCAPE = 0.5;
+  const CHIN_CENTER_Y_FRAC_LANDSCAPE = 0.85;
   // pinches a small elliptical area around the chin inward, strongest at
   // its center and fading to zero at the region's edge so it blends
   // seamlessly rather than leaving a visible boundary
-  function applyChinSlim(ctx, w, h, amount){
+  function applyChinSlim(ctx, w, h, amount, xFrac, yFrac){
+    if(xFrac === undefined) xFrac = CHIN_CENTER_X_FRAC;
+    if(yFrac === undefined) yFrac = CHIN_CENTER_Y_FRAC;
     if(!w || !h) return;
-    const cx = CHIN_CENTER_X_FRAC * w, cy = CHIN_CENTER_Y_FRAC * h;
+    const cx = xFrac * w, cy = yFrac * h;
     const rx = w * 0.16, ry = h * 0.11;
     const x0 = Math.max(0, Math.floor(cx-rx)), x1 = Math.min(w, Math.ceil(cx+rx));
     const y0 = Math.max(0, Math.floor(cy-ry)), y1 = Math.min(h, Math.ceil(cy+ry));
