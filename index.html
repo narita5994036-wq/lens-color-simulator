@@ -345,15 +345,12 @@
   .sidebar-controls-slot{
     margin:0 0 28px; padding-bottom:24px; border-bottom:1px solid var(--gray-line);
   }
-  /* target for the current-color bar / recent-colors history when JS
+  /* target for recent-colors history / the drag-usage hint when JS
      relocates them below the stage on landscape (see
      updateControlsPlacement()); empty (and collapses to nothing) in
-     portrait, where they stay in their normal in-image/below-image spots */
+     portrait, where they stay in their normal below-image spot */
   .below-stage-row:empty{display:none;}
   .below-stage-row{display:flex; flex-direction:column; gap:14px; margin-top:16px;}
-  .below-stage-row .stage-bottom-bar{
-    position:static; top:auto; left:auto; right:auto; bottom:auto;
-  }
   #cameraGuideLandscape{display:none;}
 
   /* ---- camera capture modal ---- */
@@ -598,6 +595,14 @@
       transform:none; border-left:1px solid var(--gray-line); border-right:none;
     }
     .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
+    /* frame-name-block's own margin-top:24px is meant for its portrait
+       spot (spacing it below the stage); as the sidebar's first section
+       (see updateControlsPlacement()) it needs the sidebar-section look
+       instead — no top margin (sidebar-header already provides that
+       spacing) and a bottom divider matching the other sections */
+    .sidebar > .frame-name-block{
+      margin-top:0; margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid var(--gray-line);
+    }
     #cameraGuidePortrait{display:none;}
     #cameraGuideLandscape{display:block;}
     /* overlays (capture/share preview, reset/mirror confirm, etc.) use a
@@ -1242,27 +1247,27 @@
   const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
   // matches the CSS media query that docks the sidebar on iPad landscape;
   // #appControls (now just density + share button) relocates into the
-  // sidebar there too, in a specific priority order (colour presets,
-  // favourites, density/share, lens shape); the current-color bar, frame
-  // name and recent-colors history relocate to a row below the stage
-  // instead of overlaying the image; everything moves back to its normal
-  // spot everywhere else
+  // sidebar there too, in a specific priority order (frame name, colour
+  // presets, favourites, density/share, lens shape); the current-color
+  // bar stays overlaying the image as usual, while recent-colors history
+  // and the drag-usage hint relocate to a row below the (now much wider)
+  // stage; everything moves back to its normal spot everywhere else
   const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
   function updateControlsPlacement(){
     if(landscapeDockMql.matches){
       favoritesSection.after(sidebarControlsSlot);
       sidebarControlsSlot.appendChild(appControls);
       sidebarControlsSlot.after(shapeSection);
-      belowStageRow.appendChild(stageBottomBar);
-      belowStageRow.appendChild(frameNameBlock);
+      colorsSection.before(frameNameBlock);
       belowStageRow.appendChild(historyBlock);
+      belowStageRow.appendChild(dragHint);
     }else{
       stage.after(appControls);
-      vertexNudgePad.before(stageBottomBar);
       appControls.prepend(frameNameBlock);
+      btnShare.before(dragHint);
+      dragHint.before(historyBlock);
       colorsSection.before(shapeSection);
       shapeSection.before(sidebarControlsSlot);
-      dragHint.before(historyBlock);
     }
     resizeCanvas();
   }
