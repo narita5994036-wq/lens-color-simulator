@@ -3251,7 +3251,7 @@
           return;
         }
         if(item.noColor){ clearColor(); return; }
-        applyColor(item);
+        applyColor(item, !!opts.preserveDensity);
       });
 
       // long-press any swatch to see its full (untruncated) name
@@ -3355,7 +3355,11 @@
       presetGroups.appendChild(wrap);
       renderSwatches(row, items, {deletable:false, showAdd:false});
     });
-    renderSwatches(historyRow, history, {deletable:false, showAdd:false});
+    // recently-used colours are meant to be swapped in at whatever density
+    // is currently active, not jump to whatever density each colour
+    // happened to be at when it was last used (that's what favourites,
+    // which do carry their own saved density, are for)
+    renderSwatches(historyRow, history, {deletable:false, showAdd:false, preserveDensity:true});
     historyEmptyNote.style.display = history.length ? 'none' : 'block';
     renderFavorites();
   }
@@ -3417,9 +3421,9 @@
     renderAll();
   }
 
-  function applyColor(item){
+  function applyColor(item, preserveDensity){
     const preset = resolvePresetForItem(item);
-    applyResolvedColorState(preset, item.pct, item.bottomPct);
+    applyResolvedColorState(preset, preserveDensity ? undefined : item.pct, item.bottomPct);
     // update history: move to front, cap at 5, unique by hex+id combination
     const pct = Math.round(opacity*100);
     history = history.filter(h => !(h.hex===preset.hex && h.id === (preset.id||null)));
@@ -3512,7 +3516,10 @@
         return;
       }
       const preset = resolvePresetForItem(entry);
-      applyResolvedColorState(preset, entry.pct, entry.bottomPct);
+      // preserve the currently active density rather than jumping to
+      // whatever density this entry happened to be at when it was last
+      // used, matching the tap-to-select behaviour on the history row
+      applyResolvedColorState(preset, undefined, entry.bottomPct);
     });
   }
 
