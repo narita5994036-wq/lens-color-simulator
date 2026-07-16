@@ -3250,8 +3250,8 @@
           opts.onDelete(item);
           return;
         }
-        if(item.noColor){ clearColor(); return; }
-        applyColor(item, !!opts.preserveDensity);
+        if(item.noColor){ clearColor(!!opts.fromHistory); return; }
+        applyColor(item, !!opts.fromHistory);
       });
 
       // long-press any swatch to see its full (untruncated) name
@@ -3309,16 +3309,18 @@
     renderAll();
   }
 
-  function clearColor(){
+  function clearColor(fromHistory){
     applyNoColorState();
-    // "no colour" gets its own history entry too, so it can be picked again
-    // straight from "recently used" like any other colour
-    history = history.filter(h => !h.noColor);
-    history.unshift({noColor:true});
-    history = history.slice(0,5);
-    saveJSON(STORAGE_HISTORY, history);
-    renderAll(); // re-render so the new history entry (added above) shows up
-    historyRow.scrollLeft = 0;
+    if(!fromHistory){
+      // "no colour" gets its own history entry too, so it can be picked
+      // again straight from "recently used" like any other colour
+      history = history.filter(h => !h.noColor);
+      history.unshift({noColor:true});
+      history = history.slice(0,5);
+      saveJSON(STORAGE_HISTORY, history);
+    }
+    renderAll(); // re-render so the (re)ordered/selected entry shows up
+    if(!fromHistory) historyRow.scrollLeft = 0;
     draw();
     closeSidebar();
   }
@@ -3328,7 +3330,7 @@
     const el = document.createElement('div');
     el.className = 'swatch' + (!currentColor ? ' selected' : '');
     el.innerHTML = '<div class="circle no-color-circle"></div><div class="name">' + t('noColor') + '</div>';
-    el.addEventListener('click', clearColor);
+    el.addEventListener('click', ()=> clearColor());
     noColorRow.appendChild(el);
   }
 
@@ -3358,8 +3360,9 @@
     // recently-used colours are meant to be swapped in at whatever density
     // is currently active, not jump to whatever density each colour
     // happened to be at when it was last used (that's what favourites,
-    // which do carry their own saved density, are for)
-    renderSwatches(historyRow, history, {deletable:false, showAdd:false, preserveDensity:true});
+    // which do carry their own saved density, are for), and switching
+    // between them shouldn't reshuffle the row's order either
+    renderSwatches(historyRow, history, {deletable:false, showAdd:false, fromHistory:true});
     historyEmptyNote.style.display = history.length ? 'none' : 'block';
     renderFavorites();
   }
@@ -3421,9 +3424,20 @@
     renderAll();
   }
 
-  function applyColor(item, preserveDensity){
+  function applyColor(item, fromHistory){
     const preset = resolvePresetForItem(item);
-    applyResolvedColorState(preset, preserveDensity ? undefined : item.pct, item.bottomPct);
+    applyResolvedColorState(preset, fromHistory ? undefined : item.pct, item.bottomPct);
+    if(fromHistory){
+      // switching to another already-recently-used colour just changes
+      // which one is active; the row's left-to-right order (newest
+      // first) stays exactly as-is, only actually reordering when a
+      // colour is picked from the side menu instead
+      syncCurrentHistoryEntry();
+      renderAll();
+      draw();
+      closeSidebar();
+      return;
+    }
     // update history: move to front, cap at 5, unique by hex+id combination
     const pct = Math.round(opacity*100);
     history = history.filter(h => !(h.hex===preset.hex && h.id === (preset.id||null)));
