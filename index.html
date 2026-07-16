@@ -530,6 +530,12 @@
   .sheet{
     background:var(--white); width:100%; max-width:900px; padding:26px 24px 32px;
     border-top:1px solid var(--gray-line);
+    /* a tall sheet (e.g. the capture preview with its photo plus three
+       sliders) can exceed the viewport height on a phone, and anchored to
+       the bottom with no scroll handling, has its top pushed above the
+       screen with no way to reach it — cap it and let it scroll internally
+       instead, on every viewport, not just iPad landscape */
+    max-height:90vh; overflow-y:auto;
   }
   .sheet h4{font-size:13px; letter-spacing:0.08em; margin:0 0 20px; font-weight:300; text-transform:uppercase; color:var(--black);}
   .field{margin-bottom:18px;}
@@ -620,14 +626,10 @@
     #cameraGuidePortrait{display:none;}
     #cameraGuideLandscape{display:block;}
     /* overlays (capture/share preview, reset/mirror confirm, etc.) use a
-       bottom-anchored sheet sized for mobile; on a wide landscape screen a
-       tall sheet — e.g. the capture preview, now with a wide photo plus
-       three sliders — could be taller than the viewport and, anchored to
-       the bottom with no scroll handling, have its top (including part of
-       the photo) pushed above the screen with no way to reach it. Center
-       it instead and let it scroll internally past 90% of the viewport */
+       bottom-anchored sheet sized for mobile; on a wide landscape screen,
+       center it instead so it reads like a dialog rather than a mobile
+       sheet (the base .sheet rule already caps height and scrolls) */
     .overlay{align-items:center;}
-    .sheet{max-height:90vh; overflow-y:auto;}
     /* the capture-confirm sheet's photo (now a wide 4:3 landscape shot)
        plus its title, three sliders, toggle row and two buttons could
        still add up to more than 90vh, requiring an internal scroll to
@@ -1847,8 +1849,10 @@
   // is, so the detected person/background split can be checked visually.
   // Purely a debug/preview overlay drawn on a separate canvas on top of
   // the photo — it never touches captureCanvas, so it can't leak into the
-  // confirmed photo. Only needs recomputing once per capture, since the
-  // mask itself doesn't change when the tone-up/smoothing/blur sliders do
+  // confirmed photo. The mask itself doesn't change when the sliders do,
+  // but the tint's intensity tracks the blur-strength slider (stronger
+  // blur = more visibly-affected area), so this needs recomputing whenever
+  // that slider moves, not just once per capture
   function renderMaskOverlay(){
     maskOverlayCanvas.width = captureW;
     maskOverlayCanvas.height = captureH;
@@ -1857,10 +1861,11 @@
     if(!captureMaskData) return;
     const imgData = octx.createImageData(captureW, captureH);
     const od = imgData.data;
+    const maxAlpha = 140 * (blurStrengthSlider.value / 100);
     for(let i=0, p=0; i<captureW*captureH; i++, p+=4){
       const m = captureMaskData[p] / 255;
       od[p] = 255; od[p+1] = 32; od[p+2] = 96;
-      od[p+3] = Math.round((1-m) * 140);
+      od[p+3] = Math.round((1-m) * maxAlpha);
     }
     octx.putImageData(imgData, 0, 0);
   }
@@ -1916,6 +1921,7 @@
   smoothSlider.addEventListener('change', renderCapturePreview);
   blurStrengthSlider.addEventListener('input', ()=>{
     blurStrengthValue.textContent = Math.round(blurStrengthSlider.value) + '%';
+    renderMaskOverlay();
   });
   blurStrengthSlider.addEventListener('change', renderCapturePreview);
   maskOverlayToggle.addEventListener('click', ()=>{
