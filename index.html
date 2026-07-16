@@ -343,6 +343,14 @@
     margin:0 0 12px;
   }
   .sidebar-section .btn{width:100%; flex:none;}
+  .sidebar-section-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .sidebar-section-header h3{margin-bottom:0;}
+  .icon-btn{
+    width:28px; height:28px; border:1px solid var(--gray-line); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; background:none; cursor:pointer;
+    color:var(--black); padding:0; flex-shrink:0;
+  }
+  .icon-btn svg{width:15px; height:15px;}
   /* target for #appControls when JS relocates it into the sidebar on
      landscape (see updateControlsPlacement()); empty in portrait, where
      #appControls stays in its original place below .stage, so this
@@ -727,13 +735,13 @@
   <div class="sidebar-controls-slot" id="sidebarControlsSlot"></div>
 
   <div class="sidebar-section" id="shapeSection">
-    <h3 data-i18n="sectionShape">レンズ形状</h3>
+    <div class="sidebar-section-header">
+      <h3 data-i18n="sectionShape">レンズ形状</h3>
+      <button class="icon-btn" id="btnMirrorSelected" aria-label="mirror selected shape" data-i18n-title="mirrorSelectedBtn" title="選択中のシェイプをミラーリング">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="2.5 2.5"/><path d="M8 8L4 12L8 16"/><path d="M16 8L20 12L16 16"/></svg>
+      </button>
+    </div>
     <div class="swatch-row" id="shapePresetRow"></div>
-  </div>
-
-  <div class="sidebar-section" id="mirrorSection">
-    <h3 data-i18n="sectionMirror">ミラーリング</h3>
-    <button class="btn" id="btnMirrorSelected" data-i18n="mirrorSelectedBtn">選択中のシェイプをミラーリング</button>
   </div>
 
   <div class="sidebar-section" id="colorsSection">
@@ -742,14 +750,14 @@
     <div id="presetGroups"></div>
   </div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="favoritesSection">
     <h3 data-i18n="sectionFavorites">お気に入り</h3>
     <button class="btn" id="btnAddFavorite" disabled data-i18n="addFavoriteBtn">現在のカラーをお気に入りに追加</button>
     <div class="swatch-row" id="favoritesRow" style="margin-top:14px;"></div>
     <div class="empty-note" id="favoritesEmptyNote" data-i18n="favoritesEmpty">まだお気に入りがありません</div>
   </div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="resetSection">
     <h3 data-i18n="sectionReset">リセット</h3>
     <button class="btn" id="btnSidebarResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
     <button class="btn" id="btnSidebarResetImage" style="margin-top:8px;" data-i18n="resetImageBtn">画像をリセット</button>
@@ -1269,20 +1277,20 @@
   const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
   // matches the CSS media query that docks the sidebar on iPad landscape;
   // #appControls (now just density + share button) relocates into the
-  // sidebar there too, keeping density/colour presets as the sidebar's
-  // priority content; the stage tabs, current-color bar, frame name,
-  // lens shape, mirroring and recent-colors history relocate to a row
-  // below the stage instead of overlaying the image or living in the
-  // sidebar; everything moves back to its normal spot everywhere else
+  // sidebar there too, in a specific priority order (colour presets,
+  // favourites, density/share, lens shape); the stage tabs, current-color
+  // bar, frame name and recent-colors history relocate to a row below the
+  // stage instead of overlaying the image; everything moves back to its
+  // normal spot everywhere else
   const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
   function updateControlsPlacement(){
     if(landscapeDockMql.matches){
+      favoritesSection.after(sidebarControlsSlot);
       sidebarControlsSlot.appendChild(appControls);
+      sidebarControlsSlot.after(shapeSection);
       belowStageRow.appendChild(stageTabs);
       belowStageRow.appendChild(stageBottomBar);
       belowStageRow.appendChild(frameNameBlock);
-      belowStageRow.appendChild(shapeSection);
-      belowStageRow.appendChild(mirrorSection);
       belowStageRow.appendChild(historyBlock);
     }else{
       stage.after(appControls);
@@ -1290,7 +1298,7 @@
       vertexNudgePad.before(stageBottomBar);
       appControls.prepend(frameNameBlock);
       colorsSection.before(shapeSection);
-      colorsSection.before(mirrorSection);
+      shapeSection.before(sidebarControlsSlot);
       dragHint.before(historyBlock);
     }
     resizeCanvas();
@@ -1307,8 +1315,8 @@
   const belowStageRow = document.getElementById('belowStageRow');
   const frameNameBlock = document.getElementById('frameNameBlock');
   const shapeSection = document.getElementById('shapeSection');
-  const mirrorSection = document.getElementById('mirrorSection');
   const colorsSection = document.getElementById('colorsSection');
+  const favoritesSection = document.getElementById('favoritesSection');
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
   const colorBadgeName = document.getElementById('colorBadgeName');
@@ -1335,6 +1343,10 @@
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
       const key = el.getAttribute('data-i18n-placeholder');
       el.placeholder = t(key);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+      const key = el.getAttribute('data-i18n-title');
+      el.title = t(key);
     });
     document.documentElement.lang = lang;
     langSwitch.querySelectorAll('.lang-btn').forEach(b=>{
