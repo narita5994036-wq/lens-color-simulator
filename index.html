@@ -61,6 +61,7 @@
     display:flex; align-items:center; justify-content:center; background:none; cursor:pointer;
   }
   .gear svg{width:16px; height:16px;}
+  .gear.fullscreen-toggle.active{background:var(--black); color:var(--white); border-color:var(--black);}
   .lang-switch{
     display:flex; border:1px solid var(--black); overflow:hidden;
   }
@@ -614,7 +615,20 @@
        it instead and let it scroll internally past 90% of the viewport */
     .overlay{align-items:center;}
     .sheet{max-height:90vh; overflow-y:auto;}
+    /* redundant once the sidebar is permanently docked — tapping it just
+       re-triggers openSidebar(), which the sidebar's own CSS overrides
+       force visible anyway */
+    .badge-menu-icon{display:none;}
+    /* hidden by default (see .gear.fullscreen-toggle below); only shown
+       here since it's meaningless in portrait, where the sidebar is
+       already an on-demand overlay rather than something to hide */
+    #btnFullscreenToggle{display:flex;}
+    /* lets a centered overlay/picker (e.g. the mirror-confirm sheet) use
+       the full width without the permanently-docked sidebar competing for
+       space or visually sitting in front of it */
+    .fullscreen-mode .sidebar{display:none;}
   }
+  .gear.fullscreen-toggle{display:none;}
 </style>
 </head>
 <body>
@@ -629,6 +643,9 @@
     <div class="header-icons">
       <button class="gear" id="btnSidebarOpen" aria-label="メニュー">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <button class="gear fullscreen-toggle" id="btnFullscreenToggle" aria-label="toggle fullscreen mode" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"/></svg>
       </button>
     </div>
   </header>
@@ -1243,6 +1260,7 @@
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const btnSidebarOpen = document.getElementById('btnSidebarOpen');
   const btnSidebarClose = document.getElementById('btnSidebarClose');
+  const btnFullscreenToggle = document.getElementById('btnFullscreenToggle');
   const appControls = document.getElementById('appControls');
   const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
   // matches the CSS media query that docks the sidebar on iPad landscape;
@@ -2151,6 +2169,21 @@
   btnSidebarOpen.addEventListener('click', openSidebar);
   btnSidebarClose.addEventListener('click', closeSidebar);
   sidebarBackdrop.addEventListener('click', closeSidebar);
+
+  // ---------- iPad landscape: fullscreen mode (hide the docked sidebar) ----------
+  // lets a centered overlay/picker (e.g. mirroring's confirm sheet) use the
+  // full width instead of the permanently-docked sidebar competing for
+  // space or visually sitting in front of it; only meaningful in
+  // landscape (the button itself is hidden elsewhere)
+  let fullscreenMode = false;
+  function setFullscreenMode(on){
+    fullscreenMode = on;
+    document.body.classList.toggle('fullscreen-mode', on);
+    btnFullscreenToggle.classList.toggle('active', on);
+    btnFullscreenToggle.setAttribute('aria-pressed', String(on));
+    resizeCanvas();
+  }
+  btnFullscreenToggle.addEventListener('click', ()=> setFullscreenMode(!fullscreenMode));
 
   btnSidebarResetPoints.addEventListener('click', ()=>{
     resetLensPoints();
