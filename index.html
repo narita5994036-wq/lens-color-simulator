@@ -432,6 +432,19 @@
   }
   .blur-toggle-badge.show{opacity:1;}
 
+  .camera-loading{
+    position:absolute; inset:0; z-index:20;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.4);
+  }
+  .camera-loading.show{display:flex;}
+  .camera-loading-spinner{
+    width:42px; height:42px; border-radius:50%;
+    border:3px solid rgba(255,255,255,0.3); border-top-color:#fff;
+    animation:camera-loading-spin 0.8s linear infinite;
+  }
+  @keyframes camera-loading-spin{ to{transform:rotate(360deg);} }
+
   /* ---- opacity ---- */
   .opacity-row{
     display:flex; align-items:center; gap:14px; margin-top:22px;
@@ -849,6 +862,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
     <div class="blur-toggle-badge" id="blurToggleBadge"></div>
+    <div class="camera-loading" id="cameraLoading">
+      <div class="camera-loading-spinner"></div>
+    </div>
   </div>
   <div class="camera-guide-label" data-i18n="cameraGuideLabel">枠に顔とフレームを合わせてください</div>
   <div class="camera-controls">
@@ -1216,6 +1232,7 @@
   const btnCameraFlip = document.getElementById('btnCameraFlip');
   const btnCameraBlurToggle = document.getElementById('btnCameraBlurToggle');
   const blurToggleBadge = document.getElementById('blurToggleBadge');
+  const cameraLoading = document.getElementById('cameraLoading');
   const cameraFrame = document.getElementById('cameraFrame');
   const cameraZoomBadge = document.getElementById('cameraZoomBadge');
   let cameraStream = null;
@@ -1632,6 +1649,7 @@
     }
     cameraModal.classList.remove('show');
     capturePreviewOverlay.classList.remove('show');
+    cameraLoading.classList.remove('show');
     pendingCaptureFile = null;
   }
 
@@ -1730,6 +1748,10 @@
     const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
     if(!w || !h) return;
     if(shutterSoundEnabled) playShutterSound();
+    // shown immediately (tone-up/chin-slim/background-blur segmentation
+    // and JPEG encoding below take a moment), hidden once the processed
+    // preview is actually ready in renderCapturePreview()'s toBlob callback
+    cameraLoading.classList.add('show');
     // crop to the same frame shown on screen behind the guide: the portrait
     // 390:499 ratio (matching a specific reference photo's exact ratio,
     // 1170x1497) everywhere, or the wide 4:3 one on iPad landscape (see
@@ -1863,7 +1885,7 @@
     applyChinSlim(captureCtx, captureW, captureH, 0.02, chinXFrac, chinYFrac);
     if(captureMaskData) compositeBackgroundBlur(captureCtx, captureW, captureH, captureMaskData, blurAmount);
     captureCanvas.toBlob(blob=>{
-      if(!blob) return;
+      if(!blob){ cameraLoading.classList.remove('show'); return; }
       pendingCaptureFile = new File([blob], 'capture.jpg', {type:'image/jpeg'});
       // release the previous preview's blob URL (if any) before creating the
       // new one, so retaking a shot repeatedly doesn't leak one per attempt
@@ -1872,6 +1894,9 @@
       capturePreviewImg.src = url;
       capturePreviewImg.dataset.blobUrl = url;
       capturePreviewOverlay.classList.add('show');
+      // idempotent: on later slider-triggered re-renders this is already
+      // hidden, so removing it again is a harmless no-op
+      cameraLoading.classList.remove('show');
     }, 'image/jpeg', 0.92);
   }
   // the full re-render (getImageData/putImageData + two box-blur passes
