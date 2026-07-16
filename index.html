@@ -615,6 +615,25 @@
        it instead and let it scroll internally past 90% of the viewport */
     .overlay{align-items:center;}
     .sheet{max-height:90vh; overflow-y:auto;}
+    /* the capture-confirm sheet's photo (now a wide 4:3 landscape shot)
+       plus its title, three sliders, toggle row and two buttons could
+       still add up to more than 90vh, requiring an internal scroll to
+       reach the buttons; shrinking the photo to fit its height rather
+       than the sheet's full width (accepting a smaller preview) keeps
+       everything on screen without scrolling. A definite height (not
+       max-height) is required here — the image's height:100% below only
+       resolves against a definite parent height, not one derived from
+       max-height alone, otherwise it falls back to its intrinsic size and
+       ignores the cap entirely. width:fit-content shrinks the wrapper
+       itself down to the image's actual rendered size, so
+       #maskOverlayCanvas's inset:0 still lines up with just the photo
+       rather than the sheet's full original width */
+    .capture-preview-wrap{
+      height:32vh; width:fit-content; max-width:100%; margin:0 auto;
+    }
+    .capture-preview-wrap .share-preview-img{
+      width:auto; height:100%; max-width:100%; display:block;
+    }
     /* redundant once the sidebar is permanently docked — tapping it just
        re-triggers openSidebar(), which the sidebar's own CSS overrides
        force visible anyway */
