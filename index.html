@@ -601,15 +601,27 @@
       width:100%; margin-left:0; margin-right:0;
     }
     .sidebar{
-      /* bounded (rather than height:auto) so its own overflow-y:auto keeps
-         scrolling to the menu's content instead of growing the whole page
-         and scrolling the photo/main column away along with it */
-      position:static; height:100vh; width:320px; flex-shrink:0;
+      /* sticky (rather than static) so it stays pinned to the viewport as
+         the main column's content scrolls the page — with plain static
+         positioning the sidebar scrolled away with the page like any
+         other block, since its own height:100vh only bounds its OWN
+         overflow-y:auto scroll region, it doesn't pin that region to the
+         viewport by itself */
+      position:sticky; top:0; height:100vh; width:320px; flex-shrink:0;
       transform:none; border-left:1px solid var(--gray-line); border-right:none;
     }
     .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
     #cameraGuidePortrait{display:none;}
     #cameraGuideLandscape{display:block;}
+    /* overlays (capture/share preview, reset/mirror confirm, etc.) use a
+       bottom-anchored sheet sized for mobile; on a wide landscape screen a
+       tall sheet — e.g. the capture preview, now with a wide photo plus
+       three sliders — could be taller than the viewport and, anchored to
+       the bottom with no scroll handling, have its top (including part of
+       the photo) pushed above the screen with no way to reach it. Center
+       it instead and let it scroll internally past 90% of the viewport */
+    .overlay{align-items:center;}
+    .sheet{max-height:90vh; overflow-y:auto;}
   }
 </style>
 </head>
