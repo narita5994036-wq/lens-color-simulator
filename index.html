@@ -220,20 +220,6 @@
   .stage-undo-btn:disabled{opacity:0.35; cursor:default;}
   .stage-undo-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
 
-  .stage-tabs{
-    position:absolute; top:16px; left:16px; z-index:6;
-    display:flex; gap:6px;
-  }
-  .stage-tab{
-    width:34px; height:34px; border-radius:6px; padding:0;
-    background:rgba(255,255,255,0.88); background-size:cover; background-position:center;
-    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-    border:1px solid rgba(17,17,17,0.15);
-    display:flex; align-items:center; justify-content:center;
-    color:var(--gray-mid); font-size:14px; font-weight:300; cursor:pointer;
-  }
-  .stage-tab.active{border:2px solid var(--black);}
-
   .vertex-nudge-pad{
     /* a floating d-pad for nudging a selected point one pixel at a time —
        an alternative to dragging, for fine adjustments that are hard to
@@ -359,13 +345,13 @@
   .sidebar-controls-slot{
     margin:0 0 28px; padding-bottom:24px; border-bottom:1px solid var(--gray-line);
   }
-  /* target for the stage tabs / current-color bar / recent-colors history
-     when JS relocates them below the stage on landscape (see
+  /* target for the current-color bar / recent-colors history when JS
+     relocates them below the stage on landscape (see
      updateControlsPlacement()); empty (and collapses to nothing) in
      portrait, where they stay in their normal in-image/below-image spots */
   .below-stage-row:empty{display:none;}
   .below-stage-row{display:flex; flex-direction:column; gap:14px; margin-top:16px;}
-  .below-stage-row .stage-tabs, .below-stage-row .stage-bottom-bar{
+  .below-stage-row .stage-bottom-bar{
     position:static; top:auto; left:auto; right:auto; bottom:auto;
   }
   #cameraGuideLandscape{display:none;}
@@ -557,13 +543,6 @@
   }
   .autocomplete-item:last-child{border-bottom:none;}
   .autocomplete-item:active{background:var(--gray-bg);}
-  .reset-tab-picker{display:flex; gap:8px; margin-top:4px;}
-  .reset-tab-thumb{
-    width:48px; height:48px; border-radius:6px; padding:0;
-    background:var(--gray-bg); background-size:cover; background-position:center;
-    border:1px solid var(--gray-line); cursor:pointer;
-  }
-  .reset-tab-thumb.selected{border:2px solid var(--black);}
   .share-preview-img{width:100%; display:block; border:1px solid var(--gray-line);}
   .capture-preview-wrap{position:relative;}
   .blur-unavailable-note{
@@ -656,7 +635,6 @@
       <div data-i18n="emptyState">タップして撮影してください</div>
       <span class="lib-link" id="libLink" data-i18n="chooseFromLibrary">写真から選択</span>
     </div>
-    <div class="stage-tabs" id="stageTabs" style="display:none;"></div>
     <button class="stage-undo-btn" id="btnUndo" disabled aria-label="undo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
     </button>
@@ -847,10 +825,6 @@
     <button class="close-x" data-close="resetConfirmOverlay">×</button>
     <h4 data-i18n="resetConfirmTitle">画像をリセットしますか？</h4>
     <div class="note" data-i18n="resetConfirmNote">写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。</div>
-    <div class="field" id="resetTabPickerField" style="display:none;">
-      <label data-i18n="resetPickerLabel">リセットする画像を選択</label>
-      <div class="reset-tab-picker" id="resetTabPicker"></div>
-    </div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
       <button class="btn primary" id="btnResetImage" data-i18n="resetImageBtn">画像をリセット</button>
       <button class="btn" data-close="resetConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
@@ -1037,7 +1011,6 @@
       customColorFallback:"カスタムカラー",
       resetConfirmTitle:"画像をリセットしますか？",
       resetConfirmNote:"写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。",
-      resetPickerLabel:"リセットする画像を選択",
       mirrorConfirmTitle:"形状をミラーリングしますか？",
       mirrorConfirmNote:"この形状を左右反転し、もう片方のレンズに反映します。",
       mirrorBtn:"ミラーリング",
@@ -1096,7 +1069,6 @@
       customColorFallback:"Custom Colour",
       resetConfirmTitle:"Reset the photo?",
       resetConfirmNote:"The photo, lens position, and selected colour will all be cleared. This cannot be undone.",
-      resetPickerLabel:"Select which photo to reset",
       mirrorConfirmTitle:"Mirror this shape?",
       mirrorConfirmNote:"This shape will be flipped horizontally and applied to the other lens.",
       mirrorBtn:"Mirror",
@@ -1147,11 +1119,6 @@
   let scaleDragData = null;  // snapshot captured when a scale-drag starts
   let rotateDragData = null; // snapshot captured when a rotate-drag starts (see the antenna handle in scale mode)
   let undoStack = [];        // up to UNDO_MAX past snapshots of `lenses`, for the lens-point undo button
-  const STOCK_MAX = 3;
-  let imageStock = [null, null, null]; // temporary in-memory slots for comparing multiple frames in one visit
-  let activeStockSlot = -1; // index of the stock slot currently shown, or -1 if viewing an unsaved photo
-  let pendingStockSlot = null; // set just before opening the camera for a specific tab slot
-  let pendingResetTargets = []; // [{type:'slot', index}, ...] or {type:'current'} — which photo(s) the reset-confirm modal will erase
   const UNDO_MAX = 20;
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
@@ -1262,8 +1229,6 @@
 
 
   const resetConfirmOverlay = document.getElementById('resetConfirmOverlay');
-  const resetTabPickerField = document.getElementById('resetTabPickerField');
-  const resetTabPicker = document.getElementById('resetTabPicker');
   const mirrorConfirmOverlay = document.getElementById('mirrorConfirmOverlay');
   const btnMirrorConfirm = document.getElementById('btnMirrorConfirm');
   const btnMirrorResetPoints = document.getElementById('btnMirrorResetPoints');
@@ -1278,23 +1243,21 @@
   // matches the CSS media query that docks the sidebar on iPad landscape;
   // #appControls (now just density + share button) relocates into the
   // sidebar there too, in a specific priority order (colour presets,
-  // favourites, density/share, lens shape); the stage tabs, current-color
-  // bar, frame name and recent-colors history relocate to a row below the
-  // stage instead of overlaying the image; everything moves back to its
-  // normal spot everywhere else
+  // favourites, density/share, lens shape); the current-color bar, frame
+  // name and recent-colors history relocate to a row below the stage
+  // instead of overlaying the image; everything moves back to its normal
+  // spot everywhere else
   const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
   function updateControlsPlacement(){
     if(landscapeDockMql.matches){
       favoritesSection.after(sidebarControlsSlot);
       sidebarControlsSlot.appendChild(appControls);
       sidebarControlsSlot.after(shapeSection);
-      belowStageRow.appendChild(stageTabs);
       belowStageRow.appendChild(stageBottomBar);
       belowStageRow.appendChild(frameNameBlock);
       belowStageRow.appendChild(historyBlock);
     }else{
       stage.after(appControls);
-      btnUndo.before(stageTabs);
       vertexNudgePad.before(stageBottomBar);
       appControls.prepend(frameNameBlock);
       colorsSection.before(shapeSection);
@@ -1309,7 +1272,6 @@
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
   const vertexNudgePad = document.getElementById('vertexNudgePad');
-  const stageTabs = document.getElementById('stageTabs');
   const stageBottomBar = document.getElementById('stageBottomBar');
   const historyBlock = document.getElementById('historyBlock');
   const belowStageRow = document.getElementById('belowStageRow');
@@ -1381,9 +1343,6 @@
   // ---------- image loading ----------
   function loadImageFile(file){
     if(!file) return;
-    const firstEmptySlot = imageStock.findIndex(s => !s);
-    const targetSlot = (typeof pendingStockSlot === 'number') ? pendingStockSlot : (firstEmptySlot !== -1 ? firstEmptySlot : null);
-    pendingStockSlot = null;
     const reader = new FileReader();
     reader.onload = function(e){
       const image = new Image();
@@ -1395,7 +1354,6 @@
         activeSide = 'left';
         selectedVertex = null;
         undoStack = [];
-        activeStockSlot = (typeof targetSlot === 'number') ? targetSlot : -1;
         currentColor = null;
         currentPreset = null;
         applyDensityConstraints(null);
@@ -1411,12 +1369,8 @@
         updateToggleVisibility();
         updateHintText();
         btnShare.disabled = false;
-        if(typeof targetSlot === 'number'){
-          frameName = '';
-          frameNameInput.value = '';
-          imageStock[targetSlot] = captureStockSnapshot();
-        }
-        updateStageTabsUI();
+        frameName = '';
+        frameNameInput.value = '';
         resizeCanvas();
       };
       image.src = e.target.result;
@@ -1530,9 +1484,7 @@
   }
 
   // tapping the empty image area launches the guided camera view; the small
-  // library link underneath lets someone pick an existing photo instead.
-  // pendingStockSlot is left untouched here — showEmptySlotForCapture() may
-  // have already targeted a specific tab slot for whatever gets captured next
+  // library link underneath lets someone pick an existing photo instead
   stage.addEventListener('click', ()=>{
     if(!img){
       openCameraModal();
@@ -1630,7 +1582,6 @@
     cameraModal.classList.remove('show');
     capturePreviewOverlay.classList.remove('show');
     pendingCaptureFile = null;
-    pendingStockSlot = null;
   }
 
   btnCameraCancel.addEventListener('click', closeCameraModal);
@@ -2086,7 +2037,6 @@
     img = null;
     lenses = null;
     undoStack = [];
-    activeStockSlot = -1;
     currentColor = null;
     currentPreset = null;
     applyDensityConstraints(null);
@@ -2100,163 +2050,12 @@
     emptyState.style.display = 'flex';
     dragHint.style.display = 'none';
     updateToggleVisibility();
-    updateStageTabsUI();
     btnShare.disabled = true;
     frameName = '';
     frameNameInput.value = '';
     frameAutocompleteList.classList.remove('show');
     cameraInput.value = '';
     uploadInput.value = '';
-    draw();
-  }
-
-  // ---------- temporary image stock (compare up to 3 frames) ----------
-  function captureStockSnapshot(){
-    return {
-      dataURL: img.src,
-      imgNatW, imgNatH,
-      lenses: JSON.parse(JSON.stringify(lenses)),
-      colorId: currentPreset ? (currentPreset.id || null) : null,
-      colorHex: currentColor,
-      colorName: currentPreset ? currentPreset.name : null,
-      colorNameEn: currentPreset ? currentPreset.nameEn : null,
-      opacityPct: Math.round(opacity*100),
-      gradientBottomPct: gradientBottomPct,
-      frameName: frameName,
-      zoomLevel, panX, panY
-    };
-  }
-
-  function restoreStockSnapshot(snap){
-    const image = new Image();
-    image.onload = function(){
-      img = image;
-      imgNatW = snap.imgNatW;
-      imgNatH = snap.imgNatH;
-      lenses = JSON.parse(JSON.stringify(snap.lenses));
-      activeSide = 'left';
-      selectedVertex = null;
-      undoStack = [];
-      scaleMode = false;
-      zoomLevel = snap.zoomLevel; panX = snap.panX; panY = snap.panY;
-      zoomSlider.value = Math.round(zoomLevel*100);
-      zoomValue.textContent = Math.round(zoomLevel*100) + '%';
-      frameName = snap.frameName || '';
-      frameNameInput.value = frameName;
-      emptyState.style.display = 'none';
-      dragHint.style.display = 'block';
-
-      if(snap.colorHex){
-        let preset = (snap.colorId && presets.find(p=>p.id===snap.colorId)) || presets.find(p=>p.hex===snap.colorHex);
-        if(!preset) preset = {hex:snap.colorHex, name:snap.colorName, nameEn:snap.colorNameEn, group:'custom'};
-        currentColor = preset.hex;
-        currentPreset = preset;
-        opacity = snap.opacityPct/100;
-        applyDensityConstraints(preset);
-        gradientBottomPct = (preset.gradient && !preset.twin)
-          ? (typeof snap.gradientBottomPct === 'number' ? snap.gradientBottomPct : 0)
-          : null;
-      } else {
-        currentColor = null;
-        currentPreset = null;
-        applyDensityConstraints(null);
-        gradientBottomPct = null;
-      }
-      renderDensityTrack();
-      updateColorBadge();
-      updateToggleVisibility();
-      updateHintText();
-      btnShare.disabled = false;
-      renderAll();
-      resizeCanvas();
-    };
-    image.src = snap.dataURL;
-  }
-
-  // only occupied tabs plus a single trailing "+" tab (for the next empty
-  // slot, if any) are rendered — no long-press-to-delete, no pre-filled
-  // empty slots
-  function updateStageTabsUI(){
-    const anyOccupied = imageStock.some(s=>!!s);
-    stageTabs.style.display = (img || anyOccupied) ? 'flex' : 'none';
-    stageTabs.innerHTML = '';
-    imageStock.forEach((snap, i)=>{
-      if(!snap) return;
-      const tab = document.createElement('button');
-      tab.type = 'button';
-      tab.className = 'stage-tab occupied' + (activeStockSlot === i ? ' active' : '');
-      tab.style.backgroundImage = `url(${snap.dataURL})`;
-      tab.addEventListener('click', (evt)=>{
-        // without this, the click bubbles up to the stage's own "tap empty
-        // area to open the camera" listener, which can fire spuriously if
-        // `img` is still momentarily null while switching to another tab
-        evt.stopPropagation();
-        onStageTabClick(i);
-      });
-      stageTabs.appendChild(tab);
-    });
-    const nextEmptyIndex = imageStock.findIndex(s => !s);
-    if(nextEmptyIndex !== -1){
-      const plusTab = document.createElement('button');
-      plusTab.type = 'button';
-      plusTab.className = 'stage-tab';
-      plusTab.innerHTML = '<span class="tab-plus">+</span>';
-      plusTab.addEventListener('click', (evt)=>{
-        evt.stopPropagation();
-        onStageTabClick(nextEmptyIndex);
-      });
-      stageTabs.appendChild(plusTab);
-    }
-  }
-
-  function onStageTabClick(i){
-    const snap = imageStock[i];
-    if(!snap){
-      showEmptySlotForCapture(i);
-      return;
-    }
-    if(activeStockSlot === i){
-      if(img) imageStock[i] = captureStockSnapshot();
-      updateStageTabsUI();
-      return;
-    }
-    if(activeStockSlot !== -1 && imageStock[activeStockSlot] && img){
-      imageStock[activeStockSlot] = captureStockSnapshot();
-    }
-    activeStockSlot = i;
-    restoreStockSnapshot(snap);
-    updateStageTabsUI();
-  }
-
-  // tapping the "+" tab keeps the current tab's data intact and just shows
-  // the simulator's initial (empty) screen, targeting slot i for whatever
-  // photo gets captured or picked next — no intermediate chooser popup
-  function showEmptySlotForCapture(i){
-    if(activeStockSlot !== -1 && imageStock[activeStockSlot] && img){
-      imageStock[activeStockSlot] = captureStockSnapshot();
-    }
-    pendingStockSlot = i;
-    activeStockSlot = -1;
-    img = null;
-    lenses = null;
-    currentColor = null;
-    currentPreset = null;
-    applyDensityConstraints(null);
-    gradientBottomPct = null;
-    renderDensityTrack();
-    updateColorBadge();
-    scaleMode = false;
-    zoomLevel = 1; panX = 0; panY = 0;
-    zoomSlider.value = 100;
-    zoomValue.textContent = '100%';
-    emptyState.style.display = 'flex';
-    dragHint.style.display = 'none';
-    updateToggleVisibility();
-    btnShare.disabled = true;
-    frameName = '';
-    frameNameInput.value = '';
-    frameAutocompleteList.classList.remove('show');
-    updateStageTabsUI();
     draw();
   }
 
@@ -2272,51 +2071,7 @@
     draw();
   }
 
-  function buildResetTargets(){
-    const targets = [];
-    imageStock.forEach((snap, i)=>{
-      if(snap) targets.push({type:'slot', index:i, dataURL: snap.dataURL, active: activeStockSlot === i});
-    });
-    if(img && activeStockSlot === -1) targets.push({type:'current', dataURL: img.src, active:true});
-    return targets;
-  }
-
-  function toggleResetTarget(target, el){
-    const idx = pendingResetTargets.indexOf(target);
-    if(idx === -1){
-      pendingResetTargets.push(target);
-      el.classList.add('selected');
-    } else {
-      pendingResetTargets.splice(idx, 1);
-      el.classList.remove('selected');
-    }
-    btnResetImage.disabled = pendingResetTargets.length === 0;
-  }
-
   function showResetConfirm(){
-    const targets = buildResetTargets();
-    resetTabPicker.innerHTML = '';
-    pendingResetTargets = [];
-    if(targets.length <= 1){
-      // only one photo exists across all tabs — reset it directly, no need to ask which
-      pendingResetTargets = targets.length ? [targets[0]] : [];
-      resetTabPickerField.style.display = 'none';
-    } else {
-      resetTabPickerField.style.display = 'block';
-      targets.forEach(t=>{
-        const el = document.createElement('button');
-        el.type = 'button';
-        el.className = 'reset-tab-thumb';
-        el.style.backgroundImage = `url(${t.dataURL})`;
-        el.addEventListener('click', ()=> toggleResetTarget(t, el));
-        resetTabPicker.appendChild(el);
-        if(t.active){
-          pendingResetTargets.push(t);
-          el.classList.add('selected');
-        }
-      });
-    }
-    btnResetImage.disabled = pendingResetTargets.length === 0;
     resetConfirmOverlay.classList.add('show');
   }
 
@@ -2375,18 +2130,7 @@
   });
 
   btnResetImage.addEventListener('click', ()=>{
-    if(!pendingResetTargets.length) return;
-    const clearsCurrent = pendingResetTargets.some(t =>
-      t.type === 'current' || (t.type === 'slot' && t.index === activeStockSlot));
-    pendingResetTargets.forEach(t=>{
-      if(t.type === 'slot') imageStock[t.index] = null;
-    });
-    if(clearsCurrent){
-      resetImage();
-    } else {
-      updateStageTabsUI();
-    }
-    pendingResetTargets = [];
+    resetImage();
     resetConfirmOverlay.classList.remove('show');
   });
 
@@ -3952,7 +3696,6 @@
   // ---------- init ----------
   applyLang();
   renderDensityTrack();
-  updateStageTabsUI();
   updateColorBadge();
   updateControlsPlacement();
 })();
