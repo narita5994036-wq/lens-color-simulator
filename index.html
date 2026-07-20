@@ -339,6 +339,7 @@
   }
   .icon-btn svg{width:15px; height:15px;}
   .icon-btn.active{background:var(--black); border-color:var(--black); color:#fff;}
+  .icon-btn:disabled{opacity:0.35; cursor:default;}
   .shape-header-actions{display:flex; gap:8px;}
   /* target for #appControls when JS relocates it into the sidebar on
      landscape (see updateControlsPlacement()); empty in portrait, where
@@ -1043,6 +1044,7 @@
       blurToggleOff:"背景ぼかし: OFF",
       dragHint:"頂点をドラッグして形を調整、内側をドラッグすると全体を移動、ダブルタップで両眼とも拡大縮小モードに切替。背景を左右にスワイプで直近5色を切替、背景をトリプルタップでズームをリセット",
       scaleModeHint:"ガイドボックス内をドラッグで移動、四隅の点で拡大・縮小、上のアンテナ点で回転できます（もう一度ダブルタップで解除）",
+      deselectedHint:"レンズをタップして選択してください",
       handlesLabel:"操作点",
       opacityLabel:"濃度",
       gradientBottomLabel:"最小濃度",
@@ -1108,6 +1110,7 @@
       blurToggleOff:"Background blur: OFF",
       dragHint:"Drag a point to reshape, drag inside to move, double-tap to toggle scale mode for both lenses. Swipe the background left/right to cycle your last 5 colours, triple-tap the background to reset zoom",
       scaleModeHint:"Drag inside the guide box to move, drag a corner dot to scale, and the antenna dot above to rotate (double-tap again to exit)",
+      deselectedHint:"Tap a lens to select it",
       handlesLabel:"Points",
       opacityLabel:"Density",
       gradientBottomLabel:"Min Density",
@@ -1191,7 +1194,7 @@
   let currentDensitySteps = null; // allowed density percentages for the selected preset, or null if unrestricted
   let gradientBottomPct = null; // adjustable bottom-of-gradient density (percent), only used for non-twin gradient presets
   let showHandles = true;   // whether the editable outline/vertex points are drawn
-  let activeSide = 'left';  // which lens is in edit mode (shows points/outline); the other shows a passive grey outline only
+  let activeSide = null;    // which lens is in edit mode (shows points/outline) — 'left', 'right', or null (deselected: both lenses shown as passive outlines only, until one is tapped)
   let selectedVertex = null; // {side, index} — the single tapped point, shown highlighted for the nudge d-pad
 
   function pointsVisible(){
@@ -1209,7 +1212,7 @@
   let pressedVertexIndex = null; // which vertex index was pressed down on, for tap-to-select
   let dragOffset = {x:0,y:0};
 
-  let scaleMode = false;      // whether outline-scale mode is active (applies to both lenses at once)
+  let scaleMode = true;       // whether outline-scale mode (vs. point/vertex mode) is active for the active side — scale is the default whenever a lens is freshly selected
   let scaleDragData = null;  // snapshot captured when a scale-drag starts
   let rotateDragData = null; // snapshot captured when a rotate-drag starts (see the antenna handle in scale mode)
   let undoStack = [];        // up to UNDO_MAX past snapshots of `lenses`, for the lens-point undo button
@@ -1457,7 +1460,7 @@
         imgNatW = image.naturalWidth;
         imgNatH = image.naturalHeight;
         lenses = defaultLensRegions();
-        activeSide = 'left';
+        activeSide = null;
         selectedVertex = null;
         undoStack = [];
         currentColor = null;
@@ -1466,7 +1469,7 @@
         gradientBottomPct = null;
         renderDensityTrack();
         updateColorBadge();
-        scaleMode = false;
+        scaleMode = true;
         zoomLevel = 1; panX = 0; panY = 0;
         zoomSlider.value = 100;
         zoomValue.textContent = '100%';
@@ -1550,7 +1553,7 @@
       right: buildShapePolygon(shapeKey, lensBoundingBox(lenses.right.points))
     };
     selectedVertex = null;
-    scaleMode = false;
+    scaleMode = true;
     updateHintText();
     closeSidebar();
     draw();
@@ -2287,7 +2290,10 @@
     gradientBottomPct = null;
     renderDensityTrack();
     updateColorBadge();
-    scaleMode = false;
+    activeSide = null;
+    selectedVertex = null;
+    scaleMode = true;
+    updateHintText();
     zoomLevel = 1; panX = 0; panY = 0;
     zoomSlider.value = 100;
     zoomValue.textContent = '100%';
@@ -2311,7 +2317,7 @@
     lenses = defaultLensRegions();
     activeSide = 'left';
     selectedVertex = null;
-    scaleMode = false;
+    scaleMode = true;
     updateHintText();
     draw();
   }
@@ -2357,7 +2363,7 @@
     lenses = updated;
     activeSide = side;
     selectedVertex = null;
-    scaleMode = false;
+    scaleMode = true;
     updateHintText();
     draw();
   }
@@ -2417,7 +2423,7 @@
   });
 
   function openMirrorConfirmFor(side){
-    if(!lenses) return;
+    if(!lenses || !side) return;
     mirrorSourceSide = side;
     closeSidebar();
     mirrorConfirmOverlay.classList.add('show');
@@ -2669,8 +2675,9 @@
     // only the active lens is interactive; the inactive one is a passive
     // reference outline. Also, with the points toggle off, nothing is
     // draggable at all (not even moving the outline) — matching what's
-    // actually drawn on screen.
-    if(!lenses || !pointsVisible()) return null;
+    // actually drawn on screen. With no lens selected (deselected state),
+    // nothing is interactive either — a lens must be tapped first.
+    if(!lenses || !pointsVisible() || !activeSide) return null;
     const side = activeSide;
     const pts = toScreenPoints(side, r);
     for(let i=0;i<pts.length;i++){
@@ -2700,8 +2707,9 @@
   }
 
   function hitTestScaleMode(pos, r){
-    // only the active lens is interactive in scale mode too
-    if(!pointsVisible()) return null;
+    // only the active lens is interactive in scale mode too; nothing to
+    // hit when nothing is selected
+    if(!pointsVisible() || !activeSide) return null;
     const side = activeSide;
     const box = getBox(toScreenPoints(side, r));
     // the antenna-like rotate handle above the box takes priority, then the
@@ -2722,7 +2730,10 @@
   }
 
   function updateHintText(){
-    dragHint.textContent = scaleMode ? t('scaleModeHint') : t('dragHint');
+    dragHint.textContent = !activeSide ? t('deselectedHint') : (scaleMode ? t('scaleModeHint') : t('dragHint'));
+    // mirroring needs a specific selected lens as its source, so the button
+    // is only meaningful once one is active
+    btnMirrorSelected.disabled = !activeSide;
   }
 
   function startMirrorLongPress(side, pos){
@@ -2829,11 +2840,26 @@
       return;
     }
 
+    if(!tappedSide && activeSide){
+      // tapping the background — outside every lens — deselects whichever
+      // one was active; both then show only as passive reference outlines
+      // until a lens is tapped again. The touch still falls through below,
+      // so it can also register as a swipe or a reset long-press.
+      activeSide = null;
+      selectedVertex = null;
+      updateHintText();
+      draw();
+    }
+
     if(tappedSide && tappedSide !== activeSide){
-      // tapping the other lens switches which one is in edit mode; the same
+      // tapping a lens (whether nothing was selected before, or the other
+      // one was) makes it active and always starts fresh in the scale
+      // tool, not wherever point-mode editing last left off; the same
       // touch continues below so it can also start a drag immediately
       activeSide = tappedSide;
       selectedVertex = null;
+      scaleMode = true;
+      updateHintText();
       draw();
     }
 
@@ -2896,19 +2922,28 @@
   }
 
   function updateNudgePad(){
-    // the nudge d-pad is only meaningful for a selected point in the normal
-    // (non-scale) editing mode, matching where vertex selection itself applies
-    const show = !!(selectedVertex && lenses && !scaleMode && pointsVisible());
+    // shown any time a lens is selected at all, in either mode — see
+    // nudgeActiveTarget(), which nudges the single selected point if
+    // there is one, or the whole active shape otherwise
+    const show = !!(lenses && activeSide && pointsVisible());
     vertexNudgePad.classList.toggle('show', show);
   }
 
-  function nudgeSelectedVertices(dx, dy){
-    if(!selectedVertex || !lenses) return;
+  function nudgeActiveTarget(dx, dy){
+    if(!lenses || !activeSide) return;
     const r = getFitRect();
     const fdx = dx / r.w, fdy = dy / r.h;
-    const p = lenses[selectedVertex.side].points[selectedVertex.index];
-    p.x = Math.min(1, Math.max(0, p.x + fdx));
-    p.y = Math.min(1, Math.max(0, p.y + fdy));
+    if(selectedVertex){
+      const p = lenses[selectedVertex.side].points[selectedVertex.index];
+      p.x = Math.min(1, Math.max(0, p.x + fdx));
+      p.y = Math.min(1, Math.max(0, p.y + fdy));
+    } else {
+      // no single point selected — nudge the whole active shape instead
+      lenses[activeSide].points.forEach(p=>{
+        p.x = Math.min(1, Math.max(0, p.x + fdx));
+        p.y = Math.min(1, Math.max(0, p.y + fdy));
+      });
+    }
     draw();
   }
 
@@ -2928,14 +2963,14 @@
       // suppresses the browser's own long-press text-selection/callout
       // gesture, which would otherwise fire during a held-down repeat
       evt.preventDefault();
-      if(!selectedVertex || !lenses) return;
+      if(!lenses || !activeSide) return;
       // one snapshot covers the whole press (single tap or held repeat),
       // the same way a single undo covers an entire drag gesture
       pushUndoSnapshot();
-      nudgeSelectedVertices(dx, dy);
+      nudgeActiveTarget(dx, dy);
       stopRepeat();
       repeatTimer = setTimeout(()=>{
-        repeatInterval = setInterval(()=> nudgeSelectedVertices(dx, dy), NUDGE_REPEAT_INTERVAL);
+        repeatInterval = setInterval(()=> nudgeActiveTarget(dx, dy), NUDGE_REPEAT_INTERVAL);
       }, NUDGE_REPEAT_DELAY);
     });
     btn.addEventListener('pointerup', stopRepeat);
@@ -4019,6 +4054,7 @@
   updateColorBadge();
   updateControlsPlacement();
   updateFrameShapeButtons();
+  updateHintText();
 })();
 </script>
 </body>
