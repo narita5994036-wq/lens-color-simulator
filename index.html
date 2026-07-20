@@ -892,7 +892,7 @@
 
 <!-- settings modal -->
 
-<!-- reset confirm modal (opened via long-press on the photo) -->
+<!-- reset confirm modal (opened via 3-second long-press on the photo, outside any lens shape) -->
 <div class="overlay" id="resetConfirmOverlay">
   <div class="sheet">
     <button class="close-x" data-close="resetConfirmOverlay">×</button>
@@ -905,7 +905,7 @@
   </div>
 </div>
 
-<!-- mirror confirm modal (opened via 3-second long-press on a lens outline, in scale mode) -->
+<!-- mirror confirm modal (opened via 2-second long-press on a lens outline, in scale mode) -->
 <div class="overlay" id="mirrorConfirmOverlay">
   <div class="sheet">
     <button class="close-x" data-close="mirrorConfirmOverlay">×</button>
@@ -1221,7 +1221,8 @@
 
   let longPressTimer = null;
   let longPressStartPos = {x:0, y:0};
-  const LONG_PRESS_MS = 2500;
+  const LONG_PRESS_MS = 2000; // holding a lens shape (mirror confirm)
+  const RESET_LONG_PRESS_MS = 3000; // holding the background outside any lens (reset confirm)
   const LONG_PRESS_MOVE_PX = 12;
   let mirrorSourceSide = null;
 
@@ -2725,7 +2726,7 @@
   }
 
   function startMirrorLongPress(side, pos){
-    // holding still on a lens body (not a vertex/scale handle) for 3s offers
+    // holding still on a lens body (not a vertex/scale handle) for 2s offers
     // to mirror that lens's shape onto the other one — works in both normal
     // and outline (scale) mode
     longPressStartPos = pos;
@@ -2736,6 +2737,21 @@
       mirrorSourceSide = side;
       mirrorConfirmOverlay.classList.add('show');
     }, LONG_PRESS_MS);
+  }
+
+  function startResetLongPress(pos){
+    // holding still on the background — outside every lens shape — for 3s
+    // offers to reset the whole photo, sharing the same long-press timer
+    // (and its movement-cancel check in onPointerMove) as the mirror gesture
+    // above; only one of the two can ever be pending at once since they're
+    // started from mutually-exclusive hit/no-hit branches in onPointerDown
+    longPressStartPos = pos;
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(()=>{
+      longPressTimer = null;
+      dragTarget = null;
+      showResetConfirm();
+    }, RESET_LONG_PRESS_MS);
   }
 
   function startScaleDrag(side, pos, r, corner){
@@ -2838,6 +2854,7 @@
         evt.preventDefault();
       } else {
         swipeCandidate = {x:pos.x, y:pos.y, time:now};
+        startResetLongPress(pos);
       }
       return;
     }
@@ -2863,6 +2880,7 @@
       }
     } else {
       swipeCandidate = {x:pos.x, y:pos.y, time:now};
+      startResetLongPress(pos);
     }
   }
 
@@ -2926,15 +2944,20 @@
   });
 
   function onPointerMove(evt){
+    // checked even without a dragTarget so a pending background long-press
+    // (reset confirm — see startResetLongPress) also cancels once the
+    // pointer travels too far, the same way the on-lens mirror one does
+    if(longPressTimer){
+      const p = getPos(evt);
+      if(Math.hypot(p.x-longPressStartPos.x, p.y-longPressStartPos.y) > LONG_PRESS_MOVE_PX){
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }
     if(!dragTarget) return;
     evt.preventDefault();
     const pos = getPos(evt);
     const r = getFitRect();
-
-    if(longPressTimer && Math.hypot(pos.x-longPressStartPos.x, pos.y-longPressStartPos.y) > LONG_PRESS_MOVE_PX){
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
 
     if(!lenses) return;
     const l = lenses[dragTarget.side];
