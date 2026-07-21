@@ -606,12 +606,15 @@
   /* ---- frame-shape trace/registration screen ----
      a self-contained flow, entirely separate from the main photo/shape
      state (which is stashed while this is open — see openTraceModal()):
-     pick an existing frame name, position a reference photo against a
-     fixed face-width/eye-point guide, then trace and register the lens
-     outline on it. Steps 2-3 reuse the main #stage/#canvas element itself
-     (reparented into #traceStageSlot for the duration), so all the
-     existing point/scale editing, undo, and nudge-pad code works
-     unchanged. */
+     pick an existing frame name, position a reference photo of the
+     glasses laid flat against a fixed frame-width guide, then trace and
+     register the (left) lens outline on it. Steps 2-3 reuse the main
+     #stage/#canvas element itself (reparented into #traceStageSlot for
+     the duration), so all the existing point/scale editing, undo, and
+     nudge-pad code works unchanged — the color badge and points-toggle
+     bar are hidden explicitly in JS (see openTraceModal/closeTraceModal)
+     since both are toggled via inline styles elsewhere that would
+     otherwise override a CSS-only display:none here. */
   .trace-modal{
     position:fixed; inset:0; background:var(--white); z-index:250;
     display:none; flex-direction:column;
@@ -627,7 +630,6 @@
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
   .trace-stage-slot{flex:1; min-height:0; display:none; flex-direction:column;}
   .trace-stage-slot #stage{margin:0; aspect-ratio:auto; flex:1; min-height:0; width:100%;}
-  #stage.in-trace #colorBadge{display:none;}
   #stage.in-trace .empty-state{display:none;}
   #traceGuide{display:none;}
 
@@ -2019,6 +2021,11 @@
     stage.parentNode.insertBefore(placeholder, stage);
     traceStagePlaceholder = placeholder;
     stage.classList.add('in-trace');
+    // hide the color badge/points-toggle bar outright — both are toggled
+    // via inline styles elsewhere (updateColorBadge/updateToggleVisibility),
+    // which would override a CSS-only rule here, and neither is relevant
+    // while tracing a shape with no color and no on/off points setting
+    stageBottomBar.style.display = 'none';
     closeSidebar();
     traceModal.classList.add('show');
     showTraceStep(1);
@@ -2031,6 +2038,7 @@
     traceGuide.style.display = 'none';
     mirrorAxisHandle.classList.remove('show');
     mirrorAxisDragging = false;
+    stageBottomBar.style.display = '';
     if(traceStagePlaceholder && traceStagePlaceholder.parentNode){
       traceStagePlaceholder.parentNode.insertBefore(stage, traceStagePlaceholder);
       traceStagePlaceholder.remove();
