@@ -631,8 +631,16 @@
   .trace-step-label{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gray-mid);}
   .trace-panel{padding:22px 24px; overflow-y:auto;}
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
-  .trace-stage-slot{flex:1; min-height:0; display:none; flex-direction:column;}
-  .trace-stage-slot #stage{margin:0; aspect-ratio:auto; flex:1; min-height:0; width:100%;}
+  .trace-stage-slot{
+    flex:1; min-height:0; display:none; flex-direction:column;
+    align-items:center; justify-content:center; background:#ececec;
+  }
+  .trace-stage-slot #stage{
+    /* the registration screen always works from a 16:9 landscape crop,
+       unlike the main app's portrait/4:5 photo, since a reference photo
+       of the glasses (see #traceGuide) is naturally wider than tall */
+    margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
+  }
   #stage.in-trace .empty-state{display:none;}
   #traceGuide{display:none;}
 
@@ -746,17 +754,17 @@
          align the frame's left/right outer edges (temple tips) with the
          two outer guide-v lines; the dashed center line is only a rough
          symmetry reference, fine-tuned afterwards via #mirrorAxisHandle -->
-    <svg class="camera-guide" id="traceGuide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
-      <line class="guide-h-center" x1="150" y1="0" x2="150" y2="400" />
-      <path class="guide-head" d="M55,300 C55,205 60,105 100,62 C130,34 170,34 200,62 C240,105 245,205 245,300" />
-      <path class="guide-head" d="M50,236 C38,232 38,214 50,212" />
-      <path class="guide-head" d="M250,236 C262,232 262,214 250,212" />
+    <svg class="camera-guide" id="traceGuide" viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice">
+      <line class="guide-h-center" x1="200" y1="0" x2="200" y2="225" />
+      <path class="guide-head" d="M60,225 C60,150 75,70 140,30 C165,12 235,12 260,30 C325,70 340,150 340,225" />
+      <path class="guide-head" d="M62,148 C50,144 50,126 62,122" />
+      <path class="guide-head" d="M338,148 C350,144 350,126 338,122" />
       <g class="guide-glasses">
-        <rect x="74" y="212" width="66" height="52" rx="22" ry="22" />
-        <rect x="160" y="212" width="66" height="52" rx="22" ry="22" />
-        <path d="M140,224 Q150,230 160,224" />
-        <path d="M74,222 Q56,214 50,222" />
-        <path d="M226,222 Q244,214 250,222" />
+        <rect x="110" y="102" width="80" height="56" rx="22" ry="22" />
+        <rect x="210" y="102" width="80" height="56" rx="22" ry="22" />
+        <path d="M190,116 Q200,122 210,116" />
+        <path d="M110,110 Q80,98 68,110" />
+        <path d="M290,110 Q320,98 332,110" />
       </g>
     </svg>
     <div class="mirror-axis-handle" id="mirrorAxisHandle">
@@ -1824,8 +1832,8 @@
   // face-photo camera-capture guide, not this flat-glasses one)
   function defaultTraceLensRegions(){
     return {
-      left:  {points: ellipseToPolygon(0.317, 0.5, 0.183, 0.095, 8)},
-      right: {points: ellipseToPolygon(0.683, 0.5, 0.183, 0.095, 8)}
+      left:  {points: ellipseToPolygon(0.375, 0.578, 0.10, 0.124, 8)},
+      right: {points: ellipseToPolygon(0.625, 0.578, 0.10, 0.124, 8)}
     };
   }
 
