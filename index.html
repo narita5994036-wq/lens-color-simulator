@@ -400,6 +400,25 @@
   .camera-guide .guide-v, .camera-guide .guide-h, .camera-guide .guide-tick{
     stroke:rgba(66,232,224,0.75); stroke-width:1;
   }
+  .trace-edge-guides{
+    position:absolute; inset:0; pointer-events:none; display:none; z-index:6;
+  }
+  .trace-edge-guides.show{display:block;}
+  .trace-edge-line{
+    position:absolute; top:0; bottom:0; width:2px;
+    background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+  }
+  .trace-edge-line.left{left:30px;}
+  .trace-edge-line.right{right:30px;}
+  .mirror-axis-handle{
+    position:absolute; top:0; bottom:0; width:44px; margin-left:-22px;
+    z-index:7; display:none; touch-action:none; cursor:ew-resize;
+  }
+  .mirror-axis-handle.show{display:block;}
+  .mirror-axis-line{
+    position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px;
+    background:rgba(66,232,224,0.95); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+  }
   .camera-guide-label{
     position:absolute; left:0; right:0; bottom:118px; text-align:center;
     color:rgba(255,255,255,0.9); font-size:12px; letter-spacing:0.04em;
@@ -591,12 +610,15 @@
   /* ---- frame-shape trace/registration screen ----
      a self-contained flow, entirely separate from the main photo/shape
      state (which is stashed while this is open — see openTraceModal()):
-     pick an existing frame name, position a reference photo against a
-     fixed face-width/eye-point guide, then trace and register the lens
-     outline on it. Steps 2-3 reuse the main #stage/#canvas element itself
-     (reparented into #traceStageSlot for the duration), so all the
-     existing point/scale editing, undo, and nudge-pad code works
-     unchanged. */
+     pick an existing frame name, position a reference photo of the
+     glasses laid flat against a fixed frame-width guide, then trace and
+     register the (left) lens outline on it. Steps 2-3 reuse the main
+     #stage/#canvas element itself (reparented into #traceStageSlot for
+     the duration), so all the existing point/scale editing, undo, and
+     nudge-pad code works unchanged — the color badge and points-toggle
+     bar are hidden explicitly in JS (see openTraceModal/closeTraceModal)
+     since both are toggled via inline styles elsewhere that would
+     otherwise override a CSS-only display:none here. */
   .trace-modal{
     position:fixed; inset:0; background:var(--white); z-index:250;
     display:none; flex-direction:column;
@@ -610,11 +632,17 @@
   .trace-step-label{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gray-mid);}
   .trace-panel{padding:22px 24px; overflow-y:auto;}
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
-  .trace-stage-slot{flex:1; min-height:0; display:none; flex-direction:column;}
-  .trace-stage-slot #stage{margin:0; aspect-ratio:auto; flex:1; min-height:0; width:100%;}
-  #stage.in-trace #colorBadge{display:none;}
+  .trace-stage-slot{
+    flex:1; min-height:0; display:none; flex-direction:column;
+    align-items:center; justify-content:center; background:#ececec;
+  }
+  .trace-stage-slot #stage{
+    /* the registration screen always works from a 16:9 landscape crop,
+       unlike the main app's portrait/4:5 photo, since a reference photo
+       of the glasses is naturally wider than tall */
+    margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
+  }
   #stage.in-trace .empty-state{display:none;}
-  #traceGuide{display:none;}
 
   /* ---- iPad landscape: dock the sidebar permanently instead of as a
      slide-in overlay, move the frame-name/density/share controls into it
@@ -722,12 +750,16 @@
 
   <div class="stage" id="stage">
     <canvas id="canvas"></canvas>
-    <svg class="camera-guide" id="traceGuide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
-      <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
-      <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
-      <line class="guide-h" x1="0" y1="166.6" x2="300" y2="166.6" />
-      <ellipse class="guide-oval" cx="150" cy="178" rx="87.4" ry="122.6" />
-    </svg>
+    <!-- trace-mode positioning guide: two fixed vertical lines, 30px in
+         from each edge of the 16:9 stage, to align the frame's left/right
+         outer edges against while scaling/positioning the tracing photo -->
+    <div class="trace-edge-guides" id="traceEdgeGuides">
+      <div class="trace-edge-line left"></div>
+      <div class="trace-edge-line right"></div>
+    </div>
+    <div class="mirror-axis-handle" id="mirrorAxisHandle">
+      <div class="mirror-axis-line"></div>
+    </div>
     <div class="empty-state" id="emptyState">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="6" width="18" height="14" rx="1"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
       <div data-i18n="emptyState">タップして撮影してください</div>
@@ -1044,7 +1076,7 @@
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">顔の幅とアイポイントをガイドに合わせて、ピンチ・ドラッグで拡大縮小・移動してください</div>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
@@ -1054,10 +1086,11 @@
 
   <div class="trace-panel" id="tracePanel3" style="display:none;">
     <h4 data-i18n="traceStep3Title">レンズ形状を編集して登録</h4>
-    <div class="note" data-i18n="traceStep3Note">頂点をドラッグして両レンズの形を調整してください</div>
+    <div class="note" data-i18n="traceStep3Note">左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。</div>
+    <button class="btn" id="btnTraceMirror" data-i18n="traceMirrorBtn">ミラーリングして右側に反映</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack3" data-i18n="backBtn">戻る</button>
-      <button class="btn primary" id="btnTraceRegister" data-i18n="registerShapeBtn">登録する</button>
+      <button class="btn primary" id="btnTraceRegister" disabled data-i18n="registerShapeBtn">登録する</button>
     </div>
   </div>
 </div>
@@ -1201,10 +1234,11 @@
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
       traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"顔の幅とアイポイントをガイドに合わせて、ピンチ・ドラッグで拡大縮小・移動してください",
+      traceStep2Note:"メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
-      traceStep3Note:"頂点をドラッグして両レンズの形を調整してください",
+      traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
+      traceMirrorBtn:"ミラーリングして右側に反映",
       registerShapeBtn:"登録する"
     },
     en:{
@@ -1279,10 +1313,11 @@
       traceStep1Note:"Pick an existing frame name from the suggestions",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
       traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Pinch/drag to scale and move it so the face width and eye line match the guide",
+      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
-      traceStep3Note:"Drag the points to adjust both lenses' shape",
+      traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
+      traceMirrorBtn:"Mirror to Right Side",
       registerShapeBtn:"Register"
     }
   };
@@ -1460,7 +1495,9 @@
   const btnTraceBack2 = document.getElementById('btnTraceBack2');
   const btnTraceRegister = document.getElementById('btnTraceRegister');
   const btnTraceBack3 = document.getElementById('btnTraceBack3');
-  const traceGuide = document.getElementById('traceGuide');
+  const traceEdgeGuides = document.getElementById('traceEdgeGuides');
+  const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
+  const btnTraceMirror = document.getElementById('btnTraceMirror');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1776,6 +1813,19 @@
   let traceFrameName = ''; // must be an exact FRAME_NAMES entry, chosen via autocomplete
   let traceSavedState = null;
   let traceStagePlaceholder = null;
+  let traceMirrorAxisX = 0.5; // relative x of the adjustable reflection axis (step 3)
+  let traceMirrored = false;  // whether "mirror to right" has run at least once this session
+  let mirrorAxisDragging = false;
+
+  // the starting single-lens shape/position for tracing on the 16:9 stage —
+  // distinct from defaultLensRegions() (tuned for the main app's portrait
+  // face-photo camera capture, not this landscape flat-glasses one)
+  function defaultTraceLensRegions(){
+    return {
+      left:  {points: ellipseToPolygon(0.375, 0.578, 0.10, 0.124, 8)},
+      right: {points: ellipseToPolygon(0.625, 0.578, 0.10, 0.124, 8)}
+    };
+  }
 
   function stashMainAppState(){
     return {
@@ -1864,10 +1914,16 @@
     tracePanel2.style.display = n===2 ? 'block' : 'none';
     tracePanel3.style.display = n===3 ? 'block' : 'none';
     traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
-    traceGuide.style.display = n===2 ? 'block' : 'none';
+    traceEdgeGuides.classList.toggle('show', n===2);
+    mirrorAxisHandle.classList.toggle('show', n===3);
     traceStepLabel.textContent = n + ' / 3';
     if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
       traceStageSlot.appendChild(stage);
+    }
+    if(n===2 || n===3){
+      // the stage's box may have just changed size/parent (moved into the
+      // trace slot, which sizes it very differently from its normal spot)
+      resizeCanvas();
     }
   }
 
@@ -1875,7 +1931,17 @@
   traceUploadInput.addEventListener('change', (e)=>{
     const file = e.target.files[0];
     if(!file) return;
-    loadImageFile(file, ()=>{ btnTraceConfirmPosition.disabled = false; });
+    loadImageFile(file, ()=>{
+      // the flat-glasses guide has different lens proportions/positions
+      // than the face-photo one loadImageFile() defaults to
+      lenses = defaultTraceLensRegions();
+      activeSide = 'left';
+      traceMirrorAxisX = 0.5;
+      traceMirrored = false;
+      btnTraceRegister.disabled = true;
+      btnTraceConfirmPosition.disabled = false;
+      draw();
+    });
     traceUploadInput.value = '';
   });
   btnTraceConfirmPosition.addEventListener('click', ()=>{
@@ -1885,8 +1951,46 @@
   btnTraceBack2.addEventListener('click', ()=> showTraceStep(1));
   btnTraceBack3.addEventListener('click', ()=> showTraceStep(2));
 
+  btnTraceMirror.addEventListener('click', ()=>{
+    if(!lenses) return;
+    pushUndoSnapshot();
+    const axisX = traceMirrorAxisX;
+    // reflect the left lens's points across the adjustable axis line (an
+    // absolute x position, not each shape's own bounding-box center like
+    // the main app's mirror gesture) so the two lenses stay truly
+    // symmetric even if the traced photo itself wasn't perfectly centered;
+    // reversed to restore clockwise winding after the horizontal flip
+    const mirroredPoints = lenses.left.points.map(p => ({x: 2*axisX - p.x, y: p.y})).reverse();
+    lenses = {left: lenses.left, right: {points: mirroredPoints}};
+    traceMirrored = true;
+    btnTraceRegister.disabled = false;
+    draw();
+  });
+
+  function updateMirrorAxisHandlePos(){
+    const r = getFitRect();
+    mirrorAxisHandle.style.left = (r.x + traceMirrorAxisX*r.w) + 'px';
+  }
+  mirrorAxisHandle.addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    mirrorAxisDragging = true;
+    try{ mirrorAxisHandle.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  mirrorAxisHandle.addEventListener('pointermove', (e)=>{
+    if(!mirrorAxisDragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = canvas.getBoundingClientRect();
+    const r = getFitRect();
+    traceMirrorAxisX = Math.min(1, Math.max(0, (e.clientX - rect.left - r.x) / r.w));
+    updateMirrorAxisHandlePos();
+  });
+  mirrorAxisHandle.addEventListener('pointerup', ()=>{ mirrorAxisDragging = false; });
+  mirrorAxisHandle.addEventListener('pointercancel', ()=>{ mirrorAxisDragging = false; });
+
   btnTraceRegister.addEventListener('click', ()=>{
-    if(!traceFrameName || !lenses) return;
+    if(!traceFrameName || !lenses || !traceMirrored) return;
     const name = traceFrameName;
     saveCurrentShapeForFrame(name);
     closeTraceModal();
@@ -1902,6 +2006,9 @@
     btnTraceDeleteExisting.style.display = 'none';
     btnTraceNext1.disabled = true;
     btnTraceConfirmPosition.disabled = true;
+    btnTraceRegister.disabled = true;
+    traceMirrorAxisX = 0.5;
+    traceMirrored = false;
     traceFrameAutocompleteList.classList.remove('show');
     // fresh working state for the trace image/shape, independent of
     // whatever photo/shape is currently active in the main app
@@ -1914,6 +2021,11 @@
     stage.parentNode.insertBefore(placeholder, stage);
     traceStagePlaceholder = placeholder;
     stage.classList.add('in-trace');
+    // hide the color badge/points-toggle bar outright — both are toggled
+    // via inline styles elsewhere (updateColorBadge/updateToggleVisibility),
+    // which would override a CSS-only rule here, and neither is relevant
+    // while tracing a shape with no color and no on/off points setting
+    stageBottomBar.style.display = 'none';
     closeSidebar();
     traceModal.classList.add('show');
     showTraceStep(1);
@@ -1923,7 +2035,10 @@
     traceActive = false;
     traceModal.classList.remove('show');
     stage.classList.remove('in-trace');
-    traceGuide.style.display = 'none';
+    traceEdgeGuides.classList.remove('show');
+    mirrorAxisHandle.classList.remove('show');
+    mirrorAxisDragging = false;
+    stageBottomBar.style.display = '';
     if(traceStagePlaceholder && traceStagePlaceholder.parentNode){
       traceStagePlaceholder.parentNode.insertBefore(stage, traceStagePlaceholder);
       traceStagePlaceholder.remove();
@@ -2746,6 +2861,7 @@
 
   function draw(){
     updateNudgePad();
+    if(traceActive && traceStepNum === 3) updateMirrorAxisHandlePos();
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     ctx.clearRect(0,0,cw,ch);
     if(!img) return;
@@ -3040,7 +3156,9 @@
   function startMirrorLongPress(side, pos){
     // holding still on a lens body (not a vertex/scale handle) for 2s offers
     // to mirror that lens's shape onto the other one — works in both normal
-    // and outline (scale) mode
+    // and outline (scale) mode. Not used in trace mode, which has its own
+    // adjustable-axis mirroring (see btnTraceMirror) instead.
+    if(traceActive) return;
     longPressStartPos = pos;
     clearTimeout(longPressTimer);
     longPressTimer = setTimeout(()=>{
@@ -3122,10 +3240,12 @@
     lastTap = {time: now, x: pos.x, y: pos.y, side: tappedSide, count: tapCount};
 
     if(tappedSide && tapCount === 2){
-      // double-tap on a lens activates it and toggles the outline scale mode
+      // double-tap on a lens activates it and toggles the outline scale
+      // mode; during trace-mode shape editing only the left lens is ever
+      // editable (see openTraceModal), so activeSide stays pinned to it
       clearTimeout(longPressTimer);
       lastTap = {time:0, x:0, y:0, side:null, count:0};
-      activeSide = tappedSide;
+      activeSide = traceActive ? 'left' : tappedSide;
       selectedVertex = null;
       scaleMode = !scaleMode;
       updateHintText();
@@ -3145,25 +3265,27 @@
       return;
     }
 
-    if(!tappedSide && activeSide){
+    if(!tappedSide && activeSide && !traceActive){
       // tapping the background — outside every lens — deselects whichever
       // one was active; both then show only as passive reference outlines
       // until a lens is tapped again. The touch still falls through below,
-      // so it can also register as a swipe or a reset long-press.
+      // so it can also register as a swipe or a reset long-press. Not
+      // applicable in trace mode, where the left lens stays pinned active.
       activeSide = null;
       selectedVertex = null;
       updateHintText();
       draw();
     }
 
-    if(tappedSide && tappedSide !== activeSide){
+    if(tappedSide && tappedSide !== activeSide && !traceActive){
       // tapping a lens (whether nothing was selected before, or the other
       // one was) makes it active; the current tool (scale vs. point) is
       // left as-is — only a genuinely fresh shape (new photo, reset,
       // preset) starts in scale mode, not every reselection — so
       // deselecting and picking a lens back up never discards point-mode
       // work in progress. The same touch continues below so it can also
-      // start a drag immediately.
+      // start a drag immediately. Not applicable in trace mode, where only
+      // the left lens is ever editable.
       activeSide = tappedSide;
       selectedVertex = null;
       updateHintText();
