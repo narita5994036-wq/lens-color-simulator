@@ -400,15 +400,16 @@
   .camera-guide .guide-v, .camera-guide .guide-h, .camera-guide .guide-tick{
     stroke:rgba(66,232,224,0.75); stroke-width:1;
   }
-  .camera-guide .guide-glasses{
-    fill:none; stroke:rgba(66,232,224,0.9); stroke-width:1.6; stroke-linecap:round;
+  .trace-edge-guides{
+    position:absolute; inset:0; pointer-events:none; display:none; z-index:6;
   }
-  .camera-guide .guide-head{
-    fill:none; stroke:rgba(66,232,224,0.55); stroke-width:1.4; stroke-linecap:round;
+  .trace-edge-guides.show{display:block;}
+  .trace-edge-line{
+    position:absolute; top:0; bottom:0; width:2px;
+    background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
   }
-  .camera-guide .guide-h-center{
-    stroke:rgba(66,232,224,0.4); stroke-width:1; stroke-dasharray:5 5;
-  }
+  .trace-edge-line.left{left:30px;}
+  .trace-edge-line.right{right:30px;}
   .mirror-axis-handle{
     position:absolute; top:0; bottom:0; width:44px; margin-left:-22px;
     z-index:7; display:none; touch-action:none; cursor:ew-resize;
@@ -638,11 +639,10 @@
   .trace-stage-slot #stage{
     /* the registration screen always works from a 16:9 landscape crop,
        unlike the main app's portrait/4:5 photo, since a reference photo
-       of the glasses (see #traceGuide) is naturally wider than tall */
+       of the glasses is naturally wider than tall */
     margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
   }
   #stage.in-trace .empty-state{display:none;}
-  #traceGuide{display:none;}
 
   /* ---- iPad landscape: dock the sidebar permanently instead of as a
      slide-in overlay, move the frame-name/density/share controls into it
@@ -750,23 +750,13 @@
 
   <div class="stage" id="stage">
     <canvas id="canvas"></canvas>
-    <!-- trace-mode positioning guide: glasses laid flat, viewed face-on —
-         align the frame's left/right outer edges (temple tips) with the
-         two outer guide-v lines; the dashed center line is only a rough
-         symmetry reference, fine-tuned afterwards via #mirrorAxisHandle -->
-    <svg class="camera-guide" id="traceGuide" viewBox="0 0 400 225" preserveAspectRatio="xMidYMid slice">
-      <line class="guide-h-center" x1="200" y1="0" x2="200" y2="225" />
-      <path class="guide-head" d="M60,225 C60,150 75,70 140,30 C165,12 235,12 260,30 C325,70 340,150 340,225" />
-      <path class="guide-head" d="M62,148 C50,144 50,126 62,122" />
-      <path class="guide-head" d="M338,148 C350,144 350,126 338,122" />
-      <g class="guide-glasses">
-        <rect x="110" y="102" width="80" height="56" rx="22" ry="22" />
-        <rect x="210" y="102" width="80" height="56" rx="22" ry="22" />
-        <path d="M190,116 Q200,122 210,116" />
-        <path d="M110,110 Q80,98 68,110" />
-        <path d="M290,110 Q320,98 332,110" />
-      </g>
-    </svg>
+    <!-- trace-mode positioning guide: two fixed vertical lines, 30px in
+         from each edge of the 16:9 stage, to align the frame's left/right
+         outer edges against while scaling/positioning the tracing photo -->
+    <div class="trace-edge-guides" id="traceEdgeGuides">
+      <div class="trace-edge-line left"></div>
+      <div class="trace-edge-line right"></div>
+    </div>
     <div class="mirror-axis-handle" id="mirrorAxisHandle">
       <div class="mirror-axis-line"></div>
     </div>
@@ -1086,7 +1076,7 @@
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、ピンチ・ドラッグで拡大縮小・移動して位置を調整してください</div>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
@@ -1244,7 +1234,7 @@
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
       traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"メガネの写真を選び、ピンチ・ドラッグで拡大縮小・移動して位置を調整してください",
+      traceStep2Note:"メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
@@ -1323,7 +1313,7 @@
       traceStep1Note:"Pick an existing frame name from the suggestions",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
       traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it into position",
+      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
@@ -1505,7 +1495,7 @@
   const btnTraceBack2 = document.getElementById('btnTraceBack2');
   const btnTraceRegister = document.getElementById('btnTraceRegister');
   const btnTraceBack3 = document.getElementById('btnTraceBack3');
-  const traceGuide = document.getElementById('traceGuide');
+  const traceEdgeGuides = document.getElementById('traceEdgeGuides');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
   const btnTraceMirror = document.getElementById('btnTraceMirror');
   const historyRow = document.getElementById('historyRow');
@@ -1827,9 +1817,9 @@
   let traceMirrored = false;  // whether "mirror to right" has run at least once this session
   let mirrorAxisDragging = false;
 
-  // the starting single-lens shape/position for tracing, matching #traceGuide's
-  // own left-lens ellipse — distinct from defaultLensRegions() (tuned for the
-  // face-photo camera-capture guide, not this flat-glasses one)
+  // the starting single-lens shape/position for tracing on the 16:9 stage —
+  // distinct from defaultLensRegions() (tuned for the main app's portrait
+  // face-photo camera capture, not this landscape flat-glasses one)
   function defaultTraceLensRegions(){
     return {
       left:  {points: ellipseToPolygon(0.375, 0.578, 0.10, 0.124, 8)},
@@ -1924,9 +1914,7 @@
     tracePanel2.style.display = n===2 ? 'block' : 'none';
     tracePanel3.style.display = n===3 ? 'block' : 'none';
     traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
-    // guide illustration disabled for now (kept in the markup/CSS to
-    // re-enable later) — always hidden regardless of step
-    traceGuide.style.display = 'none';
+    traceEdgeGuides.classList.toggle('show', n===2);
     mirrorAxisHandle.classList.toggle('show', n===3);
     traceStepLabel.textContent = n + ' / 3';
     if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
@@ -2047,7 +2035,7 @@
     traceActive = false;
     traceModal.classList.remove('show');
     stage.classList.remove('in-trace');
-    traceGuide.style.display = 'none';
+    traceEdgeGuides.classList.remove('show');
     mirrorAxisHandle.classList.remove('show');
     mirrorAxisDragging = false;
     stageBottomBar.style.display = '';
