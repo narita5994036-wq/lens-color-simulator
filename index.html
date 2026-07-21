@@ -194,6 +194,11 @@
   .frame-name-field::placeholder{
     color:var(--gray-mid); font-style:normal;
   }
+  .frame-trace-link{
+    display:block; margin:6px auto 0; background:none; border:none;
+    font-family:inherit; font-size:11px; color:var(--gray-mid);
+    text-decoration:underline; cursor:pointer; padding:2px;
+  }
 
   .stage-bottom-bar{
     position:absolute; left:16px; right:16px; bottom:16px; z-index:5;
@@ -583,6 +588,34 @@
   .sheet{position:relative;}
   .note{font-size:11px; color:var(--gray-mid); line-height:1.6; margin-top:-4px; margin-bottom:18px;}
 
+  /* ---- frame-shape trace/registration screen ----
+     a self-contained flow, entirely separate from the main photo/shape
+     state (which is stashed while this is open — see openTraceModal()):
+     pick an existing frame name, position a reference photo against a
+     fixed face-width/eye-point guide, then trace and register the lens
+     outline on it. Steps 2-3 reuse the main #stage/#canvas element itself
+     (reparented into #traceStageSlot for the duration), so all the
+     existing point/scale editing, undo, and nudge-pad code works
+     unchanged. */
+  .trace-modal{
+    position:fixed; inset:0; background:var(--white); z-index:250;
+    display:none; flex-direction:column;
+  }
+  .trace-modal.show{display:flex;}
+  .trace-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; border-bottom:1px solid var(--gray-line); flex-shrink:0;
+  }
+  .trace-header .close-x{background:none; border:none; font-size:20px; color:var(--gray-mid); cursor:pointer;}
+  .trace-step-label{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gray-mid);}
+  .trace-panel{padding:22px 24px; overflow-y:auto;}
+  .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
+  .trace-stage-slot{flex:1; min-height:0; display:none; flex-direction:column;}
+  .trace-stage-slot #stage{margin:0; aspect-ratio:auto; flex:1; min-height:0; width:100%;}
+  #stage.in-trace #colorBadge{display:none;}
+  #stage.in-trace .empty-state{display:none;}
+  #traceGuide{display:none;}
+
   /* ---- iPad landscape: dock the sidebar permanently instead of as a
      slide-in overlay, move the frame-name/density/share controls into it
      too, move the stage tabs/current-color bar/recent-colors history to
@@ -689,6 +722,12 @@
 
   <div class="stage" id="stage">
     <canvas id="canvas"></canvas>
+    <svg class="camera-guide" id="traceGuide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
+      <line class="guide-v" x1="116" y1="0" x2="116" y2="400" />
+      <line class="guide-v" x1="191" y1="0" x2="191" y2="400" />
+      <line class="guide-h" x1="0" y1="166.6" x2="300" y2="166.6" />
+      <ellipse class="guide-oval" cx="150" cy="178" rx="87.4" ry="122.6" />
+    </svg>
     <div class="empty-state" id="emptyState">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="6" width="18" height="14" rx="1"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
       <div data-i18n="emptyState">タップして撮影してください</div>
@@ -730,6 +769,7 @@
     <div class="frame-name-block" id="frameNameBlock">
       <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
       <div class="autocomplete-list" id="frameAutocompleteList"></div>
+      <button type="button" class="frame-trace-link" id="btnOpenTraceModal" data-i18n="openTraceModalBtn">レンズ形状を登録・管理</button>
     </div>
 
     <div class="opacity-row" style="margin-top:32px;">
@@ -775,12 +815,6 @@
     <div class="sidebar-section-header">
       <h3 data-i18n="sectionShape">レンズ形状</h3>
       <div class="shape-header-actions">
-        <button class="icon-btn" id="btnDeleteFrameShape" aria-label="remove saved shape for this frame name" data-i18n-title="deleteFrameShapeBtn" title="保存済みの形状を削除" style="display:none;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
-        </button>
-        <button class="icon-btn" id="btnSaveFrameShape" aria-label="save shape to this frame name" data-i18n-title="saveFrameShapeBtn" title="この形状をフレーム名に保存">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
-        </button>
         <button class="icon-btn" id="btnMirrorSelected" aria-label="mirror selected shape" data-i18n-title="mirrorSelectedBtn" title="選択中のシェイプをミラーリング">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="2.5 2.5"/><path d="M8 8L4 12L8 16"/><path d="M16 8L20 12L16 16"/></svg>
         </button>
@@ -969,6 +1003,66 @@
   </div>
 </div>
 
+<!-- shown when the frame name entered in the main flow has a registered
+     trace shape (see the registration screen below), asking before it
+     transforms the current photo's lenses into that shape -->
+<div class="overlay" id="frameShapeApplyConfirmOverlay">
+  <div class="sheet">
+    <button class="close-x" data-close="frameShapeApplyConfirmOverlay">×</button>
+    <h4 data-i18n="frameShapeApplyConfirmTitle">登録済みの形状を適用しますか？</h4>
+    <div class="note" id="frameShapeApplyConfirmNote"></div>
+    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
+      <button class="btn primary" id="btnFrameShapeApplyConfirm" data-i18n="applyBtn">適用する</button>
+      <button class="btn" data-close="frameShapeApplyConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- frame-shape trace/registration screen — see the CSS comment above
+     .trace-modal for how this reuses the main #stage element -->
+<div class="trace-modal" id="traceModal">
+  <div class="trace-header">
+    <button class="close-x" id="btnTraceClose">×</button>
+    <span class="trace-step-label" id="traceStepLabel"></span>
+  </div>
+
+  <div class="trace-panel" id="tracePanel1">
+    <h4 data-i18n="traceStep1Title">登録するフレーム名を選択</h4>
+    <div class="note" data-i18n="traceStep1Note">候補一覧から既存のフレーム名を選んでください</div>
+    <div class="frame-name-block">
+      <input type="text" id="traceFrameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
+      <div class="autocomplete-list" id="traceFrameAutocompleteList"></div>
+    </div>
+    <div class="note" id="traceAlreadyRegisteredNote" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
+    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
+      <button class="btn primary" id="btnTraceNext1" disabled data-i18n="nextBtn">次へ</button>
+      <button class="btn" id="btnTraceDeleteExisting" style="display:none;" data-i18n="deleteFrameShapeBtn">保存済みの形状を削除</button>
+    </div>
+  </div>
+
+  <div class="trace-stage-slot" id="traceStageSlot"></div>
+
+  <div class="trace-panel" id="tracePanel2" style="display:none;">
+    <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
+    <div class="note" data-i18n="traceStep2Note">顔の幅とアイポイントをガイドに合わせて、ピンチ・ドラッグで拡大縮小・移動してください</div>
+    <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
+    <div class="sheet-actions">
+      <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
+      <button class="btn primary" id="btnTraceConfirmPosition" disabled data-i18n="confirmPositionBtn">位置を確定</button>
+    </div>
+  </div>
+
+  <div class="trace-panel" id="tracePanel3" style="display:none;">
+    <h4 data-i18n="traceStep3Title">レンズ形状を編集して登録</h4>
+    <div class="note" data-i18n="traceStep3Note">頂点をドラッグして両レンズの形を調整してください</div>
+    <div class="sheet-actions">
+      <button class="btn" id="btnTraceBack3" data-i18n="backBtn">戻る</button>
+      <button class="btn primary" id="btnTraceRegister" data-i18n="registerShapeBtn">登録する</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="trace-upload-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+
 <!-- powers the experimental background-blur camera feature below; loaded
      from a CDN since the model itself is far too large to inline. If this
      fails to load (offline, blocked), the capture flow below detects that
@@ -1094,12 +1188,24 @@
       mirrorBtn:"ミラーリング",
       resetPointsBtn:"レンズポイントをリセット",
       resetImageBtn:"画像をリセット",
-      saveFrameShapeBtn:"この形状をフレーム名に保存",
+      openTraceModalBtn:"レンズ形状を登録・管理",
       deleteFrameShapeBtn:"保存済みの形状を削除",
-      frameShapeNeedNameToast:"先にフレーム名を入力してください",
-      frameShapeSavedToast:"「{name}」に形状を保存しました",
-      frameShapeDeletedToast:"「{name}」の保存済み形状を削除しました",
-      frameShapeAppliedToast:"「{name}」の登録済み形状を適用しました"
+      frameShapeSavedToast:"「{name}」に形状を登録しました",
+      frameShapeAppliedToast:"「{name}」の登録済み形状を適用しました",
+      frameShapeApplyConfirmTitle:"登録済みの形状を適用しますか？",
+      frameShapeApplyConfirmNote:"「{name}」に登録されているレンズ形状に変形します。現在のレンズ位置・形は上書きされます。",
+      applyBtn:"適用する",
+      nextBtn:"次へ",
+      backBtn:"戻る",
+      traceStep1Title:"登録するフレーム名を選択",
+      traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
+      traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
+      traceStep2Title:"トレース用の写真を選択・位置合わせ",
+      traceStep2Note:"顔の幅とアイポイントをガイドに合わせて、ピンチ・ドラッグで拡大縮小・移動してください",
+      confirmPositionBtn:"位置を確定",
+      traceStep3Title:"レンズ形状を編集して登録",
+      traceStep3Note:"頂点をドラッグして両レンズの形を調整してください",
+      registerShapeBtn:"登録する"
     },
     en:{
       appTitle:"Lens Colour Simulator",
@@ -1160,12 +1266,24 @@
       mirrorBtn:"Mirror",
       resetPointsBtn:"Reset Lens Points",
       resetImageBtn:"Reset Photo",
-      saveFrameShapeBtn:"Save Shape to Frame Name",
+      openTraceModalBtn:"Register/Manage Lens Shapes",
       deleteFrameShapeBtn:"Remove Saved Shape",
-      frameShapeNeedNameToast:"Enter a frame name first",
-      frameShapeSavedToast:"Saved shape for “{name}”",
-      frameShapeDeletedToast:"Removed saved shape for “{name}”",
-      frameShapeAppliedToast:"Applied saved shape for “{name}”"
+      frameShapeSavedToast:"Registered shape for “{name}”",
+      frameShapeAppliedToast:"Applied registered shape for “{name}”",
+      frameShapeApplyConfirmTitle:"Apply the registered shape?",
+      frameShapeApplyConfirmNote:"This will transform the lenses into the shape registered for “{name}”, overwriting the current lens position/shape.",
+      applyBtn:"Apply",
+      nextBtn:"Next",
+      backBtn:"Back",
+      traceStep1Title:"Choose the frame name to register",
+      traceStep1Note:"Pick an existing frame name from the suggestions",
+      traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
+      traceStep2Title:"Choose and position a tracing photo",
+      traceStep2Note:"Pinch/drag to scale and move it so the face width and eye line match the guide",
+      confirmPositionBtn:"Confirm Position",
+      traceStep3Title:"Edit the lens shape and register",
+      traceStep3Note:"Drag the points to adjust both lenses' shape",
+      registerShapeBtn:"Register"
     }
   };
 
@@ -1220,7 +1338,7 @@
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
   const DOUBLE_TAP_PX = 40;
-  const TAP_MOVE_PX = 6; // pointer travel below this = a tap (toggles vertex selection) rather than a drag
+  const TAP_MOVE_PX = 12; // pointer travel below this = a tap (toggles vertex selection) rather than a drag; generous enough to absorb natural finger tremor
 
   let longPressTimer = null;
   let longPressStartPos = {x:0, y:0};
@@ -1320,8 +1438,29 @@
   const noColorRow = document.getElementById('noColorRow');
   const shapePresetRow = document.getElementById('shapePresetRow');
   const btnMirrorSelected = document.getElementById('btnMirrorSelected');
-  const btnSaveFrameShape = document.getElementById('btnSaveFrameShape');
-  const btnDeleteFrameShape = document.getElementById('btnDeleteFrameShape');
+  const frameShapeApplyConfirmOverlay = document.getElementById('frameShapeApplyConfirmOverlay');
+  const frameShapeApplyConfirmNote = document.getElementById('frameShapeApplyConfirmNote');
+  const btnFrameShapeApplyConfirm = document.getElementById('btnFrameShapeApplyConfirm');
+  const btnOpenTraceModal = document.getElementById('btnOpenTraceModal');
+  const traceModal = document.getElementById('traceModal');
+  const btnTraceClose = document.getElementById('btnTraceClose');
+  const traceStepLabel = document.getElementById('traceStepLabel');
+  const tracePanel1 = document.getElementById('tracePanel1');
+  const tracePanel2 = document.getElementById('tracePanel2');
+  const tracePanel3 = document.getElementById('tracePanel3');
+  const traceStageSlot = document.getElementById('traceStageSlot');
+  const traceFrameNameInput = document.getElementById('traceFrameNameInput');
+  const traceFrameAutocompleteList = document.getElementById('traceFrameAutocompleteList');
+  const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
+  const btnTraceNext1 = document.getElementById('btnTraceNext1');
+  const btnTraceDeleteExisting = document.getElementById('btnTraceDeleteExisting');
+  const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
+  const traceUploadInput = document.getElementById('trace-upload-input');
+  const btnTraceConfirmPosition = document.getElementById('btnTraceConfirmPosition');
+  const btnTraceBack2 = document.getElementById('btnTraceBack2');
+  const btnTraceRegister = document.getElementById('btnTraceRegister');
+  const btnTraceBack3 = document.getElementById('btnTraceBack3');
+  const traceGuide = document.getElementById('traceGuide');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1450,7 +1589,7 @@
   window.addEventListener('resize', resizeCanvas);
 
   // ---------- image loading ----------
-  function loadImageFile(file){
+  function loadImageFile(file, onDone){
     if(!file) return;
     const reader = new FileReader();
     reader.onload = function(e){
@@ -1480,8 +1619,8 @@
         btnShare.disabled = false;
         frameName = '';
         frameNameInput.value = '';
-        updateFrameShapeButtons();
         resizeCanvas();
+        if(onDone) onDone();
       };
       image.src = e.target.result;
     };
@@ -1560,9 +1699,11 @@
   }
 
   // ---------- per-frame-name lens shapes ----------
-  // lets a frame's tuned outline be saved under its name and recalled the
-  // next time that same name is entered, instead of always starting from
-  // the generic default ellipse or one of the 3 generic shape presets
+  // lets a frame's traced outline be registered under its exact name (see
+  // the dedicated trace/registration screen further below) and recalled
+  // — with confirmation — whenever that same name is later entered in the
+  // main flow, instead of always starting from the generic default
+  // ellipse or one of the 3 generic shape presets
   function normalizeFrameKey(name){
     return (name||'').trim().toUpperCase();
   }
@@ -1599,44 +1740,203 @@
     delete frameShapes[key];
     saveJSON(STORAGE_FRAME_SHAPES, frameShapes);
   }
-  function updateFrameShapeButtons(){
-    const has = !!getRegisteredFrameShape(frameNameInput.value);
-    btnSaveFrameShape.classList.toggle('active', has);
-    btnDeleteFrameShape.style.display = has ? 'flex' : 'none';
-  }
   let frameShapeToastTimer = null;
   function showFrameShapeToast(text){
     showSwatchTooltip(frameNameInput, text);
     clearTimeout(frameShapeToastTimer);
     frameShapeToastTimer = setTimeout(hideSwatchTooltip, 1600);
   }
-  // applies a registered shape (if any) once a frame name is committed —
-  // via autocomplete pick, Enter, or leaving the field — rather than on
-  // every keystroke, so the outline doesn't jump around mid-typing
+  // a frame name being committed (autocomplete pick, Enter, or leaving the
+  // field) — rather than every keystroke — only ever *offers* to apply a
+  // registered shape; the actual swap always goes through the confirm
+  // overlay below so it never silently overwrites in-progress work
+  let pendingFrameShapeApplyName = null;
   function commitFrameName(){
     const name = frameNameInput.value;
-    if(applyRegisteredFrameShape(name)){
-      showFrameShapeToast(tf('frameShapeAppliedToast', {name: name.trim()}));
+    if(img && getRegisteredFrameShape(name)){
+      pendingFrameShapeApplyName = name.trim();
+      frameShapeApplyConfirmNote.textContent = tf('frameShapeApplyConfirmNote', {name: pendingFrameShapeApplyName});
+      frameShapeApplyConfirmOverlay.classList.add('show');
     }
-    updateFrameShapeButtons();
   }
-  btnSaveFrameShape.addEventListener('click', ()=>{
-    const name = frameNameInput.value;
-    if(!name.trim()){
-      showFrameShapeToast(t('frameShapeNeedNameToast'));
-      return;
+  btnFrameShapeApplyConfirm.addEventListener('click', ()=>{
+    if(pendingFrameShapeApplyName && applyRegisteredFrameShape(pendingFrameShapeApplyName)){
+      showFrameShapeToast(tf('frameShapeAppliedToast', {name: pendingFrameShapeApplyName}));
     }
-    if(!img || !lenses) return;
+    pendingFrameShapeApplyName = null;
+    frameShapeApplyConfirmOverlay.classList.remove('show');
+  });
+
+  // ---------- frame-shape trace/registration screen ----------
+  // steps 2-3 reuse the main #stage element itself (see the .trace-modal
+  // CSS comment) — img/lenses/etc. are stashed on open and restored on
+  // close, so the main app's own photo/shape editing is left untouched
+  let traceActive = false;
+  let traceStepNum = 1;
+  let traceFrameName = ''; // must be an exact FRAME_NAMES entry, chosen via autocomplete
+  let traceSavedState = null;
+  let traceStagePlaceholder = null;
+
+  function stashMainAppState(){
+    return {
+      img, imgNatW, imgNatH, lenses, activeSide, scaleMode, selectedVertex,
+      zoomLevel, panX, panY, currentColor, currentPreset, undoStack,
+      frameName, frameNameValue: frameNameInput.value
+    };
+  }
+  function restoreMainAppState(s){
+    img = s.img; imgNatW = s.imgNatW; imgNatH = s.imgNatH; lenses = s.lenses;
+    activeSide = s.activeSide; scaleMode = s.scaleMode; selectedVertex = s.selectedVertex;
+    zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
+    currentColor = s.currentColor; currentPreset = s.currentPreset; undoStack = s.undoStack;
+    frameName = s.frameName; frameNameInput.value = s.frameNameValue;
+    updateUndoButton();
+    updateColorBadge();
+    updateHintText();
+    updateToggleVisibility();
+    btnShare.disabled = !img;
+    emptyState.style.display = img ? 'none' : 'flex';
+    dragHint.style.display = img ? 'block' : 'none';
+    zoomSlider.value = Math.round(zoomLevel*100);
+    zoomValue.textContent = Math.round(zoomLevel*100) + '%';
+    resizeCanvas();
+  }
+
+  function renderTraceFrameSuggestions(query){
+    const q = query.trim().toUpperCase();
+    traceFrameName = '';
+    btnTraceNext1.disabled = true;
+    traceAlreadyRegisteredNote.style.display = 'none';
+    traceFrameAutocompleteList.innerHTML = '';
+    if(!q){ traceFrameAutocompleteList.classList.remove('show'); return; }
+    const matches = FRAME_NAMES
+      .filter(n => n.toUpperCase().includes(q))
+      .sort((a, b)=>{
+        const au = a.toUpperCase(), bu = b.toUpperCase();
+        const aStarts = au.startsWith(q) ? 0 : 1;
+        const bStarts = bu.startsWith(q) ? 0 : 1;
+        if(aStarts !== bStarts) return aStarts - bStarts;
+        return au.localeCompare(bu);
+      })
+      .slice(0, 8);
+    if(matches.length === 0){ traceFrameAutocompleteList.classList.remove('show'); return; }
+    matches.forEach(name=>{
+      const item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.textContent = name;
+      const select = (e)=>{ e.preventDefault(); selectTraceFrameSuggestion(name); };
+      item.addEventListener('mousedown', select);
+      item.addEventListener('touchstart', select, {passive:false});
+      traceFrameAutocompleteList.appendChild(item);
+    });
+    traceFrameAutocompleteList.classList.add('show');
+  }
+  function selectTraceFrameSuggestion(name){
+    traceFrameName = name;
+    traceFrameNameInput.value = name;
+    traceFrameAutocompleteList.classList.remove('show');
+    btnTraceNext1.disabled = false;
+    const already = !!getRegisteredFrameShape(name);
+    traceAlreadyRegisteredNote.style.display = already ? 'block' : 'none';
+    btnTraceDeleteExisting.style.display = already ? 'block' : 'none';
+  }
+  traceFrameNameInput.addEventListener('input', ()=> renderTraceFrameSuggestions(traceFrameNameInput.value));
+  traceFrameNameInput.addEventListener('focus', ()=>{
+    if(traceFrameNameInput.value) renderTraceFrameSuggestions(traceFrameNameInput.value);
+  });
+  traceFrameNameInput.addEventListener('blur', ()=>{
+    setTimeout(()=> traceFrameAutocompleteList.classList.remove('show'), 150);
+  });
+  btnTraceDeleteExisting.addEventListener('click', ()=>{
+    if(!traceFrameName) return;
+    deleteFrameShape(traceFrameName);
+    traceAlreadyRegisteredNote.style.display = 'none';
+    btnTraceDeleteExisting.style.display = 'none';
+  });
+  btnTraceNext1.addEventListener('click', ()=>{
+    if(!traceFrameName) return;
+    showTraceStep(2);
+  });
+
+  function showTraceStep(n){
+    traceStepNum = n;
+    tracePanel1.style.display = n===1 ? 'block' : 'none';
+    tracePanel2.style.display = n===2 ? 'block' : 'none';
+    tracePanel3.style.display = n===3 ? 'block' : 'none';
+    traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
+    traceGuide.style.display = n===2 ? 'block' : 'none';
+    traceStepLabel.textContent = n + ' / 3';
+    if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
+      traceStageSlot.appendChild(stage);
+    }
+  }
+
+  btnTraceChooseImage.addEventListener('click', ()=> traceUploadInput.click());
+  traceUploadInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    loadImageFile(file, ()=>{ btnTraceConfirmPosition.disabled = false; });
+    traceUploadInput.value = '';
+  });
+  btnTraceConfirmPosition.addEventListener('click', ()=>{
+    if(!img) return;
+    showTraceStep(3);
+  });
+  btnTraceBack2.addEventListener('click', ()=> showTraceStep(1));
+  btnTraceBack3.addEventListener('click', ()=> showTraceStep(2));
+
+  btnTraceRegister.addEventListener('click', ()=>{
+    if(!traceFrameName || !lenses) return;
+    const name = traceFrameName;
     saveCurrentShapeForFrame(name);
-    updateFrameShapeButtons();
-    showFrameShapeToast(tf('frameShapeSavedToast', {name: name.trim()}));
+    closeTraceModal();
+    showFrameShapeToast(tf('frameShapeSavedToast', {name}));
   });
-  btnDeleteFrameShape.addEventListener('click', ()=>{
-    const name = frameNameInput.value;
-    deleteFrameShape(name);
-    updateFrameShapeButtons();
-    showFrameShapeToast(tf('frameShapeDeletedToast', {name: name.trim()}));
-  });
+
+  function openTraceModal(){
+    traceActive = true;
+    traceSavedState = stashMainAppState();
+    traceFrameName = '';
+    traceFrameNameInput.value = '';
+    traceAlreadyRegisteredNote.style.display = 'none';
+    btnTraceDeleteExisting.style.display = 'none';
+    btnTraceNext1.disabled = true;
+    btnTraceConfirmPosition.disabled = true;
+    traceFrameAutocompleteList.classList.remove('show');
+    // fresh working state for the trace image/shape, independent of
+    // whatever photo/shape is currently active in the main app
+    img = null; imgNatW = 0; imgNatH = 0; lenses = null;
+    activeSide = null; scaleMode = true; selectedVertex = null;
+    zoomLevel = 1; panX = 0; panY = 0;
+    currentColor = null; currentPreset = null; undoStack = [];
+    updateUndoButton();
+    const placeholder = document.createComment('stage-placeholder');
+    stage.parentNode.insertBefore(placeholder, stage);
+    traceStagePlaceholder = placeholder;
+    stage.classList.add('in-trace');
+    closeSidebar();
+    traceModal.classList.add('show');
+    showTraceStep(1);
+    draw();
+  }
+  function closeTraceModal(){
+    traceActive = false;
+    traceModal.classList.remove('show');
+    stage.classList.remove('in-trace');
+    traceGuide.style.display = 'none';
+    if(traceStagePlaceholder && traceStagePlaceholder.parentNode){
+      traceStagePlaceholder.parentNode.insertBefore(stage, traceStagePlaceholder);
+      traceStagePlaceholder.remove();
+    }
+    traceStagePlaceholder = null;
+    if(traceSavedState){
+      restoreMainAppState(traceSavedState);
+      traceSavedState = null;
+    }
+    draw();
+  }
+  btnOpenTraceModal.addEventListener('click', openTraceModal);
+  btnTraceClose.addEventListener('click', closeTraceModal);
 
   function smoothSvgPath(pts){
     // mirrors tracePolygon()'s canvas rendering (a Catmull-Rom spline
@@ -1675,7 +1975,7 @@
   // tapping the empty image area launches the guided camera view; the small
   // library link underneath lets someone pick an existing photo instead
   stage.addEventListener('click', ()=>{
-    if(!img){
+    if(!img && !traceActive){
       openCameraModal();
     }
   });
@@ -2304,7 +2604,6 @@
     frameName = '';
     frameNameInput.value = '';
     frameAutocompleteList.classList.remove('show');
-    updateFrameShapeButtons();
     cameraInput.value = '';
     uploadInput.value = '';
     draw();
@@ -2681,7 +2980,9 @@
     const side = activeSide;
     const pts = toScreenPoints(side, r);
     for(let i=0;i<pts.length;i++){
-      if(Math.hypot(pos.x-pts[i].x, pos.y-pts[i].y) < 16){
+      // generous fingertip-sized hit radius (rather than the ~4.5px drawn
+      // dot) so grabbing a point doesn't require pixel-precise taps
+      if(Math.hypot(pos.x-pts[i].x, pos.y-pts[i].y) < 24){
         return {side, mode:'vertex', index:i};
       }
     }
@@ -2755,7 +3056,11 @@
     // offers to reset the whole photo, sharing the same long-press timer
     // (and its movement-cancel check in onPointerMove) as the mirror gesture
     // above; only one of the two can ever be pending at once since they're
-    // started from mutually-exclusive hit/no-hit branches in onPointerDown
+    // started from mutually-exclusive hit/no-hit branches in onPointerDown.
+    // Doesn't apply while the trace/registration screen is open — that
+    // reset confirm targets the main app's photo, not the trace working
+    // state.
+    if(traceActive) return;
     longPressStartPos = pos;
     clearTimeout(longPressTimer);
     longPressTimer = setTimeout(()=>{
@@ -2853,12 +3158,14 @@
 
     if(tappedSide && tappedSide !== activeSide){
       // tapping a lens (whether nothing was selected before, or the other
-      // one was) makes it active and always starts fresh in the scale
-      // tool, not wherever point-mode editing last left off; the same
-      // touch continues below so it can also start a drag immediately
+      // one was) makes it active; the current tool (scale vs. point) is
+      // left as-is — only a genuinely fresh shape (new photo, reset,
+      // preset) starts in scale mode, not every reselection — so
+      // deselecting and picking a lens back up never discards point-mode
+      // work in progress. The same touch continues below so it can also
+      // start a drag immediately.
       activeSide = tappedSide;
       selectedVertex = null;
-      scaleMode = true;
       updateHintText();
       draw();
     }
@@ -4029,7 +4336,6 @@
   frameNameInput.addEventListener('input', ()=>{
     frameName = frameNameInput.value;
     renderFrameSuggestions(frameNameInput.value);
-    updateFrameShapeButtons();
   });
   frameNameInput.addEventListener('focus', ()=>{
     if(frameNameInput.value) renderFrameSuggestions(frameNameInput.value);
@@ -4053,7 +4359,6 @@
   renderDensityTrack();
   updateColorBadge();
   updateControlsPlacement();
-  updateFrameShapeButtons();
   updateHintText();
 })();
 </script>
