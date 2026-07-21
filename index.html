@@ -625,6 +625,7 @@
     display:none; flex-direction:column;
   }
   .trace-modal.show{display:flex;}
+  .trace-crop-modal{z-index:255;} /* sits on top of #traceModal (z-index:250) it's shown over */
   .trace-header{
     display:flex; align-items:center; justify-content:space-between;
     padding:16px 20px; border-bottom:1px solid var(--gray-line); flex-shrink:0;
@@ -1062,29 +1063,27 @@
 
   <div class="trace-panel" id="tracePanel1">
     <h4 data-i18n="traceStep1Title">登録するフレーム名を選択</h4>
-    <div class="note" data-i18n="traceStep1Note">候補一覧から既存のフレーム名を選んでください</div>
+    <div class="note" data-i18n="traceStep1Note">候補一覧から既存のフレーム名を選んでください（選択すると自動的に写真選択画面に進みます）</div>
     <div class="frame-name-block">
       <input type="text" id="traceFrameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
       <div class="autocomplete-list" id="traceFrameAutocompleteList"></div>
     </div>
     <div class="note" id="traceAlreadyRegisteredNote" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
     <div class="sheet-actions" style="flex-direction:column; gap:10px;">
-      <button class="btn primary" id="btnTraceNext1" disabled data-i18n="nextBtn">次へ</button>
       <button class="btn" id="btnTraceDeleteExisting" style="display:none;" data-i18n="deleteFrameShapeBtn">保存済みの形状を削除</button>
     </div>
   </div>
 
-  <div class="trace-stage-slot" id="traceStageSlot"></div>
-
   <div class="trace-panel" id="tracePanel2" style="display:none;">
-    <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
+    <h4 data-i18n="traceStep2Title">トレース用の写真を選択</h4>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選んでください。選択すると位置合わせ画面が開きます。</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
-      <button class="btn primary" id="btnTraceConfirmPosition" disabled data-i18n="confirmPositionBtn">位置を確定</button>
     </div>
   </div>
+
+  <div class="trace-stage-slot" id="traceStageSlot"></div>
 
   <div class="trace-panel" id="tracePanel3" style="display:none;">
     <h4 data-i18n="traceStep3Title">レンズ形状を編集して登録</h4>
@@ -1097,6 +1096,23 @@
   </div>
 </div>
 <input type="file" id="trace-upload-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+
+<!-- cropping/position modal — opens on top of #traceModal once a tracing
+     photo is chosen in step 2; confirming here moves on to step 3 -->
+<div class="trace-modal trace-crop-modal" id="traceCropModal">
+  <div class="trace-header">
+    <button class="close-x" id="btnTraceCropBack">×</button>
+    <span class="trace-step-label" data-i18n="traceCropLabel">位置合わせ</span>
+  </div>
+  <div class="trace-stage-slot" id="traceCropStageSlot"></div>
+  <div class="trace-panel">
+    <div class="note" data-i18n="traceCropNote">フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
+    <div class="sheet-actions">
+      <button class="btn" id="btnTraceCropBack2" data-i18n="backBtn">戻る</button>
+      <button class="btn primary" id="btnTraceConfirmPosition" disabled data-i18n="confirmPositionBtn">位置を確定</button>
+    </div>
+  </div>
+</div>
 
 <!-- powers the experimental background-blur camera feature below; loaded
      from a CDN since the model itself is far too large to inline. If this
@@ -1230,13 +1246,14 @@
       frameShapeApplyConfirmTitle:"登録済みの形状を適用しますか？",
       frameShapeApplyConfirmNote:"「{name}」に登録されているレンズ形状に変形します。現在のレンズ位置・形は上書きされます。",
       applyBtn:"適用する",
-      nextBtn:"次へ",
       backBtn:"戻る",
       traceStep1Title:"登録するフレーム名を選択",
-      traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
+      traceStep1Note:"候補一覧から既存のフレーム名を選んでください（選択すると自動的に写真選択画面に進みます）",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
-      traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"メガネの写真を選び、フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
+      traceStep2Title:"トレース用の写真を選択",
+      traceStep2Note:"メガネの写真を選んでください。選択すると位置合わせ画面が開きます。",
+      traceCropLabel:"位置合わせ",
+      traceCropNote:"フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
@@ -1309,13 +1326,14 @@
       frameShapeApplyConfirmTitle:"Apply the registered shape?",
       frameShapeApplyConfirmNote:"This will transform the lenses into the shape registered for “{name}”, overwriting the current lens position/shape.",
       applyBtn:"Apply",
-      nextBtn:"Next",
       backBtn:"Back",
       traceStep1Title:"Choose the frame name to register",
-      traceStep1Note:"Pick an existing frame name from the suggestions",
+      traceStep1Note:"Pick an existing frame name from the suggestions (this automatically moves on to photo selection)",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
-      traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines and its center with the horizontal one",
+      traceStep2Title:"Choose a tracing photo",
+      traceStep2Note:"Choose a photo of the glasses. This opens the positioning screen.",
+      traceCropLabel:"Position",
+      traceCropNote:"Pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines and its center with the horizontal one",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
@@ -1489,17 +1507,20 @@
   const traceFrameNameInput = document.getElementById('traceFrameNameInput');
   const traceFrameAutocompleteList = document.getElementById('traceFrameAutocompleteList');
   const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
-  const btnTraceNext1 = document.getElementById('btnTraceNext1');
   const btnTraceDeleteExisting = document.getElementById('btnTraceDeleteExisting');
   const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
   const traceUploadInput = document.getElementById('trace-upload-input');
-  const btnTraceConfirmPosition = document.getElementById('btnTraceConfirmPosition');
   const btnTraceBack2 = document.getElementById('btnTraceBack2');
   const btnTraceRegister = document.getElementById('btnTraceRegister');
   const btnTraceBack3 = document.getElementById('btnTraceBack3');
   const traceEdgeGuides = document.getElementById('traceEdgeGuides');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
   const btnTraceMirror = document.getElementById('btnTraceMirror');
+  const traceCropModal = document.getElementById('traceCropModal');
+  const traceCropStageSlot = document.getElementById('traceCropStageSlot');
+  const btnTraceCropBack = document.getElementById('btnTraceCropBack');
+  const btnTraceCropBack2 = document.getElementById('btnTraceCropBack2');
+  const btnTraceConfirmPosition = document.getElementById('btnTraceConfirmPosition');
   const historyRow = document.getElementById('historyRow');
   const historyEmptyNote = document.getElementById('historyEmptyNote');
   const langSwitch = document.getElementById('langSwitch');
@@ -1858,7 +1879,6 @@
   function renderTraceFrameSuggestions(query){
     const q = query.trim().toUpperCase();
     traceFrameName = '';
-    btnTraceNext1.disabled = true;
     traceAlreadyRegisteredNote.style.display = 'none';
     traceFrameAutocompleteList.innerHTML = '';
     if(!q){ traceFrameAutocompleteList.classList.remove('show'); return; }
@@ -1888,10 +1908,12 @@
     traceFrameName = name;
     traceFrameNameInput.value = name;
     traceFrameAutocompleteList.classList.remove('show');
-    btnTraceNext1.disabled = false;
     const already = !!getRegisteredFrameShape(name);
     traceAlreadyRegisteredNote.style.display = already ? 'block' : 'none';
     btnTraceDeleteExisting.style.display = already ? 'block' : 'none';
+    // moves straight on to photo selection — there's nothing else to do on
+    // this step once a valid name is picked
+    showTraceStep(2);
   }
   traceFrameNameInput.addEventListener('input', ()=> renderTraceFrameSuggestions(traceFrameNameInput.value));
   traceFrameNameInput.addEventListener('focus', ()=>{
@@ -1906,32 +1928,47 @@
     traceAlreadyRegisteredNote.style.display = 'none';
     btnTraceDeleteExisting.style.display = 'none';
   });
-  btnTraceNext1.addEventListener('click', ()=>{
-    if(!traceFrameName) return;
-    showTraceStep(2);
-  });
 
   function showTraceStep(n){
     traceStepNum = n;
     tracePanel1.style.display = n===1 ? 'block' : 'none';
     tracePanel2.style.display = n===2 ? 'block' : 'none';
     tracePanel3.style.display = n===3 ? 'block' : 'none';
-    traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
-    traceEdgeGuides.classList.toggle('show', n===2);
+    // the stage/canvas is only shown for step 3 (shape editing) now —
+    // step 2 is just the "choose a photo" prompt, and step 1 is the name
+    // picker; positioning happens in its own #traceCropModal instead (see
+    // openTraceCropModal), opened once a photo is chosen
+    traceStageSlot.style.display = n===3 ? 'flex' : 'none';
     mirrorAxisHandle.classList.toggle('show', n===3);
-    // the crop/position is only editable in step 2 — once confirmed into
-    // step 3 (shape editing), the photo itself is frozen in place so the
-    // traced points stay meaningful; going back to step 2 unfreezes it
+    // the crop/position is only editable in #traceCropModal — once
+    // confirmed into step 3, the photo itself is frozen in place so the
+    // traced points stay meaningful; reopening the crop modal unfreezes it
     traceCropLocked = (n === 3);
     traceStepLabel.textContent = n + ' / 3';
-    if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
+    if(n===3 && stage.parentNode !== traceStageSlot){
       traceStageSlot.appendChild(stage);
     }
-    if(n===2 || n===3){
+    if(n===3){
       // the stage's box may have just changed size/parent (moved into the
       // trace slot, which sizes it very differently from its normal spot)
       resizeCanvas();
     }
+  }
+
+  function openTraceCropModal(){
+    traceCropLocked = false;
+    traceEdgeGuides.classList.add('show');
+    traceCropModal.classList.add('show');
+    traceCropStageSlot.style.display = 'flex';
+    if(stage.parentNode !== traceCropStageSlot){
+      traceCropStageSlot.appendChild(stage);
+    }
+    resizeCanvas();
+  }
+  function closeTraceCropModal(){
+    traceCropModal.classList.remove('show');
+    traceEdgeGuides.classList.remove('show');
+    traceCropStageSlot.style.display = 'none';
   }
 
   btnTraceChooseImage.addEventListener('click', ()=> traceUploadInput.click());
@@ -1947,16 +1984,28 @@
       traceMirrored = false;
       btnTraceRegister.disabled = true;
       btnTraceConfirmPosition.disabled = false;
-      draw();
+      openTraceCropModal();
     });
     traceUploadInput.value = '';
   });
   btnTraceConfirmPosition.addEventListener('click', ()=>{
     if(!img) return;
+    closeTraceCropModal();
     showTraceStep(3);
   });
+  function backToPhotoSelection(){
+    closeTraceCropModal();
+    showTraceStep(2);
+  }
+  btnTraceCropBack.addEventListener('click', backToPhotoSelection);
+  btnTraceCropBack2.addEventListener('click', backToPhotoSelection);
   btnTraceBack2.addEventListener('click', ()=> showTraceStep(1));
-  btnTraceBack3.addEventListener('click', ()=> showTraceStep(2));
+  btnTraceBack3.addEventListener('click', ()=>{
+    // a photo is already loaded — reopen the crop modal to adjust it,
+    // rather than sending them back to "choose a photo" from scratch
+    showTraceStep(2);
+    openTraceCropModal();
+  });
 
   btnTraceMirror.addEventListener('click', ()=>{
     if(!lenses) return;
@@ -2011,7 +2060,6 @@
     traceFrameNameInput.value = '';
     traceAlreadyRegisteredNote.style.display = 'none';
     btnTraceDeleteExisting.style.display = 'none';
-    btnTraceNext1.disabled = true;
     btnTraceConfirmPosition.disabled = true;
     btnTraceRegister.disabled = true;
     traceMirrorAxisX = 0.5;
@@ -2042,6 +2090,7 @@
   function closeTraceModal(){
     traceActive = false;
     traceModal.classList.remove('show');
+    traceCropModal.classList.remove('show');
     stage.classList.remove('in-trace');
     traceEdgeGuides.classList.remove('show');
     mirrorAxisHandle.classList.remove('show');
