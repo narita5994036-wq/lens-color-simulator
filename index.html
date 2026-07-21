@@ -405,11 +405,12 @@
   }
   .trace-edge-guides.show{display:block;}
   .trace-edge-line{
-    position:absolute; top:0; bottom:0; width:2px;
+    position:absolute; width:2px;
     background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
   }
-  .trace-edge-line.left{left:30px;}
-  .trace-edge-line.right{right:30px;}
+  .trace-edge-line.left{top:0; bottom:0; left:60px;}
+  .trace-edge-line.right{top:0; bottom:0; right:60px;}
+  .trace-edge-line.center-h{left:0; right:0; top:50%; width:auto; height:2px; margin-top:-1px;}
   .mirror-axis-handle{
     position:absolute; top:0; bottom:0; width:44px; margin-left:-22px;
     z-index:7; display:none; touch-action:none; cursor:ew-resize;
@@ -756,6 +757,7 @@
     <div class="trace-edge-guides" id="traceEdgeGuides">
       <div class="trace-edge-line left"></div>
       <div class="trace-edge-line right"></div>
+      <div class="trace-edge-line center-h"></div>
     </div>
     <div class="mirror-axis-handle" id="mirrorAxisHandle">
       <div class="mirror-axis-line"></div>
@@ -1076,7 +1078,7 @@
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
@@ -1234,7 +1236,7 @@
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
       traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"メガネの写真を選び、フレームの左右端が縦のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
+      traceStep2Note:"メガネの写真を選び、フレームの左右端が縦のガイド線に、中心が横のガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
@@ -1313,7 +1315,7 @@
       traceStep1Note:"Pick an existing frame name from the suggestions",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
       traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines",
+      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it so the frame's left/right edges line up with the vertical guide lines and its center with the horizontal one",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
@@ -1816,6 +1818,7 @@
   let traceMirrorAxisX = 0.5; // relative x of the adjustable reflection axis (step 3)
   let traceMirrored = false;  // whether "mirror to right" has run at least once this session
   let mirrorAxisDragging = false;
+  let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
 
   // the starting single-lens shape/position for tracing on the 16:9 stage —
   // distinct from defaultLensRegions() (tuned for the main app's portrait
@@ -1916,6 +1919,10 @@
     traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
     traceEdgeGuides.classList.toggle('show', n===2);
     mirrorAxisHandle.classList.toggle('show', n===3);
+    // the crop/position is only editable in step 2 — once confirmed into
+    // step 3 (shape editing), the photo itself is frozen in place so the
+    // traced points stay meaningful; going back to step 2 unfreezes it
+    traceCropLocked = (n === 3);
     traceStepLabel.textContent = n + ' / 3';
     if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
       traceStageSlot.appendChild(stage);
@@ -2009,6 +2016,7 @@
     btnTraceRegister.disabled = true;
     traceMirrorAxisX = 0.5;
     traceMirrored = false;
+    traceCropLocked = false;
     traceFrameAutocompleteList.classList.remove('show');
     // fresh working state for the trace image/shape, independent of
     // whatever photo/shape is currently active in the main app
@@ -3253,8 +3261,10 @@
       evt.preventDefault();
       return;
     }
-    if(!tappedSide && tapCount === 3){
-      // triple-tap on the background resets zoom and pan
+    if(!tappedSide && tapCount === 3 && !traceCropLocked){
+      // triple-tap on the background resets zoom and pan — not while
+      // trace-mode's crop is locked (step 3), since that would silently
+      // shift the photo out from under the shape already traced on it
       clearTimeout(longPressTimer);
       lastTap = {time:0, x:0, y:0, side:null, count:0};
       zoomLevel = 1; panX = 0; panY = 0;
@@ -3614,6 +3624,10 @@
   canvas.addEventListener('touchmove', (evt)=>{
     if(evt.touches.length === 2 && pinchData){
       evt.preventDefault();
+      // the photo's own zoom/pan is frozen once trace-mode's crop step is
+      // confirmed (see traceCropLocked) — still swallow the gesture so it
+      // doesn't fall through to native page/viewport zoom
+      if(traceCropLocked) return;
       swipeCandidate = null;
       // two-finger drag pans the (zoomed-in) photo, while the same two
       // touches' changing distance apart still zooms — both derived from
@@ -3646,6 +3660,7 @@
 
   // ---------- zoom ----------
   zoomSlider.addEventListener('input', ()=>{
+    if(traceCropLocked) return;
     zoomLevel = zoomSlider.value/100;
     clampPan();
     zoomValue.textContent = Math.round(zoomSlider.value) + '%';
