@@ -403,6 +403,9 @@
   .camera-guide .guide-glasses{
     fill:none; stroke:rgba(66,232,224,0.9); stroke-width:1.6; stroke-linecap:round;
   }
+  .camera-guide .guide-head{
+    fill:none; stroke:rgba(66,232,224,0.55); stroke-width:1.4; stroke-linecap:round;
+  }
   .camera-guide .guide-h-center{
     stroke:rgba(66,232,224,0.4); stroke-width:1; stroke-dasharray:5 5;
   }
@@ -744,18 +747,17 @@
          two outer guide-v lines; the dashed center line is only a rough
          symmetry reference, fine-tuned afterwards via #mirrorAxisHandle -->
     <svg class="camera-guide" id="traceGuide" viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">
-      <line class="guide-v" x1="30" y1="150" x2="30" y2="250" />
-      <line class="guide-v" x1="270" y1="150" x2="270" y2="250" />
       <line class="guide-h-center" x1="150" y1="0" x2="150" y2="400" />
+      <path class="guide-head" d="M55,300 C55,150 100,50 150,50 C200,50 245,150 245,300" />
+      <circle class="guide-head" cx="46" cy="228" r="11" />
+      <circle class="guide-head" cx="254" cy="228" r="11" />
       <g class="guide-glasses">
-        <ellipse cx="95" cy="200" rx="55" ry="38" />
-        <ellipse cx="205" cy="200" rx="55" ry="38" />
-        <line x1="138" y1="200" x2="162" y2="200" />
-        <line x1="40" y1="200" x2="14" y2="188" />
-        <line x1="260" y1="200" x2="286" y2="188" />
+        <rect x="75" y="215" width="65" height="50" rx="20" ry="20" />
+        <rect x="160" y="215" width="65" height="50" rx="20" ry="20" />
+        <line x1="140" y1="228" x2="160" y2="228" />
+        <line x1="75" y1="225" x2="50" y2="216" />
+        <line x1="225" y1="225" x2="250" y2="216" />
       </g>
-      <line class="guide-tick" x1="24" y1="182" x2="36" y2="182" />
-      <line class="guide-tick" x1="264" y1="182" x2="276" y2="182" />
     </svg>
     <div class="mirror-axis-handle" id="mirrorAxisHandle">
       <div class="mirror-axis-line"></div>
@@ -1076,7 +1078,7 @@
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">メガネを平置きで撮影した写真を選び、フレームの左右端がガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、頭部とメガネのガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
@@ -1234,7 +1236,7 @@
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
       traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"メガネを平置きで撮影した写真を選び、フレームの左右端がガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
+      traceStep2Note:"メガネの写真を選び、頭部とメガネのガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
@@ -1313,7 +1315,7 @@
       traceStep1Note:"Pick an existing frame name from the suggestions",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
       traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Choose a photo of the glasses laid flat, then pinch/drag to scale and move it so the frame's left/right edges match the guide lines",
+      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it to match the head + glasses guide outline",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
