@@ -1086,7 +1086,7 @@
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択・位置合わせ</h4>
-    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、頭部とメガネのガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください</div>
+    <div class="note" data-i18n="traceStep2Note">メガネの写真を選び、ピンチ・ドラッグで拡大縮小・移動して位置を調整してください</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
@@ -1244,7 +1244,7 @@
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
       traceStep2Title:"トレース用の写真を選択・位置合わせ",
-      traceStep2Note:"メガネの写真を選び、頭部とメガネのガイド線に合うようにピンチ・ドラッグで拡大縮小・移動してください",
+      traceStep2Note:"メガネの写真を選び、ピンチ・ドラッグで拡大縮小・移動して位置を調整してください",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
@@ -1323,7 +1323,7 @@
       traceStep1Note:"Pick an existing frame name from the suggestions",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
       traceStep2Title:"Choose and position a tracing photo",
-      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it to match the head + glasses guide outline",
+      traceStep2Note:"Choose a photo of the glasses, then pinch/drag to scale and move it into position",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
@@ -1924,7 +1924,9 @@
     tracePanel2.style.display = n===2 ? 'block' : 'none';
     tracePanel3.style.display = n===3 ? 'block' : 'none';
     traceStageSlot.style.display = (n===2 || n===3) ? 'flex' : 'none';
-    traceGuide.style.display = n===2 ? 'block' : 'none';
+    // guide illustration disabled for now (kept in the markup/CSS to
+    // re-enable later) — always hidden regardless of step
+    traceGuide.style.display = 'none';
     mirrorAxisHandle.classList.toggle('show', n===3);
     traceStepLabel.textContent = n + ' / 3';
     if((n===2 || n===3) && stage.parentNode !== traceStageSlot){
