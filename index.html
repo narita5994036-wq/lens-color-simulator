@@ -1970,6 +1970,12 @@
     traceEdgeGuides.classList.remove('show');
     traceCropStageSlot.style.display = 'none';
   }
+  // the crop modal is for positioning the photo only — the lens shape
+  // itself isn't shown or editable there (see draw()/updateNudgePad()/
+  // hitTest()/hitTestScaleMode())
+  function traceCropOpen(){
+    return traceCropModal.classList.contains('show');
+  }
 
   btnTraceChooseImage.addEventListener('click', ()=> traceUploadInput.click());
   traceUploadInput.addEventListener('change', (e)=>{
@@ -2902,12 +2908,23 @@
   btnMirrorSelected.addEventListener('click', ()=> openMirrorConfirmFor(activeSide));
 
   // ---------- drawing ----------
+  // trace mode (crop step and shape-editing step alike — see traceActive)
+  // always fills the full stage width, cropping top/bottom if needed,
+  // instead of the main app's normal 'contain' fit: a tall/portrait upload
+  // would otherwise letterbox with empty bars on the 16:9 trace stage.
+  // Used by both getFitRect() and clampPan() so the two stay consistent —
+  // otherwise panning could work against a different fit than what's drawn.
+  function baseFitScale(cw, ch){
+    return traceActive ? cw/imgNatW : Math.min(cw/imgNatW, ch/imgNatH);
+  }
+
   function getFitRect(){
-    // compute how the image is drawn with 'contain' fit inside the stage,
-    // then apply the stepless zoom (centered) and any pan offset on top
+    // compute how the image is drawn with 'contain' fit inside the stage
+    // (or trace mode's 'fill width' fit — see baseFitScale), then apply
+    // the stepless zoom (centered) and any pan offset on top
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     if(!img) return {x:0,y:0,w:cw,h:ch};
-    const baseScale = Math.min(cw/imgNatW, ch/imgNatH);
+    const baseScale = baseFitScale(cw, ch);
     const baseW = imgNatW*baseScale, baseH = imgNatH*baseScale;
     const baseX = (cw-baseW)/2, baseY = (ch-baseH)/2;
     const w = baseW*zoomLevel, h = baseH*zoomLevel;
@@ -2928,7 +2945,7 @@
     if(lenses && currentColor){
       drawTint(ctx, r);
     }
-    if(lenses && pointsVisible()){
+    if(lenses && pointsVisible() && !traceCropOpen()){
       drawHandles(r);
     }
   }
@@ -3148,8 +3165,10 @@
     // reference outline. Also, with the points toggle off, nothing is
     // draggable at all (not even moving the outline) — matching what's
     // actually drawn on screen. With no lens selected (deselected state),
-    // nothing is interactive either — a lens must be tapped first.
-    if(!lenses || !pointsVisible() || !activeSide) return null;
+    // nothing is interactive either — a lens must be tapped first. The
+    // lens shape isn't shown or editable at all while the trace crop
+    // modal is open (see traceCropOpen()) — that step is photo positioning only.
+    if(!lenses || !pointsVisible() || !activeSide || traceCropOpen()) return null;
     const side = activeSide;
     const pts = toScreenPoints(side, r);
     for(let i=0;i<pts.length;i++){
@@ -3182,8 +3201,8 @@
 
   function hitTestScaleMode(pos, r){
     // only the active lens is interactive in scale mode too; nothing to
-    // hit when nothing is selected
-    if(!pointsVisible() || !activeSide) return null;
+    // hit when nothing is selected, or while the trace crop modal is open
+    if(!pointsVisible() || !activeSide || traceCropOpen()) return null;
     const side = activeSide;
     const box = getBox(toScreenPoints(side, r));
     // the antenna-like rotate handle above the box takes priority, then the
@@ -3412,8 +3431,9 @@
   function updateNudgePad(){
     // shown any time a lens is selected at all, in either mode — see
     // nudgeActiveTarget(), which nudges the single selected point if
-    // there is one, or the whole active shape otherwise
-    const show = !!(lenses && activeSide && pointsVisible());
+    // there is one, or the whole active shape otherwise. Not shown while
+    // the trace crop modal is open (photo positioning only, no shape edits).
+    const show = !!(lenses && activeSide && pointsVisible()) && !traceCropOpen();
     vertexNudgePad.classList.toggle('show', show);
   }
 
@@ -3622,7 +3642,7 @@
   function clampPan(){
     if(!img) return;
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
-    const baseScale = Math.min(cw/imgNatW, ch/imgNatH);
+    const baseScale = baseFitScale(cw, ch);
     const baseW = imgNatW*baseScale, baseH = imgNatH*baseScale;
     const baseX = (cw-baseW)/2, baseY = (ch-baseH)/2;
     const w = baseW*zoomLevel, h = baseH*zoomLevel;
