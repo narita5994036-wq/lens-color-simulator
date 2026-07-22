@@ -411,20 +411,20 @@
   .trace-edge-line.center-h{left:0; right:0; top:50%; width:auto; height:2px; margin-top:-1px;}
   /* draggable left/right frame-edge markers — dragged to mark where the
      frame's edges currently sit in the photo, then "confirm position"
-     scales/shifts the photo so those marks land exactly at 60px from each
+     scales/shifts the photo so those marks land exactly at 40px from each
      stage edge (see applyGuideBasedCrop()) */
   .trace-edge-handle{
     position:absolute; top:0; bottom:0; width:44px;
     pointer-events:auto; touch-action:none; cursor:ew-resize;
   }
-  .trace-edge-handle.left{left:60px; margin-left:-22px;}
-  .trace-edge-handle.right{right:60px; margin-right:-22px;}
+  .trace-edge-handle.left{left:40px; margin-left:-22px;}
+  .trace-edge-handle.right{right:40px; margin-right:-22px;}
   .trace-edge-line-v{
     position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px;
     background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
   }
   /* shown again in step 3 (shape editing) as a static, non-draggable
-     reference at the fixed 60px target — lets you check the crop mapping
+     reference at the fixed 40px target — lets you check the crop mapping
      actually landed the frame's edges there, without offering a second
      way to rescale the now-frozen photo (see showTraceStep()) */
   .trace-edge-guides.locked .trace-edge-handle{pointer-events:none; cursor:default;}
@@ -1875,7 +1875,7 @@
   let traceMirrored = false;  // whether "mirror to right" has run at least once this session
   let mirrorAxisDragging = false;
   let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
-  const TRACE_GUIDE_DEFAULT_PX = 60; // both frame-edge markers' default distance from their nearest stage edge
+  const TRACE_GUIDE_DEFAULT_PX = 40; // both frame-edge markers' default distance from their nearest stage edge
   let traceGuideLeftPx = TRACE_GUIDE_DEFAULT_PX;  // draggable marker's distance from the stage's left edge
   let traceGuideRightPx = TRACE_GUIDE_DEFAULT_PX; // draggable marker's distance from the stage's right edge
   let traceGuideDragSide = null; // 'left' | 'right' | null — which marker (if any) is currently being dragged
@@ -2006,7 +2006,7 @@
     traceCropLocked = (n === 3);
     traceStepLabel.textContent = n + ' / 3';
     if(n===3){
-      // show the same 60px markers here too, but reset to the fixed
+      // show the same 40px markers here too, but reset to the fixed
       // target position and locked (non-draggable) — a static reference
       // so it's obvious whether the crop mapping actually landed the
       // frame's edges on the target, without offering a second, separate
@@ -2109,7 +2109,7 @@
 
   // scales/pans the photo so whatever the two draggable markers currently
   // point at (the frame's actual left/right edges, wherever the user left
-  // them) ends up exactly at the standard 60px-from-edge marks — an
+  // them) ends up exactly at the standard 40px-from-edge marks — an
   // alternative to manually pinch-zooming the photo to match fixed lines
   function applyGuideBasedCrop(){
     if(!img) return;
@@ -2120,7 +2120,7 @@
     if(!(grx > glx) || r.w <= 0) return;
     // convert the markers' screen positions to image-fraction coordinates
     // under the CURRENT fit/zoom/pan, then solve for the fit rect that
-    // would place those same fractions at the target 60px marks
+    // would place those same fractions at the target 40px marks
     const uLeft = (glx - r.x) / r.w;
     const uRight = (grx - r.x) / r.w;
     if(!(uRight > uLeft)) return;
