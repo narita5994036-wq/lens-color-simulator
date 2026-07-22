@@ -428,7 +428,6 @@
      actually landed the frame's edges there, without offering a second
      way to rescale the now-frozen photo (see showTraceStep()) */
   .trace-edge-guides.locked .trace-edge-handle{pointer-events:none; cursor:default;}
-  .trace-edge-guides.locked .trace-edge-line.center-h{display:none;}
   .mirror-axis-handle{
     position:absolute; top:0; bottom:0; width:44px; margin-left:-22px;
     z-index:7; display:none; touch-action:none; cursor:ew-resize;
@@ -663,6 +662,11 @@
     margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
   }
   #stage.in-trace .empty-state{display:none;}
+  /* while the trace crop modal is open, a single-finger drag pans the
+     photo itself (see onPointerDown's traceCropOpen() branch) — override
+     the normal pan-y (native vertical page scroll) so our own handler
+     gets the gesture instead of the browser starting a native scroll */
+  #stage.crop-panning{touch-action:none;}
 
   /* ---- iPad landscape: dock the sidebar permanently instead of as a
      slide-in overlay, move the frame-name/density/share controls into it
@@ -1873,9 +1877,30 @@
   // distinct from defaultLensRegions() (tuned for the main app's portrait
   // face-photo camera capture, not this landscape flat-glasses one)
   function defaultTraceLensRegions(){
+    // sized/positioned relative to the CANVAS (a fixed 16:9 in trace mode),
+    // then converted into image-relative fractions (the storage format
+    // `lenses` always uses) via the *current* fit rect. Unlike the main
+    // app's camera-captured photos — always pre-cropped to a fixed ratio,
+    // so image fractions and canvas fractions coincide — a trace photo's
+    // natural aspect ratio is whatever the upload happened to be, and
+    // "fill width" fitting can make its fit rect much taller or shorter
+    // than the canvas. Building this in canvas space first keeps the
+    // starting ellipse a sane on-screen size regardless of that.
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const r = getFitRect();
+    const rx = cw * 0.10, ry = ch * 0.14;
+    const cy = ch * 0.55;
+    const toImageFrac = (cxCanvas, cyCanvas)=>({
+      cx: (cxCanvas - r.x) / r.w,
+      cy: (cyCanvas - r.y) / r.h,
+      rx: rx / r.w,
+      ry: ry / r.h
+    });
+    const left = toImageFrac(cw*0.375, cy);
+    const right = toImageFrac(cw*0.625, cy);
     return {
-      left:  {points: ellipseToPolygon(0.375, 0.578, 0.10, 0.124, 8)},
-      right: {points: ellipseToPolygon(0.625, 0.578, 0.10, 0.124, 8)}
+      left:  {points: ellipseToPolygon(left.cx, left.cy, left.rx, left.ry, 8)},
+      right: {points: ellipseToPolygon(right.cx, right.cy, right.rx, right.ry, 8)}
     };
   }
 
@@ -2004,6 +2029,7 @@
     traceGuideRightHandle.style.right = TRACE_GUIDE_DEFAULT_PX + 'px';
     traceEdgeGuides.classList.add('show');
     traceCropModal.classList.add('show');
+    stage.classList.add('crop-panning');
     traceCropStageSlot.style.display = 'flex';
     if(stage.parentNode !== traceCropStageSlot){
       traceCropStageSlot.appendChild(stage);
@@ -2013,6 +2039,7 @@
   function closeTraceCropModal(){
     traceCropModal.classList.remove('show');
     traceEdgeGuides.classList.remove('show');
+    stage.classList.remove('crop-panning');
     traceCropStageSlot.style.display = 'none';
   }
   // the crop modal is for positioning the photo only — the lens shape
@@ -2027,9 +2054,9 @@
     const file = e.target.files[0];
     if(!file) return;
     loadImageFile(file, ()=>{
-      // the flat-glasses guide has different lens proportions/positions
-      // than the face-photo one loadImageFile() defaults to
-      lenses = defaultTraceLensRegions();
+      // the default shape is (re-)built once the crop is confirmed (see
+      // btnTraceConfirmPosition below), against the *final* fit rect —
+      // not here, since cropping can still change it
       activeSide = 'left';
       traceMirrorAxisX = 0.5;
       traceMirrored = false;
@@ -2110,6 +2137,10 @@
   btnTraceConfirmPosition.addEventListener('click', ()=>{
     if(!img) return;
     applyGuideBasedCrop();
+    // built against the fit rect as it is *after* the crop above, so the
+    // starting ellipse lands at a sane on-screen position/size regardless
+    // of how much that crop just scaled the photo
+    lenses = defaultTraceLensRegions();
     closeTraceCropModal();
     showTraceStep(3);
   });
@@ -3417,6 +3448,19 @@
   }
 
   function onPointerDown(evt){
+    if(traceCropOpen()){
+      // a single-finger drag pans the photo vertically only, while
+      // trace-mode's crop step is open — 2-finger pinch still handles
+      // zoom (and its own horizontal pan) via the existing touchstart/
+      // touchmove handlers; nothing else here (lens editing, taps,
+      // swipes, long-press) applies since there's no shape to interact
+      // with yet
+      swipeCandidate = null;
+      dragTarget = {mode:'traceCropPan'};
+      dragOffset.y = getPos(evt).y;
+      evt.preventDefault();
+      return;
+    }
     if(!lenses) return;
     const pos = getPos(evt);
     const r = getFitRect();
@@ -3616,6 +3660,14 @@
     evt.preventDefault();
     const pos = getPos(evt);
     const r = getFitRect();
+
+    if(dragTarget.mode === 'traceCropPan'){
+      panY += pos.y - dragOffset.y;
+      dragOffset.y = pos.y;
+      clampPan();
+      draw();
+      return;
+    }
 
     if(!lenses) return;
     const l = lenses[dragTarget.side];
