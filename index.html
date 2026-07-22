@@ -408,9 +408,21 @@
     position:absolute; width:2px;
     background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
   }
-  .trace-edge-line.left{top:0; bottom:0; left:60px;}
-  .trace-edge-line.right{top:0; bottom:0; right:60px;}
   .trace-edge-line.center-h{left:0; right:0; top:50%; width:auto; height:2px; margin-top:-1px;}
+  /* draggable left/right frame-edge markers — dragged to mark where the
+     frame's edges currently sit in the photo, then "confirm position"
+     scales/shifts the photo so those marks land exactly at 60px from each
+     stage edge (see applyGuideBasedCrop()) */
+  .trace-edge-handle{
+    position:absolute; top:0; bottom:0; width:44px;
+    pointer-events:auto; touch-action:none; cursor:ew-resize;
+  }
+  .trace-edge-handle.left{left:60px; margin-left:-22px;}
+  .trace-edge-handle.right{right:60px; margin-right:-22px;}
+  .trace-edge-line-v{
+    position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px;
+    background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+  }
   .mirror-axis-handle{
     position:absolute; top:0; bottom:0; width:44px; margin-left:-22px;
     z-index:7; display:none; touch-action:none; cursor:ew-resize;
@@ -756,9 +768,13 @@
          from each edge of the 16:9 stage, to align the frame's left/right
          outer edges against while scaling/positioning the tracing photo -->
     <div class="trace-edge-guides" id="traceEdgeGuides">
-      <div class="trace-edge-line left"></div>
-      <div class="trace-edge-line right"></div>
       <div class="trace-edge-line center-h"></div>
+      <div class="trace-edge-handle left" id="traceGuideLeftHandle">
+        <div class="trace-edge-line-v"></div>
+      </div>
+      <div class="trace-edge-handle right" id="traceGuideRightHandle">
+        <div class="trace-edge-line-v"></div>
+      </div>
     </div>
     <div class="mirror-axis-handle" id="mirrorAxisHandle">
       <div class="mirror-axis-line"></div>
@@ -1514,6 +1530,8 @@
   const btnTraceRegister = document.getElementById('btnTraceRegister');
   const btnTraceBack3 = document.getElementById('btnTraceBack3');
   const traceEdgeGuides = document.getElementById('traceEdgeGuides');
+  const traceGuideLeftHandle = document.getElementById('traceGuideLeftHandle');
+  const traceGuideRightHandle = document.getElementById('traceGuideRightHandle');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
   const btnTraceMirror = document.getElementById('btnTraceMirror');
   const traceCropModal = document.getElementById('traceCropModal');
@@ -1840,6 +1858,10 @@
   let traceMirrored = false;  // whether "mirror to right" has run at least once this session
   let mirrorAxisDragging = false;
   let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
+  const TRACE_GUIDE_DEFAULT_PX = 60; // both frame-edge markers' default distance from their nearest stage edge
+  let traceGuideLeftPx = TRACE_GUIDE_DEFAULT_PX;  // draggable marker's distance from the stage's left edge
+  let traceGuideRightPx = TRACE_GUIDE_DEFAULT_PX; // draggable marker's distance from the stage's right edge
+  let traceGuideDragSide = null; // 'left' | 'right' | null — which marker (if any) is currently being dragged
 
   // the starting single-lens shape/position for tracing on the 16:9 stage —
   // distinct from defaultLensRegions() (tuned for the main app's portrait
@@ -1957,6 +1979,10 @@
 
   function openTraceCropModal(){
     traceCropLocked = false;
+    traceGuideLeftPx = TRACE_GUIDE_DEFAULT_PX;
+    traceGuideRightPx = TRACE_GUIDE_DEFAULT_PX;
+    traceGuideLeftHandle.style.left = TRACE_GUIDE_DEFAULT_PX + 'px';
+    traceGuideRightHandle.style.right = TRACE_GUIDE_DEFAULT_PX + 'px';
     traceEdgeGuides.classList.add('show');
     traceCropModal.classList.add('show');
     traceCropStageSlot.style.display = 'flex';
@@ -1994,8 +2020,77 @@
     });
     traceUploadInput.value = '';
   });
+  // dragging either marker just moves that marker — the actual photo
+  // scaling/positioning only happens once, on confirm (see below)
+  function startTraceGuideDrag(side, evt){
+    evt.preventDefault();
+    evt.stopPropagation();
+    traceGuideDragSide = side;
+    const handle = side === 'left' ? traceGuideLeftHandle : traceGuideRightHandle;
+    try{ handle.setPointerCapture(evt.pointerId); }catch(err){}
+  }
+  function onTraceGuideDrag(evt){
+    if(!traceGuideDragSide) return;
+    evt.preventDefault();
+    const stageRect = stage.getBoundingClientRect();
+    const x = evt.clientX - stageRect.left;
+    const MIN_GAP = 20; // keep the two markers from crossing/overlapping
+    if(traceGuideDragSide === 'left'){
+      traceGuideLeftPx = Math.min(stageRect.width - traceGuideRightPx - MIN_GAP, Math.max(0, x));
+      traceGuideLeftHandle.style.left = traceGuideLeftPx + 'px';
+    } else {
+      const fromRight = stageRect.width - x;
+      traceGuideRightPx = Math.min(stageRect.width - traceGuideLeftPx - MIN_GAP, Math.max(0, fromRight));
+      traceGuideRightHandle.style.right = traceGuideRightPx + 'px';
+    }
+  }
+  function endTraceGuideDrag(){ traceGuideDragSide = null; }
+  traceGuideLeftHandle.addEventListener('pointerdown', (e)=> startTraceGuideDrag('left', e));
+  traceGuideRightHandle.addEventListener('pointerdown', (e)=> startTraceGuideDrag('right', e));
+  traceGuideLeftHandle.addEventListener('pointermove', onTraceGuideDrag);
+  traceGuideRightHandle.addEventListener('pointermove', onTraceGuideDrag);
+  traceGuideLeftHandle.addEventListener('pointerup', endTraceGuideDrag);
+  traceGuideRightHandle.addEventListener('pointerup', endTraceGuideDrag);
+  traceGuideLeftHandle.addEventListener('pointercancel', endTraceGuideDrag);
+  traceGuideRightHandle.addEventListener('pointercancel', endTraceGuideDrag);
+
+  // scales/pans the photo so whatever the two draggable markers currently
+  // point at (the frame's actual left/right edges, wherever the user left
+  // them) ends up exactly at the standard 60px-from-edge marks — an
+  // alternative to manually pinch-zooming the photo to match fixed lines
+  function applyGuideBasedCrop(){
+    if(!img) return;
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const r = getFitRect();
+    const glx = traceGuideLeftPx;
+    const grx = cw - traceGuideRightPx;
+    if(!(grx > glx) || r.w <= 0) return;
+    // convert the markers' screen positions to image-fraction coordinates
+    // under the CURRENT fit/zoom/pan, then solve for the fit rect that
+    // would place those same fractions at the target 60px marks
+    const uLeft = (glx - r.x) / r.w;
+    const uRight = (grx - r.x) / r.w;
+    if(!(uRight > uLeft)) return;
+    const targetLeft = TRACE_GUIDE_DEFAULT_PX, targetRight = cw - TRACE_GUIDE_DEFAULT_PX;
+    const targetW = targetRight - targetLeft;
+    if(targetW <= 0) return;
+    const wantedW = targetW / (uRight - uLeft);
+    const baseScale = baseFitScale(cw, ch);
+    const baseW = imgNatW*baseScale, baseH = imgNatH*baseScale;
+    const baseX = (cw-baseW)/2, baseY = (ch-baseH)/2;
+    const newZoom = Math.min(4, Math.max(1, wantedW / baseW));
+    const finalW = baseW*newZoom;
+    const finalX = targetLeft - uLeft*finalW;
+    zoomLevel = newZoom;
+    panX = finalX - baseX + (finalW-baseW)/2;
+    clampPan();
+    zoomSlider.value = Math.round(zoomLevel*100);
+    zoomValue.textContent = Math.round(zoomLevel*100) + '%';
+  }
+
   btnTraceConfirmPosition.addEventListener('click', ()=>{
     if(!img) return;
+    applyGuideBasedCrop();
     closeTraceCropModal();
     showTraceStep(3);
   });
