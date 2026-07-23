@@ -1900,7 +1900,7 @@
     // on-screen size/position regardless of that.
     //
     // left lens: centered midway between the left edge guide (40px in)
-    // and the mirror axis line; its width is half that gap, and its
+    // and the mirror axis line; its width is 4/5 of that gap, and its
     // height 4/5 of its width. The right lens starts as the mirror image
     // of that, around the same axis (overwritten once "Mirror" is used).
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -1908,7 +1908,7 @@
     const leftGuideX = TRACE_GUIDE_DEFAULT_PX;
     const axisX = cw * traceMirrorAxisX;
     const gap = axisX - leftGuideX;
-    const widthPx = gap / 2;
+    const widthPx = gap * 4/5;
     const heightPx = widthPx * 4/5;
     const rxPx = widthPx / 2, ryPx = heightPx / 2;
     const centerY = ch / 2;
