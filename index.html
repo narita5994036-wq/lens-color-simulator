@@ -408,10 +408,9 @@
     position:absolute; width:1px;
     background:rgba(66,232,224,0.9); box-shadow:0 0 0 0.5px rgba(255,255,255,0.6);
   }
-  /* horizontal guide's fixed offset above vertical-center — marks the
-     frame's top edge; keep in sync with the TRACE_HLINE_OFFSET_PX JS
-     constant used by applyGuideBasedCrop()/defaultTraceLensRegions() */
-  .trace-edge-line.center-h{left:0; right:0; top:calc(50% - 100px); width:auto; height:1px; margin-top:0;}
+  /* actual vertical position is computed and set via JS (see
+     updateTraceHLinePosition()) — this is just a fallback before that runs */
+  .trace-edge-line.center-h{left:0; right:0; top:50%; width:auto; height:1px; margin-top:0;}
   /* draggable left/right frame-edge markers — dragged to mark where the
      frame's edges currently sit in the photo, then "confirm position"
      scales/shifts the photo so those marks land exactly at 40px from each
@@ -792,7 +791,7 @@
          from each edge of the 16:9 stage, to align the frame's left/right
          outer edges against while scaling/positioning the tracing photo -->
     <div class="trace-edge-guides" id="traceEdgeGuides">
-      <div class="trace-edge-line center-h"></div>
+      <div class="trace-edge-line center-h" id="traceHLine"></div>
       <div class="trace-edge-handle left" id="traceGuideLeftHandle">
         <div class="trace-edge-line-v"></div>
       </div>
@@ -1561,6 +1560,7 @@
   const btnTraceRegister = document.getElementById('btnTraceRegister');
   const btnTraceBack3 = document.getElementById('btnTraceBack3');
   const traceEdgeGuides = document.getElementById('traceEdgeGuides');
+  const traceHLine = document.getElementById('traceHLine');
   const traceGuideLeftHandle = document.getElementById('traceGuideLeftHandle');
   const traceGuideRightHandle = document.getElementById('traceGuideRightHandle');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
@@ -1695,6 +1695,7 @@
     canvas.style.width = rect.width + 'px';
     canvas.style.height = rect.height + 'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
+    if(traceActive) updateTraceHLinePosition();
     draw();
   }
   window.addEventListener('resize', resizeCanvas);
@@ -1892,11 +1893,31 @@
   let mirrorAxisDragging = false;
   let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
   const TRACE_GUIDE_DEFAULT_PX = 40; // both frame-edge markers' default distance from their nearest stage edge
-  const TRACE_HLINE_OFFSET_PX = 100; // horizontal guide's fixed offset above vertical-center (marks the frame's top edge) — keep in sync with .trace-edge-line.center-h's CSS
   let traceGuideLeftPx = TRACE_GUIDE_DEFAULT_PX;  // draggable marker's distance from the stage's left edge
   let traceGuideRightPx = TRACE_GUIDE_DEFAULT_PX; // draggable marker's distance from the stage's right edge
   let traceGuideDragSide = null; // 'left' | 'right' | null — which marker (if any) is currently being dragged
   let traceRotationDeg = 0; // live preview rotation (degrees) applied during the crop step only, baked into the photo on confirm
+
+  // shared sizing basis for the default trace lens shape AND the horizontal
+  // guide line: a lens 4/5 as wide as the gap between the left edge guide
+  // and the mirror axis, and 4/5 as tall as it is wide
+  function traceDefaultLensSizePx(cw){
+    const gap = (cw * traceMirrorAxisX) - TRACE_GUIDE_DEFAULT_PX;
+    const widthPx = gap * 4/5;
+    const heightPx = widthPx * 4/5;
+    return { rxPx: widthPx/2, ryPx: heightPx/2 };
+  }
+  // the horizontal guide line's canvas-space Y: assuming the lens region
+  // sits at the image's own vertical center (canvas center, before any
+  // vertical panning), this is that region's top vertex — the position the
+  // frame's top edge should be lined up against
+  function traceHLineY(cw, ch){
+    return ch/2 - traceDefaultLensSizePx(cw).ryPx;
+  }
+  function updateTraceHLinePosition(){
+    const cw = canvas.clientWidth, ch = canvas.clientHeight;
+    traceHLine.style.top = traceHLineY(cw, ch) + 'px';
+  }
 
   // the starting single-lens shape/position for tracing on the 16:9 stage —
   // distinct from defaultLensRegions() (tuned for the main app's portrait
@@ -1922,12 +1943,11 @@
     const leftGuideX = TRACE_GUIDE_DEFAULT_PX;
     const axisX = cw * traceMirrorAxisX;
     const gap = axisX - leftGuideX;
-    const widthPx = gap * 4/5;
-    const heightPx = widthPx * 4/5;
-    const rxPx = widthPx / 2, ryPx = heightPx / 2;
-    // the horizontal guide marks the frame's TOP edge, so the default lens
-    // shape's top (not center) should sit on that line
-    const centerY = (ch/2 - TRACE_HLINE_OFFSET_PX) + ryPx;
+    const { rxPx, ryPx } = traceDefaultLensSizePx(cw);
+    // the lens region is assumed centered on the canvas's own vertical
+    // center — the same assumption traceHLineY() uses to place the
+    // horizontal guide at this region's top edge, so the two always agree
+    const centerY = ch / 2;
     const leftCenterX = leftGuideX + gap/2;
     const rightCenterX = axisX + gap/2;
     const toImageFrac = (cxCanvas, cyCanvas)=>({
@@ -2170,13 +2190,13 @@
     const uLeft = (glx - r.x) / r.w;
     const uRight = (grx - r.x) / r.w;
     if(!(uRight > uLeft)) return;
-    // the horizontal guide line (top:50%) marks the frame's top edge, lined
-    // up via the single-finger vertical pan (and, before baking, rotation)
-    // — capture which image fraction is currently under it so that stays
-    // put once the horizontal scale below changes zoomLevel (and with it
-    // the image's rendered height, which previously shifted whatever was
-    // under the line without this anchor)
-    const hLineY = ch/2 - TRACE_HLINE_OFFSET_PX;
+    // the horizontal guide line marks the frame's top edge, lined up via
+    // the single-finger vertical pan (and, before baking, rotation) —
+    // capture which image fraction is currently under it so that stays put
+    // once the horizontal scale below changes zoomLevel (and with it the
+    // image's rendered height, which previously shifted whatever was under
+    // the line without this anchor)
+    const hLineY = traceHLineY(cw, ch);
     const vAnchor = (hLineY - r.y) / r.h;
     const targetLeft = TRACE_GUIDE_DEFAULT_PX, targetRight = cw - TRACE_GUIDE_DEFAULT_PX;
     const targetW = targetRight - targetLeft;
