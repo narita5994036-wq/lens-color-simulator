@@ -655,6 +655,13 @@
   .trace-header .close-x{background:none; border:none; font-size:20px; color:var(--gray-mid); cursor:pointer;}
   .trace-step-label{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--gray-mid);}
   .trace-panel{padding:22px 24px; overflow-y:auto;}
+  /* step 1's own content (title/note/name field) is always short — its
+     autocomplete dropdown (position:absolute under the field) must NOT be
+     clipped by this scrolling ancestor, or a shrunk viewport (e.g. the
+     on-screen keyboard reducing visible height on a real phone) cuts the
+     dropdown down to a single visible row well before its own 200px cap.
+     The dropdown still scrolls internally via its own overflow-y/max-height. */
+  #tracePanel1{overflow-y:visible;}
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
   .trace-stage-slot{
     /* shrink-wrapped (not flex:1) so its gray background only covers the
@@ -1840,11 +1847,35 @@
     const key = normalizeFrameKey(name);
     return key ? frameShapes[key] : null;
   }
+  // registered shapes are always traced on the registration screen's fixed
+  // 16:9 canvas, but get applied to whatever photo is loaded in the main
+  // app — which can be any aspect ratio (a portrait camera capture, say).
+  // Since each point's x/y are fractions of the PHOTO's own width/height,
+  // reapplying them unmodified on a differently-shaped photo distorts the
+  // shape (e.g. a round lens traced on a wide 16:9 image balloons into a
+  // tall ellipse on a portrait photo). Correcting each point's vertical
+  // offset from its own shape's center by the ratio between the two
+  // images' aspect ratios restores the original proportions.
+  function correctLensesAspectForTarget(lensesObj, sourceAspect, targetAspect){
+    const factor = sourceAspect / targetAspect;
+    const correctSide = (shape)=>{
+      const ys = shape.points.map(p => p.y);
+      const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      return {points: shape.points.map(p => ({x: p.x, y: centerY + (p.y - centerY)*factor}))};
+    };
+    return {left: correctSide(lensesObj.left), right: correctSide(lensesObj.right)};
+  }
   function applyRegisteredFrameShape(name){
     const saved = getRegisteredFrameShape(name);
     if(!img || !lenses || !saved) return false;
     pushUndoSnapshot();
-    lenses = cloneLensesPoints(saved);
+    // shapes saved before sourceAspect existed have no record of the
+    // tracing photo's own aspect ratio — assume 16:9 (the registration
+    // screen's fixed canvas ratio) as the closest reasonable guess, since
+    // "fill width" fit means many traced photos ended up close to it anyway
+    const sourceAspect = (typeof saved.sourceAspect === 'number' && saved.sourceAspect > 0) ? saved.sourceAspect : 9/16;
+    const targetAspect = imgNatH / imgNatW;
+    lenses = correctLensesAspectForTarget(cloneLensesPoints(saved), sourceAspect, targetAspect);
     selectedVertex = null;
     scaleMode = false;
     updateHintText();
@@ -1854,7 +1885,12 @@
   function saveCurrentShapeForFrame(name){
     const key = normalizeFrameKey(name);
     if(!key || !lenses) return;
-    frameShapes[key] = cloneLensesPoints(lenses);
+    const cloned = cloneLensesPoints(lenses);
+    // the tracing photo's own native aspect ratio — points are fractions of
+    // the image's own width/height, so applyRegisteredFrameShape() needs
+    // this to correct for a differently-shaped destination photo later
+    cloned.sourceAspect = imgNatH / imgNatW;
+    frameShapes[key] = cloned;
     saveJSON(STORAGE_FRAME_SHAPES, frameShapes);
   }
   function deleteFrameShape(name){
@@ -2279,14 +2315,36 @@
     });
   }
 
+  // recovers the absolute mirror-axis x that produced an already-mirrored
+  // shape (see btnTraceMirror — right.points are left.points reflected
+  // across the axis, then reversed), so re-editing an existing registration
+  // starts with the axis handle lined up with its actual symmetry line
+  // instead of resetting to the generic 0.5 default
+  function inferMirrorAxisX(lensesObj){
+    const left = lensesObj.left.points, right = lensesObj.right.points;
+    if(!left.length || left.length !== right.length) return null;
+    return (left[0].x + right[right.length - 1].x) / 2;
+  }
   btnTraceConfirmPosition.addEventListener('click', async ()=>{
     if(!img) return;
     await bakeTraceRotation();
     applyGuideBasedCrop();
-    // built against the fit rect as it is *after* the crop above, so the
-    // starting ellipse lands at a sane on-screen position/size regardless
-    // of how much that crop just scaled the photo
-    lenses = defaultTraceLensRegions();
+    // both old and new shapes are always registered against this same
+    // fixed 16:9 tracing canvas, so re-loading one needs no aspect
+    // correction (unlike applyRegisteredFrameShape(), which maps a
+    // registered shape onto the main app's differently-shaped photo)
+    const existing = getRegisteredFrameShape(traceFrameName);
+    if(existing){
+      // re-editing: start from the previously registered shape instead of
+      // the generic default ellipse
+      lenses = cloneLensesPoints(existing);
+      traceMirrorAxisX = inferMirrorAxisX(lenses) ?? 0.5;
+    } else {
+      // built against the fit rect as it is *after* the crop above, so the
+      // starting ellipse lands at a sane on-screen position/size regardless
+      // of how much that crop just scaled the photo
+      lenses = defaultTraceLensRegions();
+    }
     closeTraceCropModal();
     showTraceStep(3);
   });
