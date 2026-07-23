@@ -405,10 +405,13 @@
   }
   .trace-edge-guides.show{display:block;}
   .trace-edge-line{
-    position:absolute; width:2px;
-    background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+    position:absolute; width:1px;
+    background:rgba(66,232,224,0.9); box-shadow:0 0 0 0.5px rgba(255,255,255,0.6);
   }
-  .trace-edge-line.center-h{left:0; right:0; top:50%; width:auto; height:2px; margin-top:-1px;}
+  /* horizontal guide's fixed offset above vertical-center — marks the
+     frame's top edge; keep in sync with the TRACE_HLINE_OFFSET_PX JS
+     constant used by applyGuideBasedCrop()/defaultTraceLensRegions() */
+  .trace-edge-line.center-h{left:0; right:0; top:calc(50% - 100px); width:auto; height:1px; margin-top:0;}
   /* draggable left/right frame-edge markers — dragged to mark where the
      frame's edges currently sit in the photo, then "confirm position"
      scales/shifts the photo so those marks land exactly at 40px from each
@@ -420,8 +423,8 @@
   .trace-edge-handle.left{left:40px; margin-left:-22px;}
   .trace-edge-handle.right{right:40px; margin-right:-22px;}
   .trace-edge-line-v{
-    position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px;
-    background:rgba(66,232,224,0.9); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+    position:absolute; top:0; bottom:0; left:50%; width:1px; margin-left:-0.5px;
+    background:rgba(66,232,224,0.9); box-shadow:0 0 0 0.5px rgba(255,255,255,0.6);
   }
   /* shown again in step 3 (shape editing) as a static, non-draggable
      reference at the fixed 40px target — lets you check the crop mapping
@@ -434,8 +437,8 @@
   }
   .mirror-axis-handle.show{display:block;}
   .mirror-axis-line{
-    position:absolute; top:0; bottom:0; left:50%; width:2px; margin-left:-1px;
-    background:rgba(66,232,224,0.95); box-shadow:0 0 0 1px rgba(255,255,255,0.6);
+    position:absolute; top:0; bottom:0; left:50%; width:1px; margin-left:-0.5px;
+    background:rgba(66,232,224,0.95); box-shadow:0 0 0 0.5px rgba(255,255,255,0.6);
   }
   .camera-guide-label{
     position:absolute; left:0; right:0; bottom:118px; text-align:center;
@@ -1889,6 +1892,7 @@
   let mirrorAxisDragging = false;
   let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
   const TRACE_GUIDE_DEFAULT_PX = 40; // both frame-edge markers' default distance from their nearest stage edge
+  const TRACE_HLINE_OFFSET_PX = 100; // horizontal guide's fixed offset above vertical-center (marks the frame's top edge) — keep in sync with .trace-edge-line.center-h's CSS
   let traceGuideLeftPx = TRACE_GUIDE_DEFAULT_PX;  // draggable marker's distance from the stage's left edge
   let traceGuideRightPx = TRACE_GUIDE_DEFAULT_PX; // draggable marker's distance from the stage's right edge
   let traceGuideDragSide = null; // 'left' | 'right' | null — which marker (if any) is currently being dragged
@@ -1921,9 +1925,9 @@
     const widthPx = gap * 4/5;
     const heightPx = widthPx * 4/5;
     const rxPx = widthPx / 2, ryPx = heightPx / 2;
-    // the horizontal guide now marks the frame's TOP edge, so the default
-    // lens shape's top (not center) should sit on that line
-    const centerY = ch/2 + ryPx;
+    // the horizontal guide marks the frame's TOP edge, so the default lens
+    // shape's top (not center) should sit on that line
+    const centerY = (ch/2 - TRACE_HLINE_OFFSET_PX) + ryPx;
     const leftCenterX = leftGuideX + gap/2;
     const rightCenterX = axisX + gap/2;
     const toImageFrac = (cxCanvas, cyCanvas)=>({
@@ -2172,7 +2176,8 @@
     // put once the horizontal scale below changes zoomLevel (and with it
     // the image's rendered height, which previously shifted whatever was
     // under the line without this anchor)
-    const vAnchor = (ch/2 - r.y) / r.h;
+    const hLineY = ch/2 - TRACE_HLINE_OFFSET_PX;
+    const vAnchor = (hLineY - r.y) / r.h;
     const targetLeft = TRACE_GUIDE_DEFAULT_PX, targetRight = cw - TRACE_GUIDE_DEFAULT_PX;
     const targetW = targetRight - targetLeft;
     if(targetW <= 0) return;
@@ -2192,7 +2197,7 @@
     newZoom = Math.min(20, newZoom);
     const finalW = baseW*newZoom, finalH = baseH*newZoom;
     const finalX = targetLeft - uLeft*finalW;
-    const finalY = ch/2 - vAnchor*finalH;
+    const finalY = hLineY - vAnchor*finalH;
     zoomLevel = newZoom;
     panX = finalX - baseX + (finalW-baseW)/2;
     panY = finalY - baseY + (finalH-baseH)/2;
