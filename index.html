@@ -262,7 +262,10 @@
   .drag-magnifier{
     position:fixed; width:110px; height:110px; border-radius:50%;
     border:2px solid rgba(255,255,255,0.95); box-shadow:0 4px 18px rgba(0,0,0,0.35);
-    overflow:hidden; pointer-events:none; z-index:160; display:none;
+    overflow:hidden; pointer-events:none; z-index:260; display:none;
+    /* higher than .trace-crop-modal's 255 (the highest modal z-index) so
+       vertex-drag magnification still shows over the registration screen,
+       not silently hidden behind its opaque background */
   }
   .drag-magnifier.show{display:block;}
   .drag-magnifier canvas{width:100%; height:100%; display:block;}
@@ -2180,6 +2183,10 @@
       traceMirrored = false;
       btnTraceRegister.disabled = true;
       btnTraceConfirmPosition.disabled = false;
+      // loadImageFile()'s own onload already called updateHintText() before
+      // this callback ran, so the hint shown is stale (still the
+      // deselected-state text, from just before activeSide was set above)
+      updateHintText();
       openTraceCropModal();
     });
     traceUploadInput.value = '';
@@ -2464,6 +2471,11 @@
     traceEdgeGuides.classList.remove('locked');
     mirrorAxisHandle.classList.remove('show');
     mirrorAxisDragging = false;
+    // step 3 (see showTraceStep()) sets this to freeze the trace photo's own
+    // pinch-zoom/pan; leaving it true after closing would permanently break
+    // pinch-zoom/pan back in the main app too, since #canvas's touch
+    // handlers (and its triple-tap zoom reset) are shared between both
+    traceCropLocked = false;
     stageBottomBar.style.display = '';
     if(traceStagePlaceholder && traceStagePlaceholder.parentNode){
       traceStagePlaceholder.parentNode.insertBefore(stage, traceStagePlaceholder);
@@ -3691,6 +3703,12 @@
     const r = getFitRect();
     const now = Date.now();
     const tappedSide = sideAtPoint(pos, r);
+    // scale mode's corner/rotate handles sit OUTSIDE the lens's own polygon
+    // outline, so a tap on one always looks like "tapped the background" to
+    // sideAtPoint() — hit-test them up front so grabbing a handle isn't
+    // misread as a background/other-lens tap and doesn't deselect (or
+    // switch) the active lens before the drag below ever gets to start
+    const scaleHit = scaleMode ? hitTestScaleMode(pos, r) : null;
     swipeCandidate = null;
 
     const isSameSpot = lastTap.side === tappedSide &&
@@ -3713,7 +3731,7 @@
       evt.preventDefault();
       return;
     }
-    if(!tappedSide && tapCount === 3 && !traceCropLocked){
+    if(!tappedSide && !scaleHit && tapCount === 3 && !traceCropLocked){
       // triple-tap on the background resets zoom and pan — not while
       // trace-mode's crop is locked (step 3), since that would silently
       // shift the photo out from under the shape already traced on it
@@ -3727,7 +3745,7 @@
       return;
     }
 
-    if(!tappedSide && activeSide && !traceActive){
+    if(!tappedSide && !scaleHit && activeSide && !traceActive){
       // tapping the background — outside every lens — deselects whichever
       // one was active; both then show only as passive reference outlines
       // until a lens is tapped again. The touch still falls through below,
@@ -3755,18 +3773,17 @@
     }
 
     if(scaleMode){
-      const hit = hitTestScaleMode(pos, r);
-      if(hit){
+      if(scaleHit){
         pushUndoSnapshot();
-        if(hit.mode === 'scale'){
-          startScaleDrag(hit.side, pos, r, hit.corner);
-        } else if(hit.mode === 'rotate'){
-          startRotateDrag(hit.side, pos, r);
+        if(scaleHit.mode === 'scale'){
+          startScaleDrag(scaleHit.side, pos, r, scaleHit.corner);
+        } else if(scaleHit.mode === 'rotate'){
+          startRotateDrag(scaleHit.side, pos, r);
         } else {
-          dragTarget = hit;
+          dragTarget = scaleHit;
           dragOffset.x = pos.x;
           dragOffset.y = pos.y;
-          startMirrorLongPress(hit.side, pos);
+          startMirrorLongPress(scaleHit.side, pos);
         }
         evt.preventDefault();
       } else {
