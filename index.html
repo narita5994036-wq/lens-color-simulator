@@ -404,6 +404,9 @@
     position:absolute; inset:0; pointer-events:none; display:none; z-index:6;
   }
   .trace-edge-guides.show{display:block;}
+  /* user-toggled visibility (step 3 only — see traceGuidesToggle); higher
+     specificity than .show so it always wins regardless of that class */
+  #traceEdgeGuides.guides-hidden{display:none;}
   .trace-edge-line{
     position:absolute; width:1px;
     background:rgba(66,232,224,0.9); box-shadow:0 0 0 0.5px rgba(255,255,255,0.6);
@@ -654,14 +657,11 @@
   .trace-panel{padding:22px 24px; overflow-y:auto;}
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
   .trace-stage-slot{
-    /* top-aligned (not centered) so #stage always sits at the same
-       distance below the header regardless of how much note/button
-       content follows it in a given step — otherwise the crop step and
-       shape-editing step (different amounts of text below) would center
-       the same fixed-aspect-ratio stage box into different amounts of
-       leftover space, shifting it vertically and, with it, the
-       horizontal guide line's on-screen Y between the two steps */
-    flex:1; min-height:0; display:none; flex-direction:column;
+    /* shrink-wrapped (not flex:1) so its gray background only covers the
+       16:9 stage (plus, in step 3, the nudge pad below it) instead of
+       stretching to fill the modal's full remaining height and leaving a
+       blank gray band underneath with nothing in it */
+    flex:0 0 auto; display:none; flex-direction:column;
     align-items:center; justify-content:flex-start; background:#ececec;
   }
   .trace-stage-slot #stage{
@@ -1116,7 +1116,9 @@
   <div class="trace-panel" id="tracePanel2" style="display:none;">
     <h4 data-i18n="traceStep2Title">トレース用の写真を選択</h4>
     <div class="note" data-i18n="traceStep2Note">メガネの写真を選んでください。選択すると位置合わせ画面が開きます。</div>
+    <div class="note" id="traceAlreadyRegisteredNote2" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
     <button class="btn" id="btnTraceChooseImage" data-i18n="chooseFromLibrary">写真から選択</button>
+    <button class="btn" id="btnTraceDeleteExisting2" style="display:none; margin-top:10px;" data-i18n="deleteFrameShapeBtn">保存済みの形状を削除</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack2" data-i18n="backBtn">戻る</button>
     </div>
@@ -1127,6 +1129,10 @@
   <div class="trace-panel" id="tracePanel3" style="display:none;">
     <h4 data-i18n="traceStep3Title">レンズ形状を編集して登録</h4>
     <div class="note" data-i18n="traceStep3Note">左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。</div>
+    <div class="compare-row">
+      <span data-i18n="traceShowGuidesLabel">ガイド線を表示</span>
+      <div class="switch on" id="traceGuidesToggle"><div class="knob"></div></div>
+    </div>
     <button class="btn" id="btnTraceMirror" data-i18n="traceMirrorBtn">ミラーリングして右側に反映</button>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack3" data-i18n="backBtn">戻る</button>
@@ -1302,6 +1308,7 @@
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
       traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
+      traceShowGuidesLabel:"ガイド線を表示",
       traceMirrorBtn:"ミラーリングして右側に反映",
       registerShapeBtn:"登録する"
     },
@@ -1383,6 +1390,7 @@
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
       traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
+      traceShowGuidesLabel:"Show Guide Lines",
       traceMirrorBtn:"Mirror to Right Side",
       registerShapeBtn:"Register"
     }
@@ -1554,6 +1562,8 @@
   const traceFrameAutocompleteList = document.getElementById('traceFrameAutocompleteList');
   const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
   const btnTraceDeleteExisting = document.getElementById('btnTraceDeleteExisting');
+  const traceAlreadyRegisteredNote2 = document.getElementById('traceAlreadyRegisteredNote2');
+  const btnTraceDeleteExisting2 = document.getElementById('btnTraceDeleteExisting2');
   const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
   const traceUploadInput = document.getElementById('trace-upload-input');
   const btnTraceBack2 = document.getElementById('btnTraceBack2');
@@ -1564,6 +1574,7 @@
   const traceGuideLeftHandle = document.getElementById('traceGuideLeftHandle');
   const traceGuideRightHandle = document.getElementById('traceGuideRightHandle');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
+  const traceGuidesToggle = document.getElementById('traceGuidesToggle');
   const btnTraceMirror = document.getElementById('btnTraceMirror');
   const traceCropModal = document.getElementById('traceCropModal');
   const traceCropStageSlot = document.getElementById('traceCropStageSlot');
@@ -2024,6 +2035,10 @@
     const already = !!getRegisteredFrameShape(name);
     traceAlreadyRegisteredNote.style.display = already ? 'block' : 'none';
     btnTraceDeleteExisting.style.display = already ? 'block' : 'none';
+    // also shown on step 2 (see btnTraceDeleteExisting2) so an existing
+    // registration can be reset without navigating back to step 1 first
+    traceAlreadyRegisteredNote2.style.display = already ? 'block' : 'none';
+    btnTraceDeleteExisting2.style.display = already ? 'block' : 'none';
     // moves straight on to photo selection — there's nothing else to do on
     // this step once a valid name is picked
     showTraceStep(2);
@@ -2035,12 +2050,16 @@
   traceFrameNameInput.addEventListener('blur', ()=>{
     setTimeout(()=> traceFrameAutocompleteList.classList.remove('show'), 150);
   });
-  btnTraceDeleteExisting.addEventListener('click', ()=>{
+  function handleDeleteExistingClick(){
     if(!traceFrameName) return;
     deleteFrameShape(traceFrameName);
     traceAlreadyRegisteredNote.style.display = 'none';
     btnTraceDeleteExisting.style.display = 'none';
-  });
+    traceAlreadyRegisteredNote2.style.display = 'none';
+    btnTraceDeleteExisting2.style.display = 'none';
+  }
+  btnTraceDeleteExisting.addEventListener('click', handleDeleteExistingClick);
+  btnTraceDeleteExisting2.addEventListener('click', handleDeleteExistingClick);
 
   function showTraceStep(n){
     traceStepNum = n;
@@ -2285,6 +2304,15 @@
     openTraceCropModal();
   });
 
+  // lets the user temporarily hide the (locked, non-draggable) reference
+  // guide lines in step 3 — they can crowd a small face photo, and aren't
+  // needed once the crop's already confirmed
+  traceGuidesToggle.addEventListener('click', ()=>{
+    const visible = !traceGuidesToggle.classList.contains('on');
+    traceGuidesToggle.classList.toggle('on', visible);
+    traceEdgeGuides.classList.toggle('guides-hidden', !visible);
+  });
+
   btnTraceMirror.addEventListener('click', ()=>{
     if(!lenses) return;
     pushUndoSnapshot();
@@ -2338,11 +2366,15 @@
     traceFrameNameInput.value = '';
     traceAlreadyRegisteredNote.style.display = 'none';
     btnTraceDeleteExisting.style.display = 'none';
+    traceAlreadyRegisteredNote2.style.display = 'none';
+    btnTraceDeleteExisting2.style.display = 'none';
     btnTraceConfirmPosition.disabled = true;
     btnTraceRegister.disabled = true;
     traceMirrorAxisX = 0.5;
     traceMirrored = false;
     traceCropLocked = false;
+    traceGuidesToggle.classList.add('on');
+    traceEdgeGuides.classList.remove('guides-hidden');
     traceFrameAutocompleteList.classList.remove('show');
     // fresh working state for the trace image/shape, independent of
     // whatever photo/shape is currently active in the main app
