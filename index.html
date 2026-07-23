@@ -669,6 +669,10 @@
     margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
   }
   #stage.in-trace .empty-state{display:none;}
+  /* the default bottom-right spot (see .vertex-nudge-pad) sits well
+     inside the much shorter 16:9 trace stage, overlapping the lens/mirror
+     axis there — tuck it into the corner instead */
+  #stage.in-trace .vertex-nudge-pad{right:8px; bottom:8px;}
   /* while the trace crop modal is open, a single-finger drag pans the
      photo itself (see onPointerDown's traceCropOpen() branch) — override
      the normal pan-y (native vertical page scroll) so our own handler
@@ -1884,27 +1888,40 @@
   // distinct from defaultLensRegions() (tuned for the main app's portrait
   // face-photo camera capture, not this landscape flat-glasses one)
   function defaultTraceLensRegions(){
-    // sized/positioned relative to the CANVAS (a fixed 16:9 in trace mode),
-    // then converted into image-relative fractions (the storage format
-    // `lenses` always uses) via the *current* fit rect. Unlike the main
-    // app's camera-captured photos — always pre-cropped to a fixed ratio,
-    // so image fractions and canvas fractions coincide — a trace photo's
-    // natural aspect ratio is whatever the upload happened to be, and
-    // "fill width" fitting can make its fit rect much taller or shorter
-    // than the canvas. Building this in canvas space first keeps the
-    // starting ellipse a sane on-screen size regardless of that.
+    // sized/positioned relative to the CANVAS and its own guide lines (a
+    // fixed 16:9 in trace mode), then converted into image-relative
+    // fractions (the storage format `lenses` always uses) via the
+    // *current* fit rect. Unlike the main app's camera-captured photos —
+    // always pre-cropped to a fixed ratio, so image fractions and canvas
+    // fractions coincide — a trace photo's natural aspect ratio is
+    // whatever the upload happened to be, and "fill width" fitting can
+    // make its fit rect much taller or shorter than the canvas. Building
+    // this in canvas space first keeps the starting ellipse a sane
+    // on-screen size/position regardless of that.
+    //
+    // left lens: centered midway between the left edge guide (40px in)
+    // and the mirror axis line; its width is half that gap, and its
+    // height 4/5 of its width. The right lens starts as the mirror image
+    // of that, around the same axis (overwritten once "Mirror" is used).
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     const r = getFitRect();
-    const rx = cw * 0.10, ry = ch * 0.14;
-    const cy = ch * 0.55;
+    const leftGuideX = TRACE_GUIDE_DEFAULT_PX;
+    const axisX = cw * traceMirrorAxisX;
+    const gap = axisX - leftGuideX;
+    const widthPx = gap / 2;
+    const heightPx = widthPx * 4/5;
+    const rxPx = widthPx / 2, ryPx = heightPx / 2;
+    const centerY = ch / 2;
+    const leftCenterX = leftGuideX + gap/2;
+    const rightCenterX = axisX + gap/2;
     const toImageFrac = (cxCanvas, cyCanvas)=>({
       cx: (cxCanvas - r.x) / r.w,
       cy: (cyCanvas - r.y) / r.h,
-      rx: rx / r.w,
-      ry: ry / r.h
+      rx: rxPx / r.w,
+      ry: ryPx / r.h
     });
-    const left = toImageFrac(cw*0.375, cy);
-    const right = toImageFrac(cw*0.625, cy);
+    const left = toImageFrac(leftCenterX, centerY);
+    const right = toImageFrac(rightCenterX, centerY);
     return {
       left:  {points: ellipseToPolygon(left.cx, left.cy, left.rx, left.ry, 8)},
       right: {points: ellipseToPolygon(right.cx, right.cy, right.rx, right.ry, 8)}
@@ -2117,13 +2134,20 @@
     const r = getFitRect();
     const glx = traceGuideLeftPx;
     const grx = cw - traceGuideRightPx;
-    if(!(grx > glx) || r.w <= 0) return;
+    if(!(grx > glx) || r.w <= 0 || r.h <= 0) return;
     // convert the markers' screen positions to image-fraction coordinates
     // under the CURRENT fit/zoom/pan, then solve for the fit rect that
     // would place those same fractions at the target 40px marks
     const uLeft = (glx - r.x) / r.w;
     const uRight = (grx - r.x) / r.w;
     if(!(uRight > uLeft)) return;
+    // the horizontal guide line (top:50%) is usually lined up against a
+    // specific feature (e.g. the pupils) via the single-finger vertical
+    // pan — capture which image fraction is currently under it so that
+    // stays put once the horizontal scale below changes zoomLevel (and
+    // with it the image's rendered height, which previously shifted
+    // whatever was under the line without this anchor)
+    const vAnchor = (ch/2 - r.y) / r.h;
     const targetLeft = TRACE_GUIDE_DEFAULT_PX, targetRight = cw - TRACE_GUIDE_DEFAULT_PX;
     const targetW = targetRight - targetLeft;
     if(targetW <= 0) return;
@@ -2131,12 +2155,22 @@
     const baseScale = baseFitScale(cw, ch);
     const baseW = imgNatW*baseScale, baseH = imgNatH*baseScale;
     const baseX = (cw-baseW)/2, baseY = (ch-baseH)/2;
-    const newZoom = Math.min(4, Math.max(1, wantedW / baseW));
-    const finalW = baseW*newZoom;
+    // deliberately no lower clamp at 1x here (unlike the general pinch-
+    // zoom range elsewhere): if the marked span already covers most of
+    // the photo, hitting the target 40px insets can require *shrinking*
+    // below the "fill width" baseline — flooring at 1x used to leave the
+    // frame wider than the target, uncropped, instead of actually
+    // matching the markers. A little gray margin around a smaller photo
+    // is fine; misaligned marks aren't.
+    let newZoom = wantedW / baseW;
+    if(!isFinite(newZoom) || newZoom <= 0) return;
+    newZoom = Math.min(20, newZoom);
+    const finalW = baseW*newZoom, finalH = baseH*newZoom;
     const finalX = targetLeft - uLeft*finalW;
+    const finalY = ch/2 - vAnchor*finalH;
     zoomLevel = newZoom;
     panX = finalX - baseX + (finalW-baseW)/2;
-    clampPan();
+    panY = finalY - baseY + (finalH-baseH)/2;
     zoomSlider.value = Math.round(zoomLevel*100);
     zoomValue.textContent = Math.round(zoomLevel*100) + '%';
   }
@@ -3782,7 +3816,10 @@
       draw(); // otherwise the canvas is left showing the mid-drag (enlarged) frame
     }
 
-    if(swipeCandidate && evt && zoomLevel <= 1.001){
+    // color history/cycling is a main-app-only concept — meaningless (and,
+    // since currentColor/history are stashed away during trace mode,
+    // actively confusing) while registering a frame shape
+    if(swipeCandidate && evt && zoomLevel <= 1.001 && !traceActive){
       const pos = getPos(evt);
       const dx = pos.x - swipeCandidate.x;
       const dy = pos.y - swipeCandidate.y;
