@@ -657,14 +657,11 @@
   .trace-panel{padding:22px 24px; overflow-y:auto;}
   .trace-panel h4{font-size:13px; letter-spacing:0.08em; margin:0 0 14px; font-weight:300; text-transform:uppercase; color:var(--black);}
   .trace-stage-slot{
-    /* top-aligned (not centered) so #stage always sits at the same
-       distance below the header regardless of how much note/button
-       content follows it in a given step — otherwise the crop step and
-       shape-editing step (different amounts of text below) would center
-       the same fixed-aspect-ratio stage box into different amounts of
-       leftover space, shifting it vertically and, with it, the
-       horizontal guide line's on-screen Y between the two steps */
-    flex:1; min-height:0; display:none; flex-direction:column;
+    /* shrink-wrapped (not flex:1) so its gray background only covers the
+       16:9 stage (plus, in step 3, the nudge pad below it) instead of
+       stretching to fill the modal's full remaining height and leaving a
+       blank gray band underneath with nothing in it */
+    flex:0 0 auto; display:none; flex-direction:column;
     align-items:center; justify-content:flex-start; background:#ececec;
   }
   .trace-stage-slot #stage{
