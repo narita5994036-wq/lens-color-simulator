@@ -1900,7 +1900,7 @@
     // on-screen size/position regardless of that.
     //
     // left lens: centered midway between the left edge guide (40px in)
-    // and the mirror axis line; its width is half that gap, and its
+    // and the mirror axis line; its width is 4/5 of that gap, and its
     // height 4/5 of its width. The right lens starts as the mirror image
     // of that, around the same axis (overwritten once "Mirror" is used).
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -1908,7 +1908,7 @@
     const leftGuideX = TRACE_GUIDE_DEFAULT_PX;
     const axisX = cw * traceMirrorAxisX;
     const gap = axisX - leftGuideX;
-    const widthPx = gap / 2;
+    const widthPx = gap * 4/5;
     const heightPx = widthPx * 4/5;
     const rxPx = widthPx / 2, ryPx = heightPx / 2;
     const centerY = ch / 2;
@@ -2099,18 +2099,23 @@
     const handle = side === 'left' ? traceGuideLeftHandle : traceGuideRightHandle;
     try{ handle.setPointerCapture(evt.pointerId); }catch(err){}
   }
+  const TRACE_GUIDE_HANDLE_HALF = 22; // half of .trace-edge-handle's 44px width
   function onTraceGuideDrag(evt){
     if(!traceGuideDragSide) return;
     evt.preventDefault();
     const stageRect = stage.getBoundingClientRect();
     const x = evt.clientX - stageRect.left;
     const MIN_GAP = 20; // keep the two markers from crossing/overlapping
+    // never let the marker reach flush against the stage edge — #stage's
+    // overflow:hidden would clip half its touch target there, leaving too
+    // thin a sliver to grab it again afterwards
+    const edgeMin = TRACE_GUIDE_HANDLE_HALF;
     if(traceGuideDragSide === 'left'){
-      traceGuideLeftPx = Math.min(stageRect.width - traceGuideRightPx - MIN_GAP, Math.max(0, x));
+      traceGuideLeftPx = Math.min(stageRect.width - traceGuideRightPx - MIN_GAP, Math.max(edgeMin, x));
       traceGuideLeftHandle.style.left = traceGuideLeftPx + 'px';
     } else {
       const fromRight = stageRect.width - x;
-      traceGuideRightPx = Math.min(stageRect.width - traceGuideLeftPx - MIN_GAP, Math.max(0, fromRight));
+      traceGuideRightPx = Math.min(stageRect.width - traceGuideLeftPx - MIN_GAP, Math.max(edgeMin, fromRight));
       traceGuideRightHandle.style.right = traceGuideRightPx + 'px';
     }
   }
