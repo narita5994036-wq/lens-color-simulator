@@ -671,11 +671,10 @@
     margin:0; flex:none; width:100%; max-height:100%; aspect-ratio:16/9;
   }
   #stage.in-trace .empty-state{display:none;}
-  /* in step 3, the pad is reparented out of #stage (which clips it via
-     overflow:hidden) into the trace stage slot's own leftover space below
-     the 16:9 photo — see showTraceStep()/openTraceModal()/closeTraceModal()
-     — so it sits in that gray margin instead of overlapping the lens/photo */
-  .trace-stage-slot > .vertex-nudge-pad{position:static; margin:14px auto 0;}
+  /* the default bottom-right spot (see .vertex-nudge-pad) sits well
+     inside the much shorter 16:9 trace stage, overlapping the lens/mirror
+     axis there — tuck it into the corner instead */
+  #stage.in-trace .vertex-nudge-pad{right:8px; bottom:8px;}
   /* while the trace crop modal is open, a single-finger drag pans the
      photo itself (see onPointerDown's traceCropOpen() branch) — override
      the normal pan-y (native vertical page scroll) so our own handler
@@ -1896,7 +1895,6 @@
   let traceFrameName = ''; // must be an exact FRAME_NAMES entry, chosen via autocomplete
   let traceSavedState = null;
   let traceStagePlaceholder = null;
-  let vertexNudgePadPlaceholder = null;
   let traceMirrorAxisX = 0.5; // relative x of the adjustable reflection axis (step 3)
   let traceMirrored = false;  // whether "mirror to right" has run at least once this session
   let mirrorAxisDragging = false;
@@ -2084,12 +2082,6 @@
       traceStageSlot.appendChild(stage);
     }
     if(n===3){
-      // moved out of #stage (which clips it via overflow:hidden) into the
-      // slot's own leftover space below the 16:9 photo, so it sits in the
-      // gray margin instead of overlapping the lens/photo content —
-      // appendChild re-homes it even if it's already inside the slot,
-      // always landing it right after #stage in DOM order
-      traceStageSlot.appendChild(vertexNudgePad);
       // the stage's box may have just changed size/parent (moved into the
       // trace slot, which sizes it very differently from its normal spot)
       resizeCanvas();
@@ -2380,9 +2372,6 @@
     const placeholder = document.createComment('stage-placeholder');
     stage.parentNode.insertBefore(placeholder, stage);
     traceStagePlaceholder = placeholder;
-    const npPlaceholder = document.createComment('nudge-pad-placeholder');
-    vertexNudgePad.parentNode.insertBefore(npPlaceholder, vertexNudgePad);
-    vertexNudgePadPlaceholder = npPlaceholder;
     stage.classList.add('in-trace');
     // hide the color badge/points-toggle bar outright — both are toggled
     // via inline styles elsewhere (updateColorBadge/updateToggleVisibility),
@@ -2409,11 +2398,6 @@
       traceStagePlaceholder.remove();
     }
     traceStagePlaceholder = null;
-    if(vertexNudgePadPlaceholder && vertexNudgePadPlaceholder.parentNode){
-      vertexNudgePadPlaceholder.parentNode.insertBefore(vertexNudgePad, vertexNudgePadPlaceholder);
-      vertexNudgePadPlaceholder.remove();
-    }
-    vertexNudgePadPlaceholder = null;
     if(traceSavedState){
       restoreMainAppState(traceSavedState);
       traceSavedState = null;
