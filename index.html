@@ -555,14 +555,6 @@
   }
   .empty-note{font-size:11px; color:var(--gray-mid); padding:8px 0 0;}
 
-  .shape-swatch .circle{
-    display:flex; align-items:center; justify-content:center; background:var(--gray-bg);
-    border-radius:0;
-  }
-  .shape-swatch .circle svg{width:26px; height:26px; overflow:visible;}
-  .shape-swatch .circle svg path{fill:none; stroke:var(--black); stroke-width:5; stroke-linejoin:round;}
-  .shape-swatch.selected .circle{border:2px solid var(--black); background:var(--white);}
-
   .no-color-circle{
     background:var(--white);
     background-image:linear-gradient(to top right,
@@ -579,6 +571,12 @@
     /* sits on top of the camera modal (z-index:200) it's shown over, unlike
        every other .overlay use which only ever appears over the main app */
     z-index:210;
+  }
+  #frameShapeApplyConfirmOverlay{
+    /* the shape-lookup field that triggers this now lives inside the
+       sidebar (z-index:100) — without this override the confirm sheet
+       would render behind it, unreachable */
+    z-index:110;
   }
   .sheet{
     background:var(--white); width:100%; max-width:900px; padding:26px 24px 32px;
@@ -853,7 +851,6 @@
     <div class="frame-name-block" id="frameNameBlock">
       <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
       <div class="autocomplete-list" id="frameAutocompleteList"></div>
-      <button type="button" class="frame-trace-link" id="btnOpenTraceModal" data-i18n="openTraceModalBtn">レンズ形状を登録・管理</button>
     </div>
 
     <div class="opacity-row" style="margin-top:32px;">
@@ -904,7 +901,13 @@
         </button>
       </div>
     </div>
-    <div class="swatch-row" id="shapePresetRow"></div>
+    <div class="note" data-i18n="shapeApplyNote">登録済みのフレーム名を入力すると、そのレンズ形状を適用できます（入力欄のフレーム名とは連動しません）</div>
+    <div class="frame-name-block" id="shapeFrameNameBlock">
+      <input type="text" id="shapeFrameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
+      <div class="autocomplete-list" id="shapeFrameAutocompleteList"></div>
+    </div>
+    <div class="note" id="appliedFrameNameNote" style="display:none;"></div>
+    <button type="button" class="frame-trace-link" id="btnOpenTraceModal" data-i18n="openTraceModalBtn">レンズ形状を登録・管理</button>
   </div>
 
   <div class="sidebar-section" id="colorsSection">
@@ -1260,9 +1263,8 @@
       sectionShape:"レンズ形状",
       sectionMirror:"ミラーリング",
       mirrorSelectedBtn:"選択中のシェイプをミラーリング",
-      shapeOval:"オーバル",
-      shapeWellington:"ウェリントン",
-      shapeBoston:"ボストン",
+      shapeApplyNote:"登録済みのフレーム名を入力すると、そのレンズ形状を適用できます（入力欄のフレーム名とは連動しません）",
+      appliedFrameNameNote:"適用フレーム名：{name}",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
       sharePreviewTitle:"この画像をシェア",
@@ -1342,9 +1344,8 @@
       sectionShape:"Lens Shape",
       sectionMirror:"Mirroring",
       mirrorSelectedBtn:"Mirror Selected Shape",
-      shapeOval:"Oval",
-      shapeWellington:"Wellington",
-      shapeBoston:"Boston",
+      shapeApplyNote:"Enter a registered frame name to apply that lens shape (independent of the frame name field below the photo)",
+      appliedFrameNameNote:"Applied frame name: {name}",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
       sharePreviewTitle:"Share This Photo",
@@ -1556,7 +1557,9 @@
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
   const noColorRow = document.getElementById('noColorRow');
-  const shapePresetRow = document.getElementById('shapePresetRow');
+  const shapeFrameNameInput = document.getElementById('shapeFrameNameInput');
+  const shapeFrameAutocompleteList = document.getElementById('shapeFrameAutocompleteList');
+  const appliedFrameNameNote = document.getElementById('appliedFrameNameNote');
   const btnMirrorSelected = document.getElementById('btnMirrorSelected');
   const frameShapeApplyConfirmOverlay = document.getElementById('frameShapeApplyConfirmOverlay');
   const frameShapeApplyConfirmNote = document.getElementById('frameShapeApplyConfirmNote');
@@ -1696,6 +1699,7 @@
     });
     updateHintText();
     updateColorBadge();
+    updateAppliedFrameNameNote();
     renderAll();
   }
 
@@ -1752,6 +1756,8 @@
         btnShare.disabled = false;
         frameName = '';
         frameNameInput.value = '';
+        appliedShapeFrameName = '';
+        updateAppliedFrameNameNote();
         resizeCanvas();
         if(onDone) onDone();
       };
@@ -1778,57 +1784,11 @@
     };
   }
 
-  // ---------- lens shape presets ----------
-  // each template is a clockwise polygon in a normalized -1..1 space, scaled
-  // by the current lens's half-width/half-height and re-centered on its
-  // current position when applied — so switching shapes is instant
-  // regardless of how the lens was last positioned (drag or auto-detect).
-  // oval is generated directly via ellipseToPolygon instead of a fixed
-  // template.
-  // note: each template's own bounding box must reach exactly ±1 in both x
-  // and y — lensBoundingBox() below re-derives rx/ry from the *rendered*
-  // polygon's actual extent the next time a preset is applied, so a
-  // template that falls short of ±1 causes the lens to shrink a little
-  // every time a preset is (re-)selected.
-  const LENS_SHAPE_TEMPLATES = {
-    wellington: [
-      [-0.75,-1.0],[0.75,-1.0],[1.0,-0.65],[0.92,0.55],
-      [0.6,1.0],[-0.6,1.0],[-0.92,0.55],[-1.0,-0.65]
-    ],
-    boston: [
-      [-0.6,-1.0],[0.6,-1.0],[1.0,-0.6],[1.0,0.6],
-      [0.6,1.0],[-0.6,1.0],[-1.0,0.6],[-1.0,-0.6]
-    ]
-  };
-  const LENS_SHAPE_KEYS = ['oval','wellington','boston'];
-
   function lensBoundingBox(pts){
     const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
     return {cx:(minX+maxX)/2, cy:(minY+maxY)/2, rx:(maxX-minX)/2, ry:(maxY-minY)/2};
-  }
-
-  function buildShapePolygon(shapeKey, box){
-    if(shapeKey === 'oval'){
-      return {points: ellipseToPolygon(box.cx, box.cy, box.rx, box.ry, 8)};
-    }
-    const template = LENS_SHAPE_TEMPLATES[shapeKey];
-    return {points: template.map(([x,y]) => ({x: box.cx + x*box.rx, y: box.cy + y*box.ry}))};
-  }
-
-  function applyShapePreset(shapeKey){
-    if(!img || !lenses) return;
-    pushUndoSnapshot();
-    lenses = {
-      left:  buildShapePolygon(shapeKey, lensBoundingBox(lenses.left.points)),
-      right: buildShapePolygon(shapeKey, lensBoundingBox(lenses.right.points))
-    };
-    selectedVertex = null;
-    scaleMode = true;
-    updateHintText();
-    closeSidebar();
-    draw();
   }
 
   // ---------- per-frame-name lens shapes ----------
@@ -1921,17 +1881,29 @@
   }
   let frameShapeToastTimer = null;
   function showFrameShapeToast(text){
-    showSwatchTooltip(frameNameInput, text);
+    showSwatchTooltip(shapeFrameNameInput, text);
     clearTimeout(frameShapeToastTimer);
     frameShapeToastTimer = setTimeout(hideSwatchTooltip, 1600);
+  }
+  // the name typed here is independent of frameNameInput (the freeform
+  // label shown under the photo) — this one exists purely to look up and
+  // apply a registered shape, tracked separately as appliedShapeFrameName
+  let appliedShapeFrameName = '';
+  function updateAppliedFrameNameNote(){
+    if(appliedShapeFrameName){
+      appliedFrameNameNote.textContent = tf('appliedFrameNameNote', {name: appliedShapeFrameName});
+      appliedFrameNameNote.style.display = 'block';
+    } else {
+      appliedFrameNameNote.style.display = 'none';
+    }
   }
   // a frame name being committed (autocomplete pick, Enter, or leaving the
   // field) — rather than every keystroke — only ever *offers* to apply a
   // registered shape; the actual swap always goes through the confirm
   // overlay below so it never silently overwrites in-progress work
   let pendingFrameShapeApplyName = null;
-  function commitFrameName(){
-    const name = frameNameInput.value;
+  function commitShapeFrameName(){
+    const name = shapeFrameNameInput.value;
     if(img && getRegisteredFrameShape(name)){
       pendingFrameShapeApplyName = name.trim();
       frameShapeApplyConfirmNote.textContent = tf('frameShapeApplyConfirmNote', {name: pendingFrameShapeApplyName});
@@ -1941,6 +1913,9 @@
   btnFrameShapeApplyConfirm.addEventListener('click', ()=>{
     if(pendingFrameShapeApplyName && applyRegisteredFrameShape(pendingFrameShapeApplyName)){
       showFrameShapeToast(tf('frameShapeAppliedToast', {name: pendingFrameShapeApplyName}));
+      appliedShapeFrameName = pendingFrameShapeApplyName;
+      updateAppliedFrameNameNote();
+      shapeFrameNameInput.value = '';
     }
     pendingFrameShapeApplyName = null;
     frameShapeApplyConfirmOverlay.classList.remove('show');
@@ -2035,7 +2010,7 @@
     return {
       img, imgNatW, imgNatH, lenses, activeSide, scaleMode, selectedVertex,
       zoomLevel, panX, panY, currentColor, currentPreset, undoStack,
-      frameName, frameNameValue: frameNameInput.value
+      frameName, frameNameValue: frameNameInput.value, appliedShapeFrameName
     };
   }
   function restoreMainAppState(s){
@@ -2044,6 +2019,8 @@
     zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
     currentColor = s.currentColor; currentPreset = s.currentPreset; undoStack = s.undoStack;
     frameName = s.frameName; frameNameInput.value = s.frameNameValue;
+    appliedShapeFrameName = s.appliedShapeFrameName;
+    updateAppliedFrameNameNote();
     updateUndoButton();
     updateColorBadge();
     updateHintText();
@@ -2503,40 +2480,6 @@
   }
   btnOpenTraceModal.addEventListener('click', openTraceModal);
   btnTraceClose.addEventListener('click', closeTraceModal);
-
-  function smoothSvgPath(pts){
-    // mirrors tracePolygon()'s canvas rendering (a Catmull-Rom spline
-    // through every point) so preset icon previews match how the shape
-    // actually looks once applied to a lens
-    const n = pts.length;
-    let d = 'M' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
-    for(let i=0;i<n;i++){
-      const p0 = pts[(i-1+n)%n];
-      const p1 = pts[i];
-      const p2 = pts[(i+1)%n];
-      const p3 = pts[(i+2)%n];
-      const cp1x = p1.x + (p2.x-p0.x)/6, cp1y = p1.y + (p2.y-p0.y)/6;
-      const cp2x = p2.x - (p3.x-p1.x)/6, cp2y = p2.y - (p3.y-p1.y)/6;
-      d += ' C' + cp1x.toFixed(1) + ',' + cp1y.toFixed(1) + ' ' + cp2x.toFixed(1) + ',' + cp2y.toFixed(1) + ' ' + p2.x.toFixed(1) + ',' + p2.y.toFixed(1);
-    }
-    return d + ' Z';
-  }
-
-  function renderShapePresets(){
-    shapePresetRow.innerHTML = '';
-    LENS_SHAPE_KEYS.forEach(key=>{
-      const box = {cx:0, cy:0, rx:0.82, ry:0.82};
-      const preview = buildShapePolygon(key, box).points
-        .map(p => ({x: p.x*13+13, y: p.y*13+13}));
-      const d = smoothSvgPath(preview);
-      const el = document.createElement('div');
-      el.className = 'swatch shape-swatch';
-      el.innerHTML = '<div class="circle"><svg viewBox="0 0 26 26"><path d="' + d + '"/></svg></div>'
-        + '<div class="name">' + t('shape' + key.charAt(0).toUpperCase() + key.slice(1)) + '</div>';
-      el.addEventListener('click', ()=> applyShapePreset(key));
-      shapePresetRow.appendChild(el);
-    });
-  }
 
   // tapping the empty image area launches the guided camera view; the small
   // library link underneath lets someone pick an existing photo instead
@@ -3170,6 +3113,8 @@
     frameName = '';
     frameNameInput.value = '';
     frameAutocompleteList.classList.remove('show');
+    appliedShapeFrameName = '';
+    updateAppliedFrameNameNote();
     cameraInput.value = '';
     uploadInput.value = '';
     draw();
@@ -3183,6 +3128,8 @@
     activeSide = 'left';
     selectedVertex = null;
     scaleMode = true;
+    appliedShapeFrameName = '';
+    updateAppliedFrameNameNote();
     updateHintText();
     draw();
   }
@@ -4447,7 +4394,6 @@
   }
 
   function renderAll(){
-    renderShapePresets();
     renderNoColorOption();
     presetGroups.innerHTML = '';
     const groupOrder = [
@@ -4653,12 +4599,13 @@
     btnAddFavorite.disabled = !currentColor;
     const badgeWillShow = img && showColorBadgeSetting;
     // the badge carries its own menu icon once it's visible, so the header's
-    // hamburger (which opens the same sidebar) is only shown as a fallback
-    // once a photo is loaded but the badge itself has been turned off in
-    // settings — before a photo exists there's no menu icon in the header.
+    // hamburger (which opens the same sidebar) is only shown as a fallback —
+    // whenever the badge itself isn't up, including before any photo is
+    // loaded, since the sidebar's lens-shape registration link (unlike the
+    // rest of the sidebar) doesn't require a photo either.
     // visibility (not display) is toggled so .header-icons keeps its width,
     // keeping .brand-block centered against the fixed-width .header-spacer
-    btnSidebarOpen.style.visibility = (img && !badgeWillShow) ? 'visible' : 'hidden';
+    btnSidebarOpen.style.visibility = badgeWillShow ? 'hidden' : 'visible';
     if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
@@ -4961,7 +4908,6 @@
     frameName = name;
     frameNameInput.value = name;
     frameAutocompleteList.classList.remove('show');
-    commitFrameName();
   }
 
   frameNameInput.addEventListener('input', ()=>{
@@ -4980,7 +4926,63 @@
   frameNameInput.addEventListener('blur', ()=>{
     // small delay so a tap on a suggestion registers before the list is hidden
     setTimeout(()=> frameAutocompleteList.classList.remove('show'), 150);
-    commitFrameName();
+  });
+
+  // ---------- lens-shape lookup (sidebar) autocomplete — separate from the
+  // freeform frameNameInput above; entering/picking a name here only ever
+  // offers to apply that name's registered shape (see commitShapeFrameName)
+  function renderShapeFrameSuggestions(query){
+    const q = query.trim().toUpperCase();
+    shapeFrameAutocompleteList.innerHTML = '';
+    if(!q){
+      shapeFrameAutocompleteList.classList.remove('show');
+      return;
+    }
+    const matches = FRAME_NAMES
+      .filter(n => n.toUpperCase().includes(q))
+      .sort((a, b)=>{
+        const au = a.toUpperCase(), bu = b.toUpperCase();
+        const aStarts = au.startsWith(q) ? 0 : 1;
+        const bStarts = bu.startsWith(q) ? 0 : 1;
+        if(aStarts !== bStarts) return aStarts - bStarts;
+        return au.localeCompare(bu);
+      })
+      .slice(0, 8);
+    if(matches.length === 0){
+      shapeFrameAutocompleteList.classList.remove('show');
+      return;
+    }
+    matches.forEach(name=>{
+      const item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.textContent = name;
+      const select = (e)=>{ e.preventDefault(); selectShapeFrameSuggestion(name); };
+      item.addEventListener('mousedown', select);
+      item.addEventListener('touchstart', select, {passive:false});
+      shapeFrameAutocompleteList.appendChild(item);
+    });
+    shapeFrameAutocompleteList.classList.add('show');
+  }
+
+  function selectShapeFrameSuggestion(name){
+    shapeFrameNameInput.value = name;
+    shapeFrameAutocompleteList.classList.remove('show');
+    commitShapeFrameName();
+  }
+
+  shapeFrameNameInput.addEventListener('input', ()=> renderShapeFrameSuggestions(shapeFrameNameInput.value));
+  shapeFrameNameInput.addEventListener('focus', ()=>{
+    if(shapeFrameNameInput.value) renderShapeFrameSuggestions(shapeFrameNameInput.value);
+  });
+  shapeFrameNameInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      shapeFrameNameInput.blur();
+    }
+  });
+  shapeFrameNameInput.addEventListener('blur', ()=>{
+    setTimeout(()=> shapeFrameAutocompleteList.classList.remove('show'), 150);
+    commitShapeFrameName();
   });
 
   btnShare.addEventListener('click', shareImage);
