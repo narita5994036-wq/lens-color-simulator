@@ -258,7 +258,7 @@
   .nudge-down{grid-column:2; grid-row:3;}
 
   .swatch-tooltip{
-    position:fixed; z-index:150; display:none;
+    position:fixed; z-index:260; display:none;
     background:rgba(17,17,17,0.92); color:#fff;
     font-size:11px; letter-spacing:0.03em; padding:6px 10px;
     white-space:nowrap; pointer-events:none;
@@ -1171,6 +1171,11 @@
     <div class="note" id="traceAlreadyRegisteredNote" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
     <div class="group-label" id="registeredFramesLabel" style="display:none;" data-i18n="registeredFramesLabel">登録済みのフレーム名（タップで選択）</div>
     <div class="registered-frames-list" id="registeredFramesList" style="display:none;"></div>
+    <div class="note" data-i18n="frameShapeIoNote">他の端末でも同じフレーム形状を使うには、ダウンロードしたファイルを他の端末でアップロードしてください。</div>
+    <div class="sheet-actions">
+      <button class="btn" id="btnExportFrameShapes" data-i18n="exportFrameShapesBtn">登録フレームをダウンロード</button>
+      <button class="btn" id="btnImportFrameShapes" data-i18n="importFrameShapesBtn">登録フレームをアップロード</button>
+    </div>
   </div>
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
@@ -1201,6 +1206,7 @@
   </div>
 </div>
 <input type="file" id="trace-upload-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+<input type="file" id="frame-shapes-import-input" accept="application/json,.json" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
 
 <!-- cropping/position modal — opens on top of #traceModal once a tracing
      photo is chosen in step 2; confirming here moves on to step 3 -->
@@ -1350,6 +1356,11 @@
       resetImageBtn:"画像をリセット",
       openTraceModalBtn:"レンズ形状を登録・管理",
       deleteFrameShapeBtn:"保存済みの形状を削除",
+      frameShapeIoNote:"他の端末でも同じフレーム形状を使うには、ダウンロードしたファイルを他の端末でアップロードしてください。",
+      exportFrameShapesBtn:"登録フレームをダウンロード",
+      importFrameShapesBtn:"登録フレームをアップロード",
+      importFrameShapesSuccess:"{n}件のフレーム形状を読み込みました",
+      importFrameShapesError:"ファイルを読み込めませんでした。正しいバックアップファイルか確認してください。",
       frameShapeSavedToast:"「{name}」に形状を登録しました",
       frameShapeAppliedToast:"「{name}」の登録済み形状を適用しました",
       frameShapeApplyConfirmTitle:"登録済みの形状を適用しますか？",
@@ -1432,6 +1443,11 @@
       resetImageBtn:"Reset Photo",
       openTraceModalBtn:"Register/Manage Lens Shapes",
       deleteFrameShapeBtn:"Remove Saved Shape",
+      frameShapeIoNote:"To use the same frame shapes on another device, upload the downloaded file there.",
+      exportFrameShapesBtn:"Download Registered Frames",
+      importFrameShapesBtn:"Upload Registered Frames",
+      importFrameShapesSuccess:"Imported {n} frame shape(s)",
+      importFrameShapesError:"Couldn't read the file. Please check it's a valid backup file.",
       frameShapeSavedToast:"Registered shape for “{name}”",
       frameShapeAppliedToast:"Applied registered shape for “{name}”",
       frameShapeApplyConfirmTitle:"Apply the registered shape?",
@@ -1622,6 +1638,9 @@
   const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
   const registeredFramesLabel = document.getElementById('registeredFramesLabel');
   const registeredFramesList = document.getElementById('registeredFramesList');
+  const btnExportFrameShapes = document.getElementById('btnExportFrameShapes');
+  const btnImportFrameShapes = document.getElementById('btnImportFrameShapes');
+  const frameShapesImportInput = document.getElementById('frame-shapes-import-input');
   const traceAlreadyRegisteredNote2 = document.getElementById('traceAlreadyRegisteredNote2');
   const btnTraceDeleteExisting2 = document.getElementById('btnTraceDeleteExisting2');
   const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
@@ -2123,6 +2142,7 @@
   function renderRegisteredFramesList(){
     const keys = Object.keys(frameShapes).sort();
     registeredFramesList.innerHTML = '';
+    btnExportFrameShapes.disabled = keys.length === 0;
     if(keys.length === 0){
       registeredFramesLabel.style.display = 'none';
       registeredFramesList.style.display = 'none';
@@ -2138,6 +2158,71 @@
       registeredFramesList.appendChild(item);
     });
   }
+
+  // ---------- registered frame shapes: download/upload for cross-device use ----------
+  // frameShapes is only ever saved to this device's localStorage, so moving
+  // registrations to another device needs an explicit export/import round trip
+  btnExportFrameShapes.addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(frameShapes, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mykita-lens-frame-shapes-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 3000);
+  });
+
+  btnImportFrameShapes.addEventListener('click', ()=> frameShapesImportInput.click());
+
+  function isValidFrameShapeEntry(entry){
+    return !!entry && Array.isArray(entry.left && entry.left.points) && Array.isArray(entry.right && entry.right.points);
+  }
+
+  // anchored to the import button itself (rather than showFrameShapeToast's
+  // usual frameNameInput anchor) since this feedback needs to show while
+  // the trace modal — which sits above the sidebar — is still open
+  function showFrameShapeIoToast(text){
+    showSwatchTooltip(btnImportFrameShapes, text);
+    clearTimeout(frameShapeToastTimer);
+    frameShapeToastTimer = setTimeout(hideSwatchTooltip, 2200);
+  }
+
+  frameShapesImportInput.addEventListener('change', ()=>{
+    const file = frameShapesImportInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      frameShapesImportInput.value = '';
+      let parsed;
+      try{
+        parsed = JSON.parse(reader.result);
+      } catch(e){
+        showFrameShapeIoToast(t('importFrameShapesError'));
+        return;
+      }
+      if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)){
+        showFrameShapeIoToast(t('importFrameShapesError'));
+        return;
+      }
+      let imported = 0;
+      Object.keys(parsed).forEach(key=>{
+        if(isValidFrameShapeEntry(parsed[key])){
+          frameShapes[key] = parsed[key];
+          imported++;
+        }
+      });
+      if(imported === 0){
+        showFrameShapeIoToast(t('importFrameShapesError'));
+        return;
+      }
+      saveJSON(STORAGE_FRAME_SHAPES, frameShapes);
+      renderRegisteredFramesList();
+      showFrameShapeIoToast(tf('importFrameShapesSuccess', {n: imported}));
+    };
+    reader.readAsText(file);
+  });
 
   function showTraceStep(n){
     traceStepNum = n;
