@@ -186,7 +186,7 @@
   .switch.small.on .knob{left:14px;}
 
   .frame-name-block{
-    margin-top:24px; position:relative; text-align:center;
+    margin-top:0; position:relative; text-align:center;
   }
   .frame-name-field{
     width:100%; text-align:center; background:transparent; border:none; outline:none;
@@ -732,14 +732,6 @@
       transform:none; border-left:1px solid var(--gray-line); border-right:none;
     }
     .sidebar-backdrop, #btnSidebarOpen, #btnSidebarClose{display:none;}
-    /* frame-name-block's own margin-top:24px is meant for its portrait
-       spot (spacing it below the stage); as the sidebar's first section
-       (see updateControlsPlacement()) it needs the sidebar-section look
-       instead — no top margin (sidebar-header already provides that
-       spacing) and a bottom divider matching the other sections */
-    .sidebar > .frame-name-block{
-      margin-top:0; margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid var(--gray-line);
-    }
     #cameraGuidePortrait{display:none;}
     #cameraGuideLandscape{display:block;}
     /* overlays (capture/share preview, reset/mirror confirm, etc.) use a
@@ -884,12 +876,7 @@
   <div class="below-stage-row" id="belowStageRow"></div>
 
   <div class="app-controls" id="appControls">
-    <div class="frame-name-block" id="frameNameBlock">
-      <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
-      <div class="autocomplete-list" id="frameAutocompleteList"></div>
-    </div>
-
-    <div class="opacity-row" style="margin-top:32px;">
+    <div class="opacity-row">
       <span class="label" data-i18n="opacityLabel">濃度</span>
       <div class="density-track-wrap" id="densityTrackWrap">
         <div class="density-track">
@@ -937,12 +924,11 @@
         </button>
       </div>
     </div>
-    <div class="note" data-i18n="shapeApplyNote">登録済みのフレーム名を入力すると、そのレンズ形状を適用できます（入力欄のフレーム名とは連動しません）</div>
-    <div class="frame-name-block" id="shapeFrameNameBlock">
-      <input type="text" id="shapeFrameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
-      <div class="autocomplete-list" id="shapeFrameAutocompleteList"></div>
+    <div class="note" data-i18n="shapeApplyNote">フレーム名を入力してください。登録済みの名前の場合、そのレンズ形状を適用できます</div>
+    <div class="frame-name-block" id="frameNameBlock">
+      <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
+      <div class="autocomplete-list" id="frameAutocompleteList"></div>
     </div>
-    <div class="note" id="appliedFrameNameNote" style="display:none;"></div>
     <button type="button" class="frame-trace-link" id="btnOpenTraceModal" data-i18n="openTraceModalBtn">レンズ形状を登録・管理</button>
   </div>
 
@@ -1309,8 +1295,7 @@
       sectionShape:"レンズ形状",
       sectionMirror:"ミラーリング",
       mirrorSelectedBtn:"選択中のシェイプをミラーリング",
-      shapeApplyNote:"登録済みのフレーム名を入力すると、そのレンズ形状を適用できます（入力欄のフレーム名とは連動しません）",
-      appliedFrameNameNote:"適用フレーム名：{name}",
+      shapeApplyNote:"フレーム名を入力してください。登録済みの名前の場合、そのレンズ形状を適用できます",
       frameNamePlaceholder:"フレーム名を入力",
       shareBtn:"画像を共有",
       sharePreviewTitle:"この画像をシェア",
@@ -1392,8 +1377,7 @@
       sectionShape:"Lens Shape",
       sectionMirror:"Mirroring",
       mirrorSelectedBtn:"Mirror Selected Shape",
-      shapeApplyNote:"Enter a registered frame name to apply that lens shape (independent of the frame name field below the photo)",
-      appliedFrameNameNote:"Applied frame name: {name}",
+      shapeApplyNote:"Enter the frame name. If it's already registered, you can apply its lens shape",
       frameNamePlaceholder:"Enter frame name",
       shareBtn:"Share Photo",
       sharePreviewTitle:"Share This Photo",
@@ -1607,9 +1591,6 @@
   const opacityValue = document.getElementById('opacityValue');
   const presetGroups = document.getElementById('presetGroups');
   const noColorRow = document.getElementById('noColorRow');
-  const shapeFrameNameInput = document.getElementById('shapeFrameNameInput');
-  const shapeFrameAutocompleteList = document.getElementById('shapeFrameAutocompleteList');
-  const appliedFrameNameNote = document.getElementById('appliedFrameNameNote');
   const btnMirrorSelected = document.getElementById('btnMirrorSelected');
   const frameShapeApplyConfirmOverlay = document.getElementById('frameShapeApplyConfirmOverlay');
   const frameShapeApplyConfirmNote = document.getElementById('frameShapeApplyConfirmNote');
@@ -1682,12 +1663,10 @@
       favoritesSection.after(sidebarControlsSlot);
       sidebarControlsSlot.appendChild(appControls);
       sidebarControlsSlot.after(shapeSection);
-      colorsSection.before(frameNameBlock);
       belowStageRow.appendChild(historyBlock);
       belowStageRow.appendChild(dragHint);
     }else{
       stage.after(appControls);
-      appControls.prepend(frameNameBlock);
       btnShare.before(dragHint);
       dragHint.before(historyBlock);
       colorsSection.before(shapeSection);
@@ -1704,7 +1683,6 @@
   const stageBottomBar = document.getElementById('stageBottomBar');
   const historyBlock = document.getElementById('historyBlock');
   const belowStageRow = document.getElementById('belowStageRow');
-  const frameNameBlock = document.getElementById('frameNameBlock');
   const shapeSection = document.getElementById('shapeSection');
   const colorsSection = document.getElementById('colorsSection');
   const favoritesSection = document.getElementById('favoritesSection');
@@ -1751,7 +1729,6 @@
     });
     updateHintText();
     updateColorBadge();
-    updateAppliedFrameNameNote();
     renderAll();
   }
 
@@ -1808,8 +1785,6 @@
         btnShare.disabled = false;
         frameName = '';
         frameNameInput.value = '';
-        appliedShapeFrameName = '';
-        updateAppliedFrameNameNote();
         resizeCanvas();
         if(onDone) onDone();
       };
@@ -1933,29 +1908,17 @@
   }
   let frameShapeToastTimer = null;
   function showFrameShapeToast(text){
-    showSwatchTooltip(shapeFrameNameInput, text);
+    showSwatchTooltip(frameNameInput, text);
     clearTimeout(frameShapeToastTimer);
     frameShapeToastTimer = setTimeout(hideSwatchTooltip, 1600);
-  }
-  // the name typed here is independent of frameNameInput (the freeform
-  // label shown under the photo) — this one exists purely to look up and
-  // apply a registered shape, tracked separately as appliedShapeFrameName
-  let appliedShapeFrameName = '';
-  function updateAppliedFrameNameNote(){
-    if(appliedShapeFrameName){
-      appliedFrameNameNote.textContent = tf('appliedFrameNameNote', {name: appliedShapeFrameName});
-      appliedFrameNameNote.style.display = 'block';
-    } else {
-      appliedFrameNameNote.style.display = 'none';
-    }
   }
   // a frame name being committed (autocomplete pick, Enter, or leaving the
   // field) — rather than every keystroke — only ever *offers* to apply a
   // registered shape; the actual swap always goes through the confirm
   // overlay below so it never silently overwrites in-progress work
   let pendingFrameShapeApplyName = null;
-  function commitShapeFrameName(){
-    const name = shapeFrameNameInput.value;
+  function commitFrameName(){
+    const name = frameNameInput.value;
     if(img && getRegisteredFrameShape(name)){
       pendingFrameShapeApplyName = name.trim();
       frameShapeApplyConfirmNote.textContent = tf('frameShapeApplyConfirmNote', {name: pendingFrameShapeApplyName});
@@ -1965,9 +1928,6 @@
   btnFrameShapeApplyConfirm.addEventListener('click', ()=>{
     if(pendingFrameShapeApplyName && applyRegisteredFrameShape(pendingFrameShapeApplyName)){
       showFrameShapeToast(tf('frameShapeAppliedToast', {name: pendingFrameShapeApplyName}));
-      appliedShapeFrameName = pendingFrameShapeApplyName;
-      updateAppliedFrameNameNote();
-      shapeFrameNameInput.value = '';
     }
     pendingFrameShapeApplyName = null;
     frameShapeApplyConfirmOverlay.classList.remove('show');
@@ -2062,7 +2022,7 @@
     return {
       img, imgNatW, imgNatH, lenses, activeSide, scaleMode, selectedVertex,
       zoomLevel, panX, panY, currentColor, currentPreset, undoStack,
-      frameName, frameNameValue: frameNameInput.value, appliedShapeFrameName
+      frameName, frameNameValue: frameNameInput.value
     };
   }
   function restoreMainAppState(s){
@@ -2071,8 +2031,6 @@
     zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
     currentColor = s.currentColor; currentPreset = s.currentPreset; undoStack = s.undoStack;
     frameName = s.frameName; frameNameInput.value = s.frameNameValue;
-    appliedShapeFrameName = s.appliedShapeFrameName;
-    updateAppliedFrameNameNote();
     updateUndoButton();
     updateColorBadge();
     updateHintText();
@@ -3190,8 +3148,6 @@
     frameName = '';
     frameNameInput.value = '';
     frameAutocompleteList.classList.remove('show');
-    appliedShapeFrameName = '';
-    updateAppliedFrameNameNote();
     cameraInput.value = '';
     uploadInput.value = '';
     draw();
@@ -3205,8 +3161,6 @@
     activeSide = 'left';
     selectedVertex = null;
     scaleMode = true;
-    appliedShapeFrameName = '';
-    updateAppliedFrameNameNote();
     updateHintText();
     draw();
   }
@@ -4992,6 +4946,7 @@
     frameName = name;
     frameNameInput.value = name;
     frameAutocompleteList.classList.remove('show');
+    commitFrameName();
   }
 
   frameNameInput.addEventListener('input', ()=>{
@@ -5010,63 +4965,7 @@
   frameNameInput.addEventListener('blur', ()=>{
     // small delay so a tap on a suggestion registers before the list is hidden
     setTimeout(()=> frameAutocompleteList.classList.remove('show'), 150);
-  });
-
-  // ---------- lens-shape lookup (sidebar) autocomplete — separate from the
-  // freeform frameNameInput above; entering/picking a name here only ever
-  // offers to apply that name's registered shape (see commitShapeFrameName)
-  function renderShapeFrameSuggestions(query){
-    const q = query.trim().toUpperCase();
-    shapeFrameAutocompleteList.innerHTML = '';
-    if(!q){
-      shapeFrameAutocompleteList.classList.remove('show');
-      return;
-    }
-    const matches = FRAME_NAMES
-      .filter(n => n.toUpperCase().includes(q))
-      .sort((a, b)=>{
-        const au = a.toUpperCase(), bu = b.toUpperCase();
-        const aStarts = au.startsWith(q) ? 0 : 1;
-        const bStarts = bu.startsWith(q) ? 0 : 1;
-        if(aStarts !== bStarts) return aStarts - bStarts;
-        return au.localeCompare(bu);
-      })
-      .slice(0, 8);
-    if(matches.length === 0){
-      shapeFrameAutocompleteList.classList.remove('show');
-      return;
-    }
-    matches.forEach(name=>{
-      const item = document.createElement('div');
-      item.className = 'autocomplete-item';
-      item.textContent = name;
-      const select = (e)=>{ e.preventDefault(); selectShapeFrameSuggestion(name); };
-      item.addEventListener('mousedown', select);
-      item.addEventListener('touchstart', select, {passive:false});
-      shapeFrameAutocompleteList.appendChild(item);
-    });
-    shapeFrameAutocompleteList.classList.add('show');
-  }
-
-  function selectShapeFrameSuggestion(name){
-    shapeFrameNameInput.value = name;
-    shapeFrameAutocompleteList.classList.remove('show');
-    commitShapeFrameName();
-  }
-
-  shapeFrameNameInput.addEventListener('input', ()=> renderShapeFrameSuggestions(shapeFrameNameInput.value));
-  shapeFrameNameInput.addEventListener('focus', ()=>{
-    if(shapeFrameNameInput.value) renderShapeFrameSuggestions(shapeFrameNameInput.value);
-  });
-  shapeFrameNameInput.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){
-      e.preventDefault();
-      shapeFrameNameInput.blur();
-    }
-  });
-  shapeFrameNameInput.addEventListener('blur', ()=>{
-    setTimeout(()=> shapeFrameAutocompleteList.classList.remove('show'), 150);
-    commitShapeFrameName();
+    commitFrameName();
   });
 
   btnShare.addEventListener('click', shareImage);
