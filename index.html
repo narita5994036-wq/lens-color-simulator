@@ -621,6 +621,19 @@
   }
   .share-preview-img{width:100%; display:block; border:1px solid var(--gray-line);}
   .capture-preview-wrap{position:relative;}
+  /* the capture-confirm photo (portrait) previously filled the sheet's
+     full width, making it (and the sheet as a whole, with its tone/smooth/
+     blur sliders below) unnecessarily tall — cap its height instead so the
+     whole confirm screen reads as a more compact card. Shrinking the WRAP
+     itself (not just the <img>) to fit-content keeps #maskOverlayCanvas's
+     inset:0 aligned with the photo's actual rendered box, not the sheet's
+     full original width. */
+  #capturePreviewOverlay .capture-preview-wrap{
+    height:38vh; width:fit-content; max-width:100%; margin:0 auto;
+  }
+  #capturePreviewOverlay .capture-preview-wrap #capturePreviewImg{
+    width:auto; height:100%; max-width:100%; display:block;
+  }
   .blur-unavailable-note{
     display:none; margin-top:10px; padding:8px 10px; font-size:11px; line-height:1.5;
     color:#9a5a00; background:#fff6e6; border:1px solid #f0d8a8;
@@ -4292,6 +4305,17 @@
     return name;
   }
 
+  // the shared image always shows the English name, regardless of the
+  // app's current display language (see generateChekiCanvas())
+  function displayNameForShare(item){
+    if(!item) return '';
+    let name = item.nameEn || item.name;
+    if(!name || looksLikeHexCode(name)){
+      name = I18N.en.customColorFallback;
+    }
+    return name;
+  }
+
   function resolveGradientFlag(item){
     if(item.gradient) return true;
     if(item.id){
@@ -4783,10 +4807,14 @@
     cctx.textBaseline = 'alphabetic';
 
     // build the caption lines: "Label: value" spec lines (only when a lens
-    // colour is picked), plus a small disclaimer note — no title/brand line
+    // colour is picked), plus a small disclaimer note — no title/brand line.
+    // the shared image always reads like English mode for its labels and
+    // colour names (regardless of the app's current language), except the
+    // disclaimer note, which is always Japanese — see displayNameForShare()
+    // below and the disclaimer text a bit further down
     const lines = [];
     if(currentColor){
-      const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
+      const name = currentPreset ? displayNameForShare(currentPreset) : I18N.en.customColorFallback;
       lines.push({text: 'Lens Color: ' + name, role:'spec', icon:currentColor});
       if(!(currentPreset && currentPreset.twin)){
         const topPct = Math.round(opacity*100);
@@ -4815,7 +4843,10 @@
     // a fixed offset tuned for a title line that no longer exists — this
     // keeps it balanced whether there are 0, 1, or 2 spec lines
     cctx.font = fontFor.disclaimer;
-    const disclaimerText = t('shareDisclaimer');
+    // always Japanese, regardless of the app's current display language —
+    // the one exception to this image otherwise always reading like English
+    // mode (see displayNameForShare() above)
+    const disclaimerText = I18N.ja.shareDisclaimer;
     const disclaimerLines = wrapTextByChar(cctx, disclaimerText, cw - textPadding*2);
     const blockHeight = lines.length*specLineHeight + (lines.length ? disclaimerGap : 0) + disclaimerLines.length*disclaimerLineHeight;
     // the offset added here approximates the gap between a text line's own
