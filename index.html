@@ -4851,10 +4851,9 @@
     // a fixed offset tuned for a title line that no longer exists — this
     // keeps it balanced whether there are 0, 1, or 2 spec lines
     cctx.font = fontFor.disclaimer;
-    // always Japanese, regardless of the app's current display language —
-    // the one exception to this image otherwise always reading like English
-    // mode (see displayNameForShare() above)
-    const disclaimerText = I18N.ja.shareDisclaimer;
+    // the disclaimer follows the app's current display language, unlike the
+    // spec lines above which always read in English (see displayNameForShare())
+    const disclaimerText = t('shareDisclaimer');
     const disclaimerLines = wrapTextByChar(cctx, disclaimerText, cw - textPadding*2);
     const blockHeight = lines.length*specLineHeight + (lines.length ? disclaimerGap : 0) + disclaimerLines.length*disclaimerLineHeight;
     // the offset added here approximates the gap between a text line's own
