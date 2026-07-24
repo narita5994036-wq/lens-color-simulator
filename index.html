@@ -3802,6 +3802,13 @@
       selectedVertex = null;
       updateHintText();
       draw();
+      // without this, a touchstart that isn't otherwise prevented lets the
+      // browser follow up with a synthetic mousedown at the same point —
+      // arriving well within the double-tap window, that second call sees
+      // the *same* lens now already active and miscounts as a double-tap,
+      // silently flipping scaleMode (this is how a single tap selecting a
+      // lens could flip it straight to point mode)
+      evt.preventDefault();
     }
 
     if(scaleMode){
