@@ -1117,10 +1117,11 @@
       <input type="text" id="traceFrameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
       <div class="autocomplete-list" id="traceFrameAutocompleteList"></div>
     </div>
+    <!-- informational only here — no reset button, since simply landing on
+         this step (e.g. via "戻る" from step 2) shouldn't invite deleting a
+         registration the user hasn't necessarily decided to touch; the
+         actual reset action lives on step 2 instead (see btnTraceDeleteExisting2) -->
     <div class="note" id="traceAlreadyRegisteredNote" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
-    <div class="sheet-actions" style="flex-direction:column; gap:10px;">
-      <button class="btn" id="btnTraceDeleteExisting" style="display:none;" data-i18n="deleteFrameShapeBtn">保存済みの形状を削除</button>
-    </div>
   </div>
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
@@ -1571,7 +1572,6 @@
   const traceFrameNameInput = document.getElementById('traceFrameNameInput');
   const traceFrameAutocompleteList = document.getElementById('traceFrameAutocompleteList');
   const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
-  const btnTraceDeleteExisting = document.getElementById('btnTraceDeleteExisting');
   const traceAlreadyRegisteredNote2 = document.getElementById('traceAlreadyRegisteredNote2');
   const btnTraceDeleteExisting2 = document.getElementById('btnTraceDeleteExisting2');
   const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
@@ -2072,10 +2072,9 @@
     traceFrameNameInput.value = name;
     traceFrameAutocompleteList.classList.remove('show');
     const already = !!getRegisteredFrameShape(name);
+    // step 1 shows the note only (informational) — the actual reset action
+    // lives on step 2 (see btnTraceDeleteExisting2), not offered here
     traceAlreadyRegisteredNote.style.display = already ? 'block' : 'none';
-    btnTraceDeleteExisting.style.display = already ? 'block' : 'none';
-    // also shown on step 2 (see btnTraceDeleteExisting2) so an existing
-    // registration can be reset without navigating back to step 1 first
     traceAlreadyRegisteredNote2.style.display = already ? 'block' : 'none';
     btnTraceDeleteExisting2.style.display = already ? 'block' : 'none';
     // moves straight on to photo selection — there's nothing else to do on
@@ -2093,11 +2092,9 @@
     if(!traceFrameName) return;
     deleteFrameShape(traceFrameName);
     traceAlreadyRegisteredNote.style.display = 'none';
-    btnTraceDeleteExisting.style.display = 'none';
     traceAlreadyRegisteredNote2.style.display = 'none';
     btnTraceDeleteExisting2.style.display = 'none';
   }
-  btnTraceDeleteExisting.addEventListener('click', handleDeleteExistingClick);
   btnTraceDeleteExisting2.addEventListener('click', handleDeleteExistingClick);
 
   function showTraceStep(n){
@@ -2430,7 +2427,6 @@
     traceFrameName = '';
     traceFrameNameInput.value = '';
     traceAlreadyRegisteredNote.style.display = 'none';
-    btnTraceDeleteExisting.style.display = 'none';
     traceAlreadyRegisteredNote2.style.display = 'none';
     btnTraceDeleteExisting2.style.display = 'none';
     btnTraceConfirmPosition.disabled = true;
