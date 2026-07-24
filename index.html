@@ -1868,6 +1868,22 @@
     };
     return {left: correctSide(lensesObj.left), right: correctSide(lensesObj.right)};
   }
+  // applying a registered shape at its exact traced size consistently looks
+  // oversized on a real photo — shrink it uniformly around each lens's own
+  // center so it comes in a bit smaller than what was actually registered
+  const FRAME_SHAPE_APPLY_SCALE = 0.9;
+  function scaleLensesAroundCenter(lensesObj, scale){
+    const scaleSide = (shape)=>{
+      const xs = shape.points.map(p => p.x), ys = shape.points.map(p => p.y);
+      const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+      return {points: shape.points.map(p => ({
+        x: centerX + (p.x - centerX)*scale,
+        y: centerY + (p.y - centerY)*scale
+      }))};
+    };
+    return {left: scaleSide(lensesObj.left), right: scaleSide(lensesObj.right)};
+  }
   function applyRegisteredFrameShape(name){
     const saved = getRegisteredFrameShape(name);
     if(!img || !lenses || !saved) return false;
@@ -1878,7 +1894,8 @@
     // "fill width" fit means many traced photos ended up close to it anyway
     const sourceAspect = (typeof saved.sourceAspect === 'number' && saved.sourceAspect > 0) ? saved.sourceAspect : 9/16;
     const targetAspect = imgNatH / imgNatW;
-    lenses = correctLensesAspectForTarget(cloneLensesPoints(saved), sourceAspect, targetAspect);
+    const corrected = correctLensesAspectForTarget(cloneLensesPoints(saved), sourceAspect, targetAspect);
+    lenses = scaleLensesAroundCenter(corrected, FRAME_SHAPE_APPLY_SCALE);
     selectedVertex = null;
     scaleMode = false;
     updateHintText();
