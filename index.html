@@ -3369,6 +3369,7 @@
   }
 
   const GRADIENT_FADE_RATIO = 0.2; // bottom density as a fraction of the top density, for simple "G" gradation presets
+  const GRADIENT_TOP_PLATEAU = 0.1; // the peak top density holds flat across this fraction of the lens height before fading toward the bottom density
 
   function drawTint(targetCtx, r){
     const rgb = hexToRgb(currentColor);
@@ -3406,6 +3407,7 @@
         const bottomA = (typeof gradientBottomPct === 'number' ? gradientBottomPct/100 : opacity * GRADIENT_FADE_RATIO);
         const grad1 = targetCtx.createLinearGradient(0, minY, 0, maxY);
         grad1.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${topA})`);
+        grad1.addColorStop(GRADIENT_TOP_PLATEAU, `rgba(${rgb.r},${rgb.g},${rgb.b},${topA})`);
         grad1.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},${bottomA})`);
         targetCtx.globalCompositeOperation = 'multiply';
         targetCtx.fillStyle = grad1;
@@ -3414,6 +3416,7 @@
         // slight lighten pass to preserve highlights so it doesn't look flat/muddy
         const grad2 = targetCtx.createLinearGradient(0, minY, 0, maxY);
         grad2.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},${topA*0.25})`);
+        grad2.addColorStop(GRADIENT_TOP_PLATEAU, `rgba(${rgb.r},${rgb.g},${rgb.b},${topA*0.25})`);
         grad2.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},${bottomA*0.25})`);
         targetCtx.globalCompositeOperation = 'overlay';
         targetCtx.fillStyle = grad2;
