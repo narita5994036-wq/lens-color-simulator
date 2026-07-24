@@ -611,6 +611,9 @@
   }
   .autocomplete-item:last-child{border-bottom:none;}
   .autocomplete-item:active{background:var(--gray-bg);}
+  .registered-frames-list{
+    border:1px solid var(--gray-line); max-height:200px; overflow-y:auto; margin-bottom:18px;
+  }
   .share-preview-img{width:100%; display:block; border:1px solid var(--gray-line);}
   .capture-preview-wrap{position:relative;}
   .blur-unavailable-note{
@@ -772,6 +775,34 @@
     .fullscreen-mode .sidebar{display:none;}
   }
   .gear.fullscreen-toggle{display:none;}
+
+  /* iPad landscape is no longer a supported layout — block it outright
+     with a rotate-to-portrait message instead of the old docked-sidebar
+     layout above. Hidden by default; shown by the same media query that
+     used to enable that layout, so it always covers the exact cases that
+     would otherwise reach it. Placed after every other rule (including the
+     landscape-dock block above) so its very high z-index and display are
+     never overridden by something declared later with equal specificity. */
+  .landscape-block-overlay{
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:var(--white); align-items:center; justify-content:center;
+    text-align:center; padding:40px;
+  }
+  .landscape-block-overlay p{
+    font-size:15px; letter-spacing:0.04em; color:var(--black); max-width:360px;
+  }
+  @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
+    .landscape-block-overlay{display:flex;}
+  }
+
+  /* iPad portrait: the app otherwise stretches edge to edge like on a
+     phone — give it some breathing room on a screen this wide instead,
+     centering a narrower column so controls aren't spread uncomfortably
+     far apart. min-height keeps a large phone (rare, but wider than usual
+     in portrait) from matching this. */
+  @media (min-width:700px) and (min-height:900px) and (orientation:portrait){
+    .app{max-width:640px;}
+  }
 </style>
 </head>
 <body>
@@ -1014,6 +1045,14 @@
 
 <!-- settings modal -->
 
+<!-- iPad landscape guard — this app is portrait-only; shown instead of any
+     content whenever the viewport matches the old landscape-docked layout's
+     media query (see .landscape-block-overlay's CSS, at the very end of the
+     stylesheet) -->
+<div class="landscape-block-overlay" id="landscapeBlockOverlay">
+  <p data-i18n="landscapeBlockMessage">iPadを縦画面にしてご利用ください</p>
+</div>
+
 <!-- reset confirm modal (opened via 3-second long-press on the photo, outside any lens shape) -->
 <div class="overlay" id="resetConfirmOverlay">
   <div class="sheet">
@@ -1125,6 +1164,8 @@
          registration the user hasn't necessarily decided to touch; the
          actual reset action lives on step 2 instead (see btnTraceDeleteExisting2) -->
     <div class="note" id="traceAlreadyRegisteredNote" style="display:none;" data-i18n="traceAlreadyRegisteredNote">このフレーム名には既に形状が登録されています。続けると上書きされます。</div>
+    <div class="group-label" id="registeredFramesLabel" style="display:none;" data-i18n="registeredFramesLabel">登録済みのフレーム名（タップで選択）</div>
+    <div class="registered-frames-list" id="registeredFramesList" style="display:none;"></div>
   </div>
 
   <div class="trace-panel" id="tracePanel2" style="display:none;">
@@ -1295,6 +1336,7 @@
       shutterSoundLabel:"シャッター音",
       cancelBtn:"キャンセル",
       customColorFallback:"カスタムカラー",
+      landscapeBlockMessage:"iPadを縦画面にしてご利用ください",
       resetConfirmTitle:"画像をリセットしますか？",
       resetConfirmNote:"写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。",
       mirrorConfirmTitle:"形状をミラーリングしますか？",
@@ -1313,6 +1355,7 @@
       traceStep1Title:"登録するフレーム名を選択",
       traceStep1Note:"候補一覧から既存のフレーム名を選んでください（選択すると自動的に写真選択画面に進みます）",
       traceAlreadyRegisteredNote:"このフレーム名には既に形状が登録されています。続けると上書きされます。",
+      registeredFramesLabel:"登録済みのフレーム名（タップで選択）",
       traceStep2Title:"トレース用の写真を選択",
       traceStep2Note:"メガネの写真を選んでください。選択すると位置合わせ画面が開きます。",
       traceCropLabel:"位置合わせ",
@@ -1376,6 +1419,7 @@
       shutterSoundLabel:"Shutter sound",
       cancelBtn:"Cancel",
       customColorFallback:"Custom Colour",
+      landscapeBlockMessage:"Please use this app with your iPad in portrait orientation",
       resetConfirmTitle:"Reset the photo?",
       resetConfirmNote:"The photo, lens position, and selected colour will all be cleared. This cannot be undone.",
       mirrorConfirmTitle:"Mirror this shape?",
@@ -1394,6 +1438,7 @@
       traceStep1Title:"Choose the frame name to register",
       traceStep1Note:"Pick an existing frame name from the suggestions (this automatically moves on to photo selection)",
       traceAlreadyRegisteredNote:"This frame name already has a registered shape. Continuing will overwrite it.",
+      registeredFramesLabel:"Registered frame names (tap to select)",
       traceStep2Title:"Choose a tracing photo",
       traceStep2Note:"Choose a photo of the glasses. This opens the positioning screen.",
       traceCropLabel:"Position",
@@ -1575,6 +1620,8 @@
   const traceFrameNameInput = document.getElementById('traceFrameNameInput');
   const traceFrameAutocompleteList = document.getElementById('traceFrameAutocompleteList');
   const traceAlreadyRegisteredNote = document.getElementById('traceAlreadyRegisteredNote');
+  const registeredFramesLabel = document.getElementById('registeredFramesLabel');
+  const registeredFramesList = document.getElementById('registeredFramesList');
   const traceAlreadyRegisteredNote2 = document.getElementById('traceAlreadyRegisteredNote2');
   const btnTraceDeleteExisting2 = document.getElementById('btnTraceDeleteExisting2');
   const btnTraceChooseImage = document.getElementById('btnTraceChooseImage');
@@ -2088,14 +2135,39 @@
     traceAlreadyRegisteredNote.style.display = 'none';
     traceAlreadyRegisteredNote2.style.display = 'none';
     btnTraceDeleteExisting2.style.display = 'none';
+    renderRegisteredFramesList();
   }
   btnTraceDeleteExisting2.addEventListener('click', handleDeleteExistingClick);
+
+  // browsable list of every already-registered frame name, so re-editing one
+  // doesn't require typing/remembering its exact name — refreshed each time
+  // step 1 is shown (see showTraceStep()), since deleting on step 2 or
+  // registering a new one can change the list while the modal stays open
+  function renderRegisteredFramesList(){
+    const keys = Object.keys(frameShapes).sort();
+    registeredFramesList.innerHTML = '';
+    if(keys.length === 0){
+      registeredFramesLabel.style.display = 'none';
+      registeredFramesList.style.display = 'none';
+      return;
+    }
+    registeredFramesLabel.style.display = 'block';
+    registeredFramesList.style.display = 'block';
+    keys.forEach(name=>{
+      const item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.textContent = name;
+      item.addEventListener('click', ()=> selectTraceFrameSuggestion(name));
+      registeredFramesList.appendChild(item);
+    });
+  }
 
   function showTraceStep(n){
     traceStepNum = n;
     tracePanel1.style.display = n===1 ? 'block' : 'none';
     tracePanel2.style.display = n===2 ? 'block' : 'none';
     tracePanel3.style.display = n===3 ? 'block' : 'none';
+    if(n===1) renderRegisteredFramesList();
     // the stage/canvas is only shown for step 3 (shape editing) now —
     // step 2 is just the "choose a photo" prompt, and step 1 is the name
     // picker; positioning happens in its own #traceCropModal instead (see
