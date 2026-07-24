@@ -775,6 +775,34 @@
     .fullscreen-mode .sidebar{display:none;}
   }
   .gear.fullscreen-toggle{display:none;}
+
+  /* iPad landscape is no longer a supported layout — block it outright
+     with a rotate-to-portrait message instead of the old docked-sidebar
+     layout above. Hidden by default; shown by the same media query that
+     used to enable that layout, so it always covers the exact cases that
+     would otherwise reach it. Placed after every other rule (including the
+     landscape-dock block above) so its very high z-index and display are
+     never overridden by something declared later with equal specificity. */
+  .landscape-block-overlay{
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:var(--white); align-items:center; justify-content:center;
+    text-align:center; padding:40px;
+  }
+  .landscape-block-overlay p{
+    font-size:15px; letter-spacing:0.04em; color:var(--black); max-width:360px;
+  }
+  @media (min-width:900px) and (min-height:700px) and (orientation:landscape){
+    .landscape-block-overlay{display:flex;}
+  }
+
+  /* iPad portrait: the app otherwise stretches edge to edge like on a
+     phone — give it some breathing room on a screen this wide instead,
+     centering a narrower column so controls aren't spread uncomfortably
+     far apart. min-height keeps a large phone (rare, but wider than usual
+     in portrait) from matching this. */
+  @media (min-width:700px) and (min-height:900px) and (orientation:portrait){
+    .app{max-width:640px;}
+  }
 </style>
 </head>
 <body>
@@ -1016,6 +1044,14 @@
 <div class="swatch-tooltip" id="swatchTooltip"></div>
 
 <!-- settings modal -->
+
+<!-- iPad landscape guard — this app is portrait-only; shown instead of any
+     content whenever the viewport matches the old landscape-docked layout's
+     media query (see .landscape-block-overlay's CSS, at the very end of the
+     stylesheet) -->
+<div class="landscape-block-overlay" id="landscapeBlockOverlay">
+  <p data-i18n="landscapeBlockMessage">iPadを縦画面にしてご利用ください</p>
+</div>
 
 <!-- reset confirm modal (opened via 3-second long-press on the photo, outside any lens shape) -->
 <div class="overlay" id="resetConfirmOverlay">
@@ -1300,6 +1336,7 @@
       shutterSoundLabel:"シャッター音",
       cancelBtn:"キャンセル",
       customColorFallback:"カスタムカラー",
+      landscapeBlockMessage:"iPadを縦画面にしてご利用ください",
       resetConfirmTitle:"画像をリセットしますか？",
       resetConfirmNote:"写真・レンズの位置・選択中のカラーがすべて消去されます。この操作は取り消せません。",
       mirrorConfirmTitle:"形状をミラーリングしますか？",
@@ -1382,6 +1419,7 @@
       shutterSoundLabel:"Shutter sound",
       cancelBtn:"Cancel",
       customColorFallback:"Custom Colour",
+      landscapeBlockMessage:"Please use this app with your iPad in portrait orientation",
       resetConfirmTitle:"Reset the photo?",
       resetConfirmNote:"The photo, lens position, and selected colour will all be cleared. This cannot be undone.",
       mirrorConfirmTitle:"Mirror this shape?",
