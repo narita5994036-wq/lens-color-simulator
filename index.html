@@ -4782,11 +4782,9 @@
     cctx.textAlign = 'center';
     cctx.textBaseline = 'alphabetic';
 
-    // build the caption lines: a plain brand line (the frame name itself is
-    // never shown here) followed by "Label: value" spec lines, plus a small
-    // disclaimer note at the end
+    // build the caption lines: "Label: value" spec lines (only when a lens
+    // colour is picked), plus a small disclaimer note — no title/brand line
     const lines = [];
-    lines.push({text:'Shot at MYKITA OSAKA', role:'brand'});
     if(currentColor){
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
       lines.push({text: 'Lens Color: ' + name, role:'spec', icon:currentColor});
@@ -4801,21 +4799,30 @@
     }
 
     const fontFor = {
-      brand:         `400 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
       spec:          `300 ${Math.round(borderBottom*0.10)}px Inter, sans-serif`,
       disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
-      brand:'#b8b8b8', spec:'#111111', disclaimer:'#8c8c8c'
+      spec:'#111111', disclaimer:'#8c8c8c'
     };
 
-    // centered, top-anchored block with evenly spaced lines
-    const titleLineHeight = borderBottom * 0.19;
     const specLineHeight = borderBottom * 0.17;
     const disclaimerLineHeight = borderBottom * 0.075;
-    // +5px nudges the brand line and (since they're positioned relative to
-    // it) both spec lines down together
-    let y = ph + borderBottom * 0.22 + 5;
+    const disclaimerGap = disclaimerLineHeight * 0.7;
+
+    // the whole caption block (spec lines, if any, plus the disclaimer) is
+    // centered vertically within the bottom border, rather than anchored to
+    // a fixed offset tuned for a title line that no longer exists — this
+    // keeps it balanced whether there are 0, 1, or 2 spec lines
+    cctx.font = fontFor.disclaimer;
+    const disclaimerText = t('shareDisclaimer');
+    const disclaimerLines = wrapTextByChar(cctx, disclaimerText, cw - textPadding*2);
+    const blockHeight = lines.length*specLineHeight + (lines.length ? disclaimerGap : 0) + disclaimerLines.length*disclaimerLineHeight;
+    // the offset added here approximates the gap between a text line's own
+    // top and its baseline, so the (invisible) top of the block — not the
+    // first line's baseline — is what actually sits at the centered start
+    let y = ph + (borderBottom - blockHeight)/2 + (lines.length ? specLineHeight : disclaimerLineHeight)*0.75;
+
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
       cctx.fillStyle = colorFor[line.role];
@@ -4842,18 +4849,13 @@
       } else {
         cctx.fillText(line.text, cw/2, y);
       }
-      y += (line.role === 'brand') ? titleLineHeight : specLineHeight;
+      y += specLineHeight;
     });
 
-    // the disclaimer sits a fixed gap below whatever was actually drawn
-    // above, rather than a position reserved as if the (optional) spec
-    // lines were always present — which used to leave a large empty gap
-    // whenever no lens colour had been picked yet
-    y += disclaimerLineHeight * 0.45;
+    if(lines.length) y += disclaimerGap;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
-    const disclaimerText = t('shareDisclaimer');
-    wrapTextByChar(cctx, disclaimerText, cw - textPadding*2).forEach(line=>{
+    disclaimerLines.forEach(line=>{
       cctx.fillText(line, cw/2, y);
       y += disclaimerLineHeight;
     });
