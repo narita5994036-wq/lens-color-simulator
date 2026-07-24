@@ -4782,17 +4782,11 @@
     cctx.textAlign = 'center';
     cctx.textBaseline = 'alphabetic';
 
-    // build the caption lines: a bold title (frame name, or the brand as a
-    // lighter-toned fallback) followed by plain "Label: value" spec lines,
-    // echoing the product-page style of a bold model name over a plain
-    // spec list, plus a small disclaimer note at the very end
+    // build the caption lines: a plain brand line (the frame name itself is
+    // never shown here) followed by "Label: value" spec lines, plus a small
+    // disclaimer note at the end
     const lines = [];
-    const trimmedFrame = frameName.trim();
-    if(trimmedFrame){
-      lines.push({text: trimmedFrame.toUpperCase(), role:'title'});
-    } else {
-      lines.push({text:'Shot at MYKITA OSAKA', role:'brandFallback'});
-    }
+    lines.push({text:'Shot at MYKITA OSAKA', role:'brand'});
     if(currentColor){
       const name = currentPreset ? displayName(currentPreset) : t('customColorFallback');
       lines.push({text: 'Lens Color: ' + name, role:'spec', icon:currentColor});
@@ -4807,22 +4801,20 @@
     }
 
     const fontFor = {
-      title:         `600 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
-      brandFallback: `400 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
+      brand:         `400 ${Math.round(borderBottom*0.15)}px Inter, sans-serif`,
       spec:          `300 ${Math.round(borderBottom*0.10)}px Inter, sans-serif`,
       disclaimer:    `300 ${Math.round(borderBottom*0.075)}px Inter, sans-serif`
     };
     const colorFor = {
-      title:'#111111', brandFallback:'#b8b8b8', spec:'#111111', disclaimer:'#8c8c8c'
+      brand:'#b8b8b8', spec:'#111111', disclaimer:'#8c8c8c'
     };
 
-    // centered, top-anchored block with evenly spaced lines, leaving generous
-    // room at the bottom so the disclaimer note never sits flush with the edge
+    // centered, top-anchored block with evenly spaced lines
     const titleLineHeight = borderBottom * 0.19;
     const specLineHeight = borderBottom * 0.17;
     const disclaimerLineHeight = borderBottom * 0.075;
-    // +5px nudges the title and (since they're positioned relative to it)
-    // both spec lines down together
+    // +5px nudges the brand line and (since they're positioned relative to
+    // it) both spec lines down together
     let y = ph + borderBottom * 0.22 + 5;
     lines.forEach(line=>{
       cctx.font = fontFor[line.role];
@@ -4850,13 +4842,14 @@
       } else {
         cctx.fillText(line.text, cw/2, y);
       }
-      y += (line.role === 'title' || line.role === 'brandFallback') ? titleLineHeight : specLineHeight;
+      y += (line.role === 'brand') ? titleLineHeight : specLineHeight;
     });
 
-    // the disclaimer always sits at the same fixed position — as if both the
-    // lens color and density spec lines were present — so it doesn't jump up
-    // when no lens color has been picked yet
-    y = ph + borderBottom*0.22 + 6 + titleLineHeight + specLineHeight*2 + disclaimerLineHeight*0.6;
+    // the disclaimer sits a fixed gap below whatever was actually drawn
+    // above, rather than a position reserved as if the (optional) spec
+    // lines were always present — which used to leave a large empty gap
+    // whenever no lens colour had been picked yet
+    y += disclaimerLineHeight * 0.45;
     cctx.font = fontFor.disclaimer;
     cctx.fillStyle = colorFor.disclaimer;
     const disclaimerText = t('shareDisclaimer');
