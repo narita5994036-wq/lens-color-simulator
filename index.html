@@ -1193,12 +1193,15 @@
 
   <div class="trace-panel" id="tracePanel3" style="display:none;">
     <h4 data-i18n="traceStep3Title">レンズ形状を編集して登録</h4>
-    <div class="note" data-i18n="traceStep3Note">左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。</div>
+    <div class="note" data-i18n="traceStep3Note">左のレンズだけを編集してください。ミラーリングをオンにすると中央の反転軸に合わせて右側の形が自動で追従します。</div>
     <div class="compare-row">
       <span data-i18n="traceShowGuidesLabel">ガイド線を表示</span>
       <div class="switch on" id="traceGuidesToggle"><div class="knob"></div></div>
     </div>
-    <button class="btn" id="btnTraceMirror" data-i18n="traceMirrorBtn">ミラーリングして右側に反映</button>
+    <div class="compare-row">
+      <span data-i18n="traceMirrorToggleLabel">ミラーリング</span>
+      <div class="switch" id="traceMirrorToggle"><div class="knob"></div></div>
+    </div>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack3" data-i18n="backBtn">戻る</button>
       <button class="btn primary" id="btnTraceRegister" disabled data-i18n="registerShapeBtn">登録する</button>
@@ -1378,9 +1381,9 @@
       traceRotationLabel:"角度",
       confirmPositionBtn:"位置を確定",
       traceStep3Title:"レンズ形状を編集して登録",
-      traceStep3Note:"左のレンズだけを編集してください。中央の線をドラッグして反転軸を合わせ、「ミラーリング」で右側の形を揃えてから登録します。",
+      traceStep3Note:"左のレンズだけを編集してください。ミラーリングをオンにすると中央の反転軸に合わせて右側の形が自動で追従します。",
       traceShowGuidesLabel:"ガイド線を表示",
-      traceMirrorBtn:"ミラーリングして右側に反映",
+      traceMirrorToggleLabel:"ミラーリング",
       registerShapeBtn:"登録する"
     },
     en:{
@@ -1465,9 +1468,9 @@
       traceRotationLabel:"Angle",
       confirmPositionBtn:"Confirm Position",
       traceStep3Title:"Edit the lens shape and register",
-      traceStep3Note:"Edit only the left lens. Drag the center line to align the mirror axis, then use “Mirror” to match the right side's shape before registering.",
+      traceStep3Note:"Edit only the left lens. Turn on Mirroring to have the right side automatically follow the center mirror axis.",
       traceShowGuidesLabel:"Show Guide Lines",
-      traceMirrorBtn:"Mirror to Right Side",
+      traceMirrorToggleLabel:"Mirroring",
       registerShapeBtn:"Register"
     }
   };
@@ -1654,7 +1657,7 @@
   const traceGuideRightHandle = document.getElementById('traceGuideRightHandle');
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
   const traceGuidesToggle = document.getElementById('traceGuidesToggle');
-  const btnTraceMirror = document.getElementById('btnTraceMirror');
+  const traceMirrorToggle = document.getElementById('traceMirrorToggle');
   const traceCropModal = document.getElementById('traceCropModal');
   const traceCropStageSlot = document.getElementById('traceCropStageSlot');
   const btnTraceCropBack = document.getElementById('btnTraceCropBack');
@@ -1976,7 +1979,8 @@
   let traceSavedState = null;
   let traceStagePlaceholder = null;
   let traceMirrorAxisX = 0.5; // relative x of the adjustable reflection axis (step 3)
-  let traceMirrored = false;  // whether "mirror to right" has run at least once this session
+  let traceMirrorOn = false;  // mirroring toggle: while on, the axis line shows and the right lens live-follows the left
+  let traceMirrored = false;  // whether the right side has been synced to a mirror of the left at least once this session
   let mirrorAxisDragging = false;
   let traceCropLocked = false; // true once step2's crop/position is confirmed — freezes the photo's own pinch-zoom/pan (not the lens-shape scale tool, and not the vertex-drag magnifier)
   const TRACE_GUIDE_DEFAULT_PX = 40; // both frame-edge markers' default distance from their nearest stage edge
@@ -2235,7 +2239,7 @@
     // picker; positioning happens in its own #traceCropModal instead (see
     // openTraceCropModal), opened once a photo is chosen
     traceStageSlot.style.display = n===3 ? 'flex' : 'none';
-    mirrorAxisHandle.classList.toggle('show', n===3);
+    updateMirrorAxisVisibility();
     // the crop/position is only editable in #traceCropModal — once
     // confirmed into step 3, the photo itself is frozen in place so the
     // traced points stay meaningful; reopening the crop modal unfreezes it
@@ -2305,6 +2309,9 @@
       // not here, since cropping can still change it
       activeSide = 'left';
       traceMirrorAxisX = 0.5;
+      traceMirrorOn = false;
+      traceMirrorToggle.classList.remove('on');
+      updateMirrorAxisVisibility();
       traceMirrored = false;
       btnTraceRegister.disabled = true;
       btnTraceConfirmPosition.disabled = false;
@@ -2468,14 +2475,22 @@
     const existing = getRegisteredFrameShape(traceFrameName);
     if(existing){
       // re-editing: start from the previously registered shape instead of
-      // the generic default ellipse
+      // the generic default ellipse — it's already a valid mirrored shape,
+      // so turn mirroring on immediately rather than making the user
+      // re-confirm it before they can register
       lenses = cloneLensesPoints(existing);
       traceMirrorAxisX = inferMirrorAxisX(lenses) ?? 0.5;
+      traceMirrorOn = true;
+      traceMirrorToggle.classList.add('on');
+      traceMirrored = true;
+      btnTraceRegister.disabled = false;
     } else {
       // built against the fit rect as it is *after* the crop above, so the
       // starting ellipse lands at a sane on-screen position/size regardless
       // of how much that crop just scaled the photo
       lenses = defaultTraceLensRegions();
+      traceMirrorOn = false;
+      traceMirrorToggle.classList.remove('on');
     }
     closeTraceCropModal();
     showTraceStep(3);
@@ -2503,19 +2518,38 @@
     traceEdgeGuides.classList.toggle('guides-hidden', !visible);
   });
 
-  btnTraceMirror.addEventListener('click', ()=>{
+  // reflects the left lens's points across the adjustable axis line (an
+  // absolute x position, not each shape's own bounding-box center like the
+  // main app's mirror gesture) so the two lenses stay truly symmetric even
+  // if the traced photo itself wasn't perfectly centered; reversed to
+  // restore clockwise winding after the horizontal flip
+  function syncMirrorFromLeft(){
     if(!lenses) return;
-    pushUndoSnapshot();
     const axisX = traceMirrorAxisX;
-    // reflect the left lens's points across the adjustable axis line (an
-    // absolute x position, not each shape's own bounding-box center like
-    // the main app's mirror gesture) so the two lenses stay truly
-    // symmetric even if the traced photo itself wasn't perfectly centered;
-    // reversed to restore clockwise winding after the horizontal flip
     const mirroredPoints = lenses.left.points.map(p => ({x: 2*axisX - p.x, y: p.y})).reverse();
-    lenses = {left: lenses.left, right: {points: mirroredPoints}};
-    traceMirrored = true;
-    btnTraceRegister.disabled = false;
+    lenses.right = {points: mirroredPoints};
+  }
+
+  function updateMirrorAxisVisibility(){
+    mirrorAxisHandle.classList.toggle('show', traceStepNum === 3 && traceMirrorOn);
+  }
+
+  // only the left lens is ever directly editable in trace mode (see
+  // onPointerDown's `activeSide = traceActive ? 'left' : tappedSide`), so
+  // it's always safe to re-derive the right lens from it on every redraw
+  // while mirroring is on — this is what makes the right side "live-follow"
+  // both axis drags and left-lens edits, instead of needing a one-off button
+  traceMirrorToggle.addEventListener('click', ()=>{
+    if(!lenses) return;
+    traceMirrorOn = !traceMirrorToggle.classList.contains('on');
+    traceMirrorToggle.classList.toggle('on', traceMirrorOn);
+    updateMirrorAxisVisibility();
+    if(traceMirrorOn){
+      pushUndoSnapshot();
+      syncMirrorFromLeft();
+      traceMirrored = true;
+      btnTraceRegister.disabled = false;
+    }
     draw();
   });
 
@@ -2537,6 +2571,10 @@
     const r = getFitRect();
     traceMirrorAxisX = Math.min(1, Math.max(0, (e.clientX - rect.left - r.x) / r.w));
     updateMirrorAxisHandlePos();
+    if(traceMirrorOn){
+      syncMirrorFromLeft();
+      draw();
+    }
   });
   mirrorAxisHandle.addEventListener('pointerup', ()=>{ mirrorAxisDragging = false; });
   mirrorAxisHandle.addEventListener('pointercancel', ()=>{ mirrorAxisDragging = false; });
@@ -2560,6 +2598,8 @@
     btnTraceConfirmPosition.disabled = true;
     btnTraceRegister.disabled = true;
     traceMirrorAxisX = 0.5;
+    traceMirrorOn = false;
+    traceMirrorToggle.classList.remove('on');
     traceMirrored = false;
     traceCropLocked = false;
     traceGuidesToggle.classList.add('on');
@@ -3400,7 +3440,13 @@
 
   function draw(){
     updateNudgePad();
-    if(traceActive && traceStepNum === 3) updateMirrorAxisHandlePos();
+    if(traceActive && traceStepNum === 3){
+      updateMirrorAxisHandlePos();
+      // keeps the right lens continuously matching the left while mirroring
+      // is on, so every redraw during a left-lens edit (vertex/scale/rotate
+      // drag) also live-follows, not just axis-line drags
+      if(traceMirrorOn) syncMirrorFromLeft();
+    }
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     ctx.clearRect(0,0,cw,ch);
     if(!img) return;
