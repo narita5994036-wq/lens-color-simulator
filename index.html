@@ -1268,7 +1268,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v12";
+  const STORAGE_PRESETS = "mykita-lens-presets-v13";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1282,10 +1282,11 @@
   const FRAME_NAMES = FRAME_NAMES_RAW.split(',').map(s=>s.trim()).filter(Boolean);
 
   // photochromic lenses don't have a fixed "density" the way a flat tint
-  // does — how dark they get tracks UV exposure, maxing out at 70% (the
-  // darkest the actual lenses reach), so their steps stop there rather
-  // than at the same 85% ceiling as the fixed-tint presets
-  const PHOTOCHROMIC_DENSITY_STEPS = [10,15,25,35,50,70];
+  // does — how dark they get tracks UV exposure continuously, maxing out
+  // at 70% (the darkest the actual lenses reach), so this is a [min,max]
+  // clamp for stepless dragging rather than a set of discrete snap targets
+  // (see currentDensityContinuous)
+  const PHOTOCHROMIC_DENSITY_RANGE = [10,70];
   const DEFAULT_PRESETS = [
     {id:"faoc", name:"フェアオークル",       nameEn:"Fair Ochre",      hex:"#c9a067", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"fabr", name:"フェアブラウン",       nameEn:"Fair Brown",      hex:"#7a4a2e", group:"arriate", densitySteps:[10,15,25,35,50]},
@@ -1330,13 +1331,13 @@
 
     // ---- ZEISS photochromic colours — hex values sampled from the
     // activated (sun-exposed/dark) state of each colour ----
-    {id:"pcgy", name:"グレー",           nameEn:"Gray",        hex:"#4d5e66", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcbr", name:"ブラウン",         nameEn:"Brown",       hex:"#5f4c3d", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcxg", name:"エクストラグレー", nameEn:"Extra Gray",  hex:"#364343", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
-    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#963746", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS}
+    {id:"pcgy", name:"グレー",           nameEn:"Gray",        hex:"#4d5e66", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcbr", name:"ブラウン",         nameEn:"Brown",       hex:"#5f4c3d", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcxg", name:"エクストラグレー", nameEn:"Extra Gray",  hex:"#364343", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true},
+    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#963746", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_RANGE, densityContinuous:true}
   ];
 
   const I18N = {
@@ -1557,6 +1558,7 @@
   let currentPreset = null; // the resolved preset/entry object behind currentColor (disambiguates presets that share a hex, e.g. flat vs gradient)
   let opacity = 0.55;
   let currentDensitySteps = null; // allowed density percentages for the selected preset, or null if unrestricted
+  let currentDensityContinuous = false; // when true, currentDensitySteps is just a [min,max] clamp, not discrete snap targets
   let gradientBottomPct = null; // adjustable bottom-of-gradient density (percent), only used for non-twin gradient presets
   let showHandles = true;   // whether the editable outline/vertex points are drawn
   let activeSide = null;    // which lens is in edit mode (shows points/outline) — 'left', 'right', or null (deselected: both lenses shown as passive outlines only, until one is tapped)
@@ -4446,8 +4448,18 @@
     const topFrac = Math.min(1, Math.max(0, (topPct - range.min) / span));
     densityHandleTop.style.left = (topFrac*100) + '%';
     const isPhotochromic = resolvePhotochromicFlag(currentPreset || {});
-    densityTagTop.textContent = isTwin ? '' : densityDisplayText(topPct, isPhotochromic);
-    opacityValue.textContent = isTwin ? '' : densityDisplayText(topPct, isPhotochromic);
+    if(isTwin){
+      densityTagTop.textContent = '';
+      opacityValue.textContent = '';
+    } else if(isPhotochromic){
+      // no discrete steps to label with words now that this is stepless —
+      // a sun mark whose own solidity/darkness tracks the density instead
+      renderDensityIcon(densityTagTop, topPct, range);
+      renderDensityIcon(opacityValue, topPct, range);
+    } else {
+      densityTagTop.textContent = densityDisplayText(topPct, false);
+      opacityValue.textContent = densityDisplayText(topPct, false);
+    }
     densityHandleTop.classList.toggle('locked', !!(currentDensitySteps && currentDensitySteps.length === 1));
 
     const isPlainGradient = !!(currentPreset && currentPreset.gradient && !currentPreset.twin);
@@ -4472,7 +4484,11 @@
     if(densityHandleTop.classList.contains('locked')) return;
     let percent = rawPercent;
     if(currentDensitySteps){
-      percent = currentDensitySteps.reduce((a,b)=> Math.abs(b-percent) < Math.abs(a-percent) ? b : a, currentDensitySteps[0]);
+      if(currentDensityContinuous){
+        percent = Math.round(Math.min(currentDensitySteps[currentDensitySteps.length-1], Math.max(currentDensitySteps[0], percent)));
+      } else {
+        percent = currentDensitySteps.reduce((a,b)=> Math.abs(b-percent) < Math.abs(a-percent) ? b : a, currentDensitySteps[0]);
+      }
     } else {
       percent = Math.round(Math.min(90, Math.max(5, percent)));
     }
@@ -4585,13 +4601,51 @@
 
   // photochromic tint strength isn't something the wearer dials in like a
   // regular density slider — it tracks how much UV the lenses have been
-  // exposed to, so each step is labeled with the real-world situation that
-  // produces roughly that much activation instead of a raw percentage
-  // (see PHOTOCHROMIC_DENSITY_STEPS, which this maps 1:1 by value)
-  const PHOTOCHROMIC_UV_KEYS = {10:'uvIndoors', 15:'uvOvercast', 25:'uvShade', 35:'uvHazySun', 50:'uvSunny', 70:'uvStrongSun'};
+  // exposed to, so text displays for it (the colour badge, swatch labels,
+  // the shared image's caption) describe the real-world situation that
+  // produces roughly that much activation instead of a raw percentage.
+  // The density itself is stepless now (see currentDensityContinuous), so
+  // this buckets the exact value into a range rather than matching it —
+  // boundaries sit at the midpoints of the old fixed steps
+  // (10/15/25/35/50/70) this replaced
+  function photochromicUvKey(pct){
+    if(pct < 12.5) return 'uvIndoors';
+    if(pct < 20) return 'uvOvercast';
+    if(pct < 30) return 'uvShade';
+    if(pct < 42.5) return 'uvHazySun';
+    if(pct < 60) return 'uvSunny';
+    return 'uvStrongSun';
+  }
   function densityDisplayText(pct, isPhotochromic){
-    if(isPhotochromic) return t(PHOTOCHROMIC_UV_KEYS[pct] || 'uvSunny');
+    if(isPhotochromic) return t(photochromicUvKey(pct));
     return pct + '%';
+  }
+
+  // a sun mark (rays + circle always faintly visible, so it reads as "sun"
+  // at any setting) whose filled circle's opacity scales continuously with
+  // density — replaces a numeric/word readout for the now-stepless
+  // photochromic density with something that visually feels like "how much
+  // sun" rather than a value being dialed in
+  const sunIconMarkup = (fillOpacity)=> `<svg viewBox="0 0 24 24" width="15" height="15" style="display:inline-block; vertical-align:middle;">
+    <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.35">
+      <line x1="12" y1="1.5" x2="12" y2="4"/>
+      <line x1="12" y1="20" x2="12" y2="22.5"/>
+      <line x1="1.5" y1="12" x2="4" y2="12"/>
+      <line x1="20" y1="12" x2="22.5" y2="12"/>
+      <line x1="4.8" y1="4.8" x2="6.6" y2="6.6"/>
+      <line x1="17.4" y1="17.4" x2="19.2" y2="19.2"/>
+      <line x1="4.8" y1="19.2" x2="6.6" y2="17.4"/>
+      <line x1="17.4" y1="6.6" x2="19.2" y2="4.8"/>
+    </g>
+    <circle cx="12" cy="12" r="5" fill="currentColor" opacity="${fillOpacity.toFixed(2)}"/>
+    <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.4" fill="none" opacity="0.5"/>
+  </svg>`;
+  function renderDensityIcon(el, pct, range){
+    const span = Math.max(1e-6, range.max - range.min);
+    const frac = Math.min(1, Math.max(0, (pct - range.min) / span));
+    // never fully hollow at the lightest setting, never a flat silhouette
+    // at the darkest — keeps the rays/outline legible throughout
+    el.innerHTML = sunIconMarkup(0.15 + frac*0.85);
   }
 
   function mixWithWhite(hex, ratio){
@@ -5021,10 +5075,15 @@
       ? preset.densitySteps.slice().sort((a,b)=>a-b)
       : null;
     currentDensitySteps = steps;
+    currentDensityContinuous = !!(preset && preset.densityContinuous);
     if(steps){
       const currentPercent = Math.round(opacity*100);
-      const nearest = steps.reduce((a,b)=> Math.abs(b-currentPercent) < Math.abs(a-currentPercent) ? b : a, steps[0]);
-      opacity = nearest/100;
+      if(currentDensityContinuous){
+        opacity = Math.min(steps[steps.length-1], Math.max(steps[0], currentPercent))/100;
+      } else {
+        const nearest = steps.reduce((a,b)=> Math.abs(b-currentPercent) < Math.abs(a-currentPercent) ? b : a, steps[0]);
+        opacity = nearest/100;
+      }
     }
     renderDensityTrack();
   }
@@ -5092,7 +5151,7 @@
         // English UV label directly rather than via t() (which follows the
         // app's current display language) — same reasoning as displayNameForShare()
         const densityText = resolvePhotochromicFlag(currentPreset || {})
-          ? `UV Exposure: ${I18N.en[PHOTOCHROMIC_UV_KEYS[topPct]] || I18N.en.uvSunny}`
+          ? `UV Exposure: ${I18N.en[photochromicUvKey(topPct)]}`
           : (isPlainGradient && bottomPct > 0) ? `Density: ${topPct}%/${bottomPct}%` : `Density: ${topPct}%`;
         lines.push({text: densityText, role:'spec'});
       }
