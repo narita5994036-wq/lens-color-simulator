@@ -201,6 +201,20 @@
   }
   .frame-name-field:disabled{opacity:0.35; cursor:default;}
   .frame-name-field:disabled::placeholder{color:var(--gray-mid);}
+  .lens-width-wrap{display:flex; align-items:center; gap:5px;}
+  .lens-width-field{
+    width:52px; text-align:right; background:transparent;
+    border:none; border-bottom:1px solid var(--gray-line); outline:none;
+    -webkit-appearance:none; appearance:none; border-radius:0;
+    font-family:'Inter', sans-serif; font-weight:400; font-size:14px;
+    color:var(--black); padding:2px 2px;
+  }
+  .lens-width-field:focus{border-bottom-color:var(--black);}
+  .lens-width-field::placeholder{color:var(--gray-mid);}
+  .lens-width-field::-webkit-outer-spin-button,
+  .lens-width-field::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .lens-width-field{-moz-appearance:textfield;}
+  .lens-width-unit{font-size:12px; color:var(--gray-mid);}
   .frame-trace-link{
     display:block; margin:6px auto 0; background:none; border:none;
     font-family:inherit; font-size:11px; color:var(--gray-mid);
@@ -1206,6 +1220,14 @@
       <span data-i18n="traceMirrorToggleLabel">ミラーリング</span>
       <div class="switch" id="traceMirrorToggle"><div class="knob"></div></div>
     </div>
+    <div class="compare-row">
+      <span data-i18n="traceLensWidthLabel">レンズ幅</span>
+      <div class="lens-width-wrap">
+        <input type="number" id="traceLensWidthInput" class="lens-width-field" placeholder="48" inputmode="decimal" min="1" step="0.1">
+        <span class="lens-width-unit">mm</span>
+      </div>
+    </div>
+    <div class="note" data-i18n="traceLensWidthNote">未入力の場合は48mm（基準サイズ＝100%）として登録されます。</div>
     <div class="sheet-actions">
       <button class="btn" id="btnTraceBack3" data-i18n="backBtn">戻る</button>
       <button class="btn primary" id="btnTraceRegister" disabled data-i18n="registerShapeBtn">登録する</button>
@@ -1388,6 +1410,8 @@
       traceStep3Note:"左のレンズだけを編集してください。ミラーリングをオンにすると中央の反転軸に合わせて右側の形が自動で追従します。",
       traceShowGuidesLabel:"ガイド線を表示",
       traceMirrorToggleLabel:"ミラーリング",
+      traceLensWidthLabel:"レンズ幅",
+      traceLensWidthNote:"未入力の場合は48mm（基準サイズ＝100%）として登録されます。",
       registerShapeBtn:"登録する"
     },
     en:{
@@ -1475,6 +1499,8 @@
       traceStep3Note:"Edit only the left lens. Turn on Mirroring to have the right side automatically follow the center mirror axis.",
       traceShowGuidesLabel:"Show Guide Lines",
       traceMirrorToggleLabel:"Mirroring",
+      traceLensWidthLabel:"Lens Width",
+      traceLensWidthNote:"If left blank, this registers as 48mm (the baseline size = 100%).",
       registerShapeBtn:"Register"
     }
   };
@@ -1668,6 +1694,7 @@
   const mirrorAxisHandle = document.getElementById('mirrorAxisHandle');
   const traceGuidesToggle = document.getElementById('traceGuidesToggle');
   const traceMirrorToggle = document.getElementById('traceMirrorToggle');
+  const traceLensWidthInput = document.getElementById('traceLensWidthInput');
   const traceCropModal = document.getElementById('traceCropModal');
   const traceCropStageSlot = document.getElementById('traceCropStageSlot');
   const btnTraceCropBack = document.getElementById('btnTraceCropBack');
@@ -1906,6 +1933,10 @@
   // oversized on a real photo — shrink it uniformly around each lens's own
   // center so it comes in a bit smaller than what was actually registered
   const FRAME_SHAPE_APPLY_SCALE = 0.9;
+  // the physical lens width (mm) treated as "100%" — a frame registered with
+  // no width entered is assumed to be this size, so it applies at the same
+  // scale as before this feature existed; other frames scale relative to it
+  const FRAME_SHAPE_BASE_WIDTH_MM = 48;
   function scaleLensesAroundCenter(lensesObj, scale){
     const scaleSide = (shape)=>{
       const xs = shape.points.map(p => p.x), ys = shape.points.map(p => p.y);
@@ -1929,14 +1960,20 @@
     const sourceAspect = (typeof saved.sourceAspect === 'number' && saved.sourceAspect > 0) ? saved.sourceAspect : 9/16;
     const targetAspect = imgNatH / imgNatW;
     const corrected = correctLensesAspectForTarget(cloneLensesPoints(saved), sourceAspect, targetAspect);
-    lenses = scaleLensesAroundCenter(corrected, FRAME_SHAPE_APPLY_SCALE);
+    // frames registered with a physical lens width scale relative to
+    // FRAME_SHAPE_BASE_WIDTH_MM (48mm = 100%, the old fixed-scale behavior);
+    // shapes saved before this feature existed have no lensWidthMm at all,
+    // which is likewise treated as the 48mm/100% baseline
+    const widthMm = (typeof saved.lensWidthMm === 'number' && saved.lensWidthMm > 0) ? saved.lensWidthMm : FRAME_SHAPE_BASE_WIDTH_MM;
+    const widthScale = widthMm / FRAME_SHAPE_BASE_WIDTH_MM;
+    lenses = scaleLensesAroundCenter(corrected, FRAME_SHAPE_APPLY_SCALE * widthScale);
     selectedVertex = null;
     scaleMode = false;
     updateHintText();
     draw();
     return true;
   }
-  function saveCurrentShapeForFrame(name){
+  function saveCurrentShapeForFrame(name, lensWidthMm){
     const key = normalizeFrameKey(name);
     if(!key || !lenses) return;
     const cloned = cloneLensesPoints(lenses);
@@ -1944,6 +1981,10 @@
     // the image's own width/height, so applyRegisteredFrameShape() needs
     // this to correct for a differently-shaped destination photo later
     cloned.sourceAspect = imgNatH / imgNatW;
+    // normalized up front (rather than left as null/undefined) so every
+    // saved entry always has a concrete width for applyRegisteredFrameShape()
+    // to divide by, whether or not one was actually entered at registration
+    cloned.lensWidthMm = (typeof lensWidthMm === 'number' && lensWidthMm > 0) ? lensWidthMm : FRAME_SHAPE_BASE_WIDTH_MM;
     frameShapes[key] = cloned;
     saveJSON(STORAGE_FRAME_SHAPES, frameShapes);
   }
@@ -2496,6 +2537,9 @@
       traceMirrorToggle.classList.add('on');
       traceMirrored = true;
       btnTraceRegister.disabled = false;
+      // shapes saved before this field existed have no recorded width —
+      // leave the field blank for those too, same as a brand new shape
+      traceLensWidthInput.value = (typeof existing.lensWidthMm === 'number' && existing.lensWidthMm > 0) ? existing.lensWidthMm : '';
     } else {
       // built against the fit rect as it is *after* the crop above, so the
       // starting ellipse lands at a sane on-screen position/size regardless
@@ -2503,6 +2547,7 @@
       lenses = defaultTraceLensRegions();
       traceMirrorOn = false;
       traceMirrorToggle.classList.remove('on');
+      traceLensWidthInput.value = '';
     }
     closeTraceCropModal();
     showTraceStep(3);
@@ -2594,7 +2639,8 @@
   btnTraceRegister.addEventListener('click', ()=>{
     if(!traceFrameName || !lenses || !traceMirrored) return;
     const name = traceFrameName;
-    saveCurrentShapeForFrame(name);
+    const lensWidthMm = parseFloat(traceLensWidthInput.value);
+    saveCurrentShapeForFrame(name, lensWidthMm);
     closeTraceModal();
     showFrameShapeToast(tf('frameShapeSavedToast', {name}));
   });
@@ -2615,6 +2661,7 @@
     traceMirrorOn = false;
     traceMirrorToggle.classList.remove('on');
     traceMirrored = false;
+    traceLensWidthInput.value = '';
     traceCropLocked = false;
     traceGuidesToggle.classList.add('on');
     traceEdgeGuides.classList.remove('guides-hidden');
