@@ -1268,7 +1268,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v11";
+  const STORAGE_PRESETS = "mykita-lens-presets-v12";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1281,6 +1281,11 @@
 
   const FRAME_NAMES = FRAME_NAMES_RAW.split(',').map(s=>s.trim()).filter(Boolean);
 
+  // photochromic lenses don't have a fixed "density" the way a flat tint
+  // does — how dark they get tracks UV exposure, maxing out at 70% (the
+  // darkest the actual lenses reach), so their steps stop there rather
+  // than at the same 85% ceiling as the fixed-tint presets
+  const PHOTOCHROMIC_DENSITY_STEPS = [10,15,25,35,50,70];
   const DEFAULT_PRESETS = [
     {id:"faoc", name:"フェアオークル",       nameEn:"Fair Ochre",      hex:"#c9a067", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"fabr", name:"フェアブラウン",       nameEn:"Fair Brown",      hex:"#7a4a2e", group:"arriate", densitySteps:[10,15,25,35,50]},
@@ -1325,13 +1330,13 @@
 
     // ---- ZEISS photochromic colours — hex values sampled from the
     // activated (sun-exposed/dark) state of each colour ----
-    {id:"pcgy", name:"グレー",           nameEn:"Gray",        hex:"#4d5e66", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcbr", name:"ブラウン",         nameEn:"Brown",       hex:"#5f4c3d", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcxg", name:"エクストラグレー", nameEn:"Extra Gray",  hex:"#364343", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#963746", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]}
+    {id:"pcgy", name:"グレー",           nameEn:"Gray",        hex:"#4d5e66", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcbr", name:"ブラウン",         nameEn:"Brown",       hex:"#5f4c3d", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcxg", name:"エクストラグレー", nameEn:"Extra Gray",  hex:"#364343", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS},
+    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#963746", group:"photochromic", densitySteps:PHOTOCHROMIC_DENSITY_STEPS}
   ];
 
   const I18N = {
@@ -1379,6 +1384,12 @@
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
       groupPhotochromic:"ZEISS 調光",
+      uvIndoors:"屋内",
+      uvOvercast:"曇り",
+      uvShade:"日陰",
+      uvHazySun:"薄曇りの屋外",
+      uvSunny:"晴天",
+      uvStrongSun:"強い日差し",
       sectionSettings:"設定",
       languageLabel:"言語 / Language",
       showTogglesLabel:"操作点トグルを表示",
@@ -1469,6 +1480,12 @@
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
       groupPhotochromic:"ZEISS Photochromic",
+      uvIndoors:"Indoors",
+      uvOvercast:"Overcast",
+      uvShade:"Shade",
+      uvHazySun:"Hazy Sun",
+      uvSunny:"Sunny",
+      uvStrongSun:"Strong Sun",
       sectionSettings:"Settings",
       languageLabel:"Language",
       showTogglesLabel:"Show points toggle",
@@ -4428,8 +4445,9 @@
     const topPct = Math.round(opacity*100);
     const topFrac = Math.min(1, Math.max(0, (topPct - range.min) / span));
     densityHandleTop.style.left = (topFrac*100) + '%';
-    densityTagTop.textContent = isTwin ? '' : topPct + '%';
-    opacityValue.textContent = isTwin ? '' : topPct + '%';
+    const isPhotochromic = resolvePhotochromicFlag(currentPreset || {});
+    densityTagTop.textContent = isTwin ? '' : densityDisplayText(topPct, isPhotochromic);
+    opacityValue.textContent = isTwin ? '' : densityDisplayText(topPct, isPhotochromic);
     densityHandleTop.classList.toggle('locked', !!(currentDensitySteps && currentDensitySteps.length === 1));
 
     const isPlainGradient = !!(currentPreset && currentPreset.gradient && !currentPreset.twin);
@@ -4459,7 +4477,7 @@
       percent = Math.round(Math.min(90, Math.max(5, percent)));
     }
     opacity = percent/100;
-    if(currentColor) colorBadgePct.textContent = percent + '%';
+    if(currentColor) colorBadgePct.textContent = densityDisplayText(percent, resolvePhotochromicFlag(currentPreset || {}));
     if(currentPreset && currentPreset.gradient && !currentPreset.twin && gradientBottomPct >= percent){
       gradientBottomPct = 0;
     }
@@ -4556,6 +4574,26 @@
     return null;
   }
 
+  function resolvePhotochromicFlag(item){
+    if(item.group === 'photochromic') return true;
+    if(item.id){
+      const p = presets.find(pp=>pp.id===item.id);
+      if(p) return p.group === 'photochromic';
+    }
+    return false;
+  }
+
+  // photochromic tint strength isn't something the wearer dials in like a
+  // regular density slider — it tracks how much UV the lenses have been
+  // exposed to, so each step is labeled with the real-world situation that
+  // produces roughly that much activation instead of a raw percentage
+  // (see PHOTOCHROMIC_DENSITY_STEPS, which this maps 1:1 by value)
+  const PHOTOCHROMIC_UV_KEYS = {10:'uvIndoors', 15:'uvOvercast', 25:'uvShade', 35:'uvHazySun', 50:'uvSunny', 70:'uvStrongSun'};
+  function densityDisplayText(pct, isPhotochromic){
+    if(isPhotochromic) return t(PHOTOCHROMIC_UV_KEYS[pct] || 'uvSunny');
+    return pct + '%';
+  }
+
   function mixWithWhite(hex, ratio){
     const {r,g,b} = hexToRgb(hex);
     const nr = Math.round(r + (255-r)*ratio);
@@ -4584,7 +4622,7 @@
         (item.id ? (currentPreset ? currentPreset.id === item.id : false) : true));
       el.className = 'swatch' + (isSelected ? ' selected' : '');
       const nameLabel = item.noColor ? t('noColor') :
-        ((typeof item.pct === 'number' && !resolveTwinInfo(item)) ? `${displayName(item)} ${item.pct}%` : displayName(item));
+        ((typeof item.pct === 'number' && !resolveTwinInfo(item)) ? `${displayName(item)} ${densityDisplayText(item.pct, resolvePhotochromicFlag(item))}` : displayName(item));
       const circleHtml = item.noColor ? '<div class="circle no-color-circle"></div>' :
         `<div class="circle" style="background:${swatchBackground(item)}">${opts.deletable ? '<div class="del">×</div>' : ''}</div>`;
       el.innerHTML = `${circleHtml}<div class="name">${nameLabel}</div>`;
@@ -4906,7 +4944,7 @@
       colorBadgeDot.classList.remove('no-color-circle');
       colorBadgeDot.style.background = currentColor;
       colorBadgeName.textContent = currentPreset ? displayName(currentPreset) : t('customColorFallback');
-      colorBadgePct.textContent = (currentPreset && currentPreset.twin) ? '' : Math.round(opacity*100) + '%';
+      colorBadgePct.textContent = (currentPreset && currentPreset.twin) ? '' : densityDisplayText(Math.round(opacity*100), resolvePhotochromicFlag(currentPreset || {}));
     } else {
       colorBadgeDot.classList.add('no-color-circle');
       colorBadgeDot.style.background = '';
@@ -5050,8 +5088,12 @@
         const topPct = Math.round(opacity*100);
         const isPlainGradient = !!(currentPreset && currentPreset.gradient);
         const bottomPct = isPlainGradient && typeof gradientBottomPct === 'number' ? gradientBottomPct : 0;
-        const densityText = (isPlainGradient && bottomPct > 0) ?
-          `Density: ${topPct}%/${bottomPct}%` : `Density: ${topPct}%`;
+        // the shared image always reads in English, so this looks up the
+        // English UV label directly rather than via t() (which follows the
+        // app's current display language) — same reasoning as displayNameForShare()
+        const densityText = resolvePhotochromicFlag(currentPreset || {})
+          ? `UV Exposure: ${I18N.en[PHOTOCHROMIC_UV_KEYS[topPct]] || I18N.en.uvSunny}`
+          : (isPlainGradient && bottomPct > 0) ? `Density: ${topPct}%/${bottomPct}%` : `Density: ${topPct}%`;
         lines.push({text: densityText, role:'spec'});
       }
     }
