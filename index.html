@@ -1268,7 +1268,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v9";
+  const STORAGE_PRESETS = "mykita-lens-presets-v11";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1331,7 +1331,7 @@
     {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
     {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
     {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
-    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#624952", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]}
+    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#963746", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]}
   ];
 
   const I18N = {
@@ -3277,7 +3277,19 @@
   // reapplied cheaply if the tone-up/smoothing sliders are retuned
   // afterwards without rerunning the segmentation model each time
   async function getPersonMaskData(source, w, h){
-    const seg = getSelfieSegmentation();
+    // constructing the model (or setOptions) can itself throw on some
+    // devices/browsers (WebGL/WASM init failures are a known risk on iOS
+    // Safari) — if that happened outside this try/catch, the rejection
+    // would propagate uncaught out of the shutter handler below, aborting
+    // the capture entirely (stuck loading spinner, no photo) instead of
+    // just skipping the blur
+    let seg;
+    try{
+      seg = getSelfieSegmentation();
+    }catch(e){
+      console.warn('Background blur skipped: SelfieSegmentation failed to initialize.', e);
+      seg = null;
+    }
     if(!seg){
       console.warn('Background blur skipped: SelfieSegmentation script did not load (offline or blocked by the network).');
       return null;
