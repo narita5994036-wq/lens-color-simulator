@@ -1268,7 +1268,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v8";
+  const STORAGE_PRESETS = "mykita-lens-presets-v9";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1321,7 +1321,17 @@
     {id:"oliv", name:"オリーブ（ツイン）",   nameEn:"Olive (Twin)",    hex:"#e3a45f", twinHex:"#cccb6e", twin:true, group:"gradient", densitySteps:[50]},
     {id:"cott", name:"コットン（ツイン）",   nameEn:"Cotton (Twin)",   hex:"#adacaa", twinHex:"#d9b49f", twin:true, group:"gradient", densitySteps:[50]},
     {id:"mint", name:"ミント（ツイン）",     nameEn:"Mint (Twin)",     hex:"#6bb43f", twinHex:"#8ecfc2", twin:true, group:"gradient", densitySteps:[50]},
-    {id:"rose", name:"ローズ（ツイン）",     nameEn:"Rose (Twin)",     hex:"#dd7a63", twinHex:"#9d94bb", twin:true, group:"gradient", densitySteps:[50]}
+    {id:"rose", name:"ローズ（ツイン）",     nameEn:"Rose (Twin)",     hex:"#dd7a63", twinHex:"#9d94bb", twin:true, group:"gradient", densitySteps:[50]},
+
+    // ---- ZEISS photochromic colours — hex values sampled from the
+    // activated (sun-exposed/dark) state of each colour ----
+    {id:"pcgy", name:"グレー",           nameEn:"Gray",        hex:"#4d5e66", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcbr", name:"ブラウン",         nameEn:"Brown",       hex:"#5f4c3d", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcxg", name:"エクストラグレー", nameEn:"Extra Gray",  hex:"#364343", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcbk", name:"ブラック",         nameEn:"Black",       hex:"#313839", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcpi", name:"パイオニア",       nameEn:"Pioneer",     hex:"#525a4c", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcbl", name:"ブルー",           nameEn:"Blue",        hex:"#4577b1", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]},
+    {id:"pcbg", name:"バーガンディ",     nameEn:"Burgundy",    hex:"#624952", group:"photochromic", densitySteps:[10,15,25,35,50,75,85]}
   ];
 
   const I18N = {
@@ -1368,6 +1378,7 @@
       groupStandard:"スタンダード",
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
+      groupPhotochromic:"ZEISS 調光",
       sectionSettings:"設定",
       languageLabel:"言語 / Language",
       showTogglesLabel:"操作点トグルを表示",
@@ -1457,6 +1468,7 @@
       groupStandard:"Standard",
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
+      groupPhotochromic:"ZEISS Photochromic",
       sectionSettings:"Settings",
       languageLabel:"Language",
       showTogglesLabel:"Show points toggle",
@@ -4658,7 +4670,8 @@
     presetGroups.innerHTML = '';
     const groupOrder = [
       {key:'arriate', labelKey:'groupArriate'},
-      {key:'gradient', labelKey:'groupGradient'}
+      {key:'gradient', labelKey:'groupGradient'},
+      {key:'photochromic', labelKey:'groupPhotochromic'}
     ];
     groupOrder.forEach(g=>{
       const items = presets.filter(p => (p.group||'custom') === g.key);
