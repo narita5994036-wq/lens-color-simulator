@@ -3277,7 +3277,19 @@
   // reapplied cheaply if the tone-up/smoothing sliders are retuned
   // afterwards without rerunning the segmentation model each time
   async function getPersonMaskData(source, w, h){
-    const seg = getSelfieSegmentation();
+    // constructing the model (or setOptions) can itself throw on some
+    // devices/browsers (WebGL/WASM init failures are a known risk on iOS
+    // Safari) — if that happened outside this try/catch, the rejection
+    // would propagate uncaught out of the shutter handler below, aborting
+    // the capture entirely (stuck loading spinner, no photo) instead of
+    // just skipping the blur
+    let seg;
+    try{
+      seg = getSelfieSegmentation();
+    }catch(e){
+      console.warn('Background blur skipped: SelfieSegmentation failed to initialize.', e);
+      seg = null;
+    }
     if(!seg){
       console.warn('Background blur skipped: SelfieSegmentation script did not load (offline or blocked by the network).');
       return null;
