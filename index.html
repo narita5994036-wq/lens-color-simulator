@@ -617,6 +617,8 @@
   }
   .autocomplete-item:last-child{border-bottom:none;}
   .autocomplete-item:active{background:var(--gray-bg);}
+  /* names with no registered lens shape yet — see renderFrameSuggestions() */
+  .autocomplete-item.unregistered{color:var(--gray-mid);}
   .registered-frames-list{
     border:1px solid var(--gray-line); max-height:200px; overflow-y:auto; margin-bottom:18px;
   }
@@ -1504,6 +1506,12 @@
   let selectedVertex = null; // {side, index} — the single tapped point, shown highlighted for the nudge d-pad
 
   function pointsVisible(){
+    // frame-shape registration always needs the lens points/handles to be
+    // interactive, regardless of the simulator's own "操作点" (points) or
+    // "show on-screen toggles" settings — those are display preferences for
+    // the main photo-editing screen, not something that should be able to
+    // lock the user out of shape editing while registering a frame
+    if(traceActive) return true;
     // points are shown only when the on-screen toggle is both switched on
     // AND not hidden entirely via the "show on-screen toggles" setting
     return showHandles && showStageToggles;
@@ -5099,7 +5107,9 @@
     }
     matches.forEach(name=>{
       const item = document.createElement('div');
-      item.className = 'autocomplete-item';
+      // greyed out when this name has no registered lens shape yet, so it's
+      // obvious at a glance which suggestions will actually apply a shape
+      item.className = 'autocomplete-item' + (getRegisteredFrameShape(name) ? '' : ' unregistered');
       item.textContent = name;
       const select = (e)=>{ e.preventDefault(); selectFrameSuggestion(name); };
       item.addEventListener('mousedown', select);
@@ -5113,7 +5123,10 @@
     frameName = name;
     frameNameInput.value = name;
     frameAutocompleteList.classList.remove('show');
-    commitFrameName();
+    // dismiss the keyboard right away — its blur handler calls
+    // commitFrameName(), which may pop the shape-apply confirm overlay, and
+    // the keyboard would otherwise cover it
+    frameNameInput.blur();
   }
 
   frameNameInput.addEventListener('input', ()=>{
