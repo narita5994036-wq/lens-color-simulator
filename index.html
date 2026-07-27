@@ -199,6 +199,8 @@
   .frame-name-field::placeholder{
     color:var(--gray-mid); font-style:normal;
   }
+  .frame-name-field:disabled{opacity:0.35; cursor:default;}
+  .frame-name-field:disabled::placeholder{color:var(--gray-mid);}
   .frame-trace-link{
     display:block; margin:6px auto 0; background:none; border:none;
     font-family:inherit; font-size:11px; color:var(--gray-mid);
@@ -942,7 +944,7 @@
     </div>
     <div class="note" data-i18n="shapeApplyNote">フレーム名を入力してください。登録済みの名前の場合、そのレンズ形状を適用できます</div>
     <div class="frame-name-block" id="frameNameBlock">
-      <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off">
+      <input type="text" id="frameNameInput" class="frame-name-field" data-i18n-placeholder="frameNamePlaceholder" placeholder="フレーム名を入力" autocomplete="off" disabled>
       <div class="autocomplete-list" id="frameAutocompleteList"></div>
     </div>
     <button type="button" class="frame-trace-link" id="btnOpenTraceModal" data-i18n="openTraceModalBtn">レンズ形状を登録・管理</button>
@@ -1829,6 +1831,7 @@
         btnShare.disabled = false;
         frameName = '';
         frameNameInput.value = '';
+        frameNameInput.disabled = false;
         resizeCanvas();
         if(onDone) onDone();
       };
@@ -2081,6 +2084,7 @@
     updateHintText();
     updateToggleVisibility();
     btnShare.disabled = !img;
+    frameNameInput.disabled = !img;
     emptyState.style.display = img ? 'none' : 'flex';
     dragHint.style.display = img ? 'block' : 'none';
     zoomSlider.value = Math.round(zoomLevel*100);
@@ -2599,7 +2603,9 @@
     traceActive = true;
     traceSavedState = stashMainAppState();
     traceFrameName = '';
-    traceFrameNameInput.value = '';
+    // carries over whatever the user had already typed into the sidebar's
+    // frame-name field, so switching to registration mid-entry doesn't lose it
+    traceFrameNameInput.value = frameNameInput.value;
     traceAlreadyRegisteredNote.style.display = 'none';
     traceAlreadyRegisteredNote2.style.display = 'none';
     btnTraceDeleteExisting2.style.display = 'none';
@@ -2632,6 +2638,7 @@
     closeSidebar();
     traceModal.classList.add('show');
     showTraceStep(1);
+    if(traceFrameNameInput.value) renderTraceFrameSuggestions(traceFrameNameInput.value);
     draw();
   }
   function closeTraceModal(){
@@ -3294,6 +3301,7 @@
     btnShare.disabled = true;
     frameName = '';
     frameNameInput.value = '';
+    frameNameInput.disabled = true;
     frameAutocompleteList.classList.remove('show');
     cameraInput.value = '';
     uploadInput.value = '';
