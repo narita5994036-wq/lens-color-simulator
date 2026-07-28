@@ -353,6 +353,7 @@
     padding-bottom:16px; margin-bottom:18px; border-bottom:1px solid var(--gray-line);
   }
   .sidebar-title{font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:var(--black);}
+  .sidebar-header-actions{display:flex; align-items:center; gap:8px;}
   .sidebar-section{margin-bottom:28px;}
   .sidebar-section h3{
     font-size:11px; font-weight:300; letter-spacing:0.16em; text-transform:uppercase; color:var(--gray-mid);
@@ -600,6 +601,11 @@
        would render behind it, unreachable */
     z-index:110;
   }
+  #lensHelpOverlay{
+    /* opened via a button inside the sidebar (z-index:100) — same
+       reasoning as #frameShapeApplyConfirmOverlay above */
+    z-index:110;
+  }
   .sheet{
     background:var(--white); width:100%; max-width:900px; padding:26px 24px 32px;
     border-top:1px solid var(--gray-line);
@@ -670,6 +676,12 @@
   }
   .sheet{position:relative;}
   .note{font-size:11px; color:var(--gray-mid); line-height:1.6; margin-top:-4px; margin-bottom:18px;}
+  .help-list{margin-bottom:22px;}
+  .help-item{padding:12px 0; border-bottom:1px solid var(--gray-line);}
+  .help-item:first-child{padding-top:0;}
+  .help-item:last-child{border-bottom:none; padding-bottom:0;}
+  .help-item strong{display:block; font-size:12px; font-weight:400; color:var(--black); margin-bottom:3px;}
+  .help-item span{display:block; font-size:11px; color:var(--gray-mid); line-height:1.5;}
 
   /* ---- frame-shape trace/registration screen ----
      a self-contained flow, entirely separate from the main photo/shape
@@ -942,7 +954,10 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <span class="sidebar-title" data-i18n="sidebarTitle">メニュー</span>
-    <button class="close-x" id="btnSidebarClose">×</button>
+    <div class="sidebar-header-actions">
+      <button class="close-x" id="btnLensHelp" aria-label="help" data-i18n-title="lensHelpTitle" title="レンズ形状編集のヘルプ">?</button>
+      <button class="close-x" id="btnSidebarClose">×</button>
+    </div>
   </div>
 
   <div class="sidebar-controls-slot" id="sidebarControlsSlot"></div>
@@ -1099,6 +1114,59 @@
       <button class="btn primary" id="btnMirrorConfirm" data-i18n="mirrorBtn">ミラーリング</button>
       <button class="btn" id="btnMirrorResetPoints" data-i18n="resetPointsBtn">レンズポイントをリセット</button>
       <button class="btn" data-close="mirrorConfirmOverlay" data-i18n="cancelBtn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- lens-shape editing help (opened via the "?" button next to the sidebar's close button) -->
+<div class="overlay" id="lensHelpOverlay">
+  <div class="sheet">
+    <button class="close-x" data-close="lensHelpOverlay">×</button>
+    <h4 data-i18n="lensHelpTitle">レンズ形状編集のヘルプ</h4>
+    <div class="help-list">
+      <div class="help-item">
+        <strong data-i18n="lensHelpTapTitle">タップ</strong>
+        <span data-i18n="lensHelpTapDesc">レンズをタップして選択します</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpDragPointTitle">頂点をドラッグ</strong>
+        <span data-i18n="lensHelpDragPointDesc">形を自由に調整します</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpDragInsideTitle">内側をドラッグ</strong>
+        <span data-i18n="lensHelpDragInsideDesc">レンズ全体を移動します</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpDoubleTapTitle">ダブルタップ</strong>
+        <span data-i18n="lensHelpDoubleTapDesc">拡大縮小モードに切り替えます（もう一度ダブルタップで解除）</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpScaleModeTitle">拡大縮小モード中</strong>
+        <span data-i18n="lensHelpScaleModeDesc">内側のドラッグで移動、四隅の点で拡大・縮小、上のアンテナ点で回転できます</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpPinchTitle">ピンチ（2本指）</strong>
+        <span data-i18n="lensHelpPinchDesc">写真全体を拡大・縮小します</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpSwipeTitle">背景を左右にスワイプ</strong>
+        <span data-i18n="lensHelpSwipeDesc">直近に使用した5色を切り替えます</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpTripleTapTitle">背景をトリプルタップ</strong>
+        <span data-i18n="lensHelpTripleTapDesc">ズームをリセットします</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpMirrorLongPressTitle">レンズを2秒長押し</strong>
+        <span data-i18n="lensHelpMirrorLongPressDesc">ミラーリングの確認画面を開きます</span>
+      </div>
+      <div class="help-item">
+        <strong data-i18n="lensHelpResetLongPressTitle">背景（レンズの外）を3秒長押し</strong>
+        <span data-i18n="lensHelpResetLongPressDesc">画像リセットの確認画面を開きます</span>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn" data-close="lensHelpOverlay" data-i18n="closeBtn">閉じる</button>
     </div>
   </div>
 </div>
@@ -1397,6 +1465,28 @@
       showBadgeLabel:"現在のカラー表示を表示",
       shutterSoundLabel:"シャッター音",
       cancelBtn:"キャンセル",
+      closeBtn:"閉じる",
+      lensHelpTitle:"レンズ形状編集のヘルプ",
+      lensHelpTapTitle:"タップ",
+      lensHelpTapDesc:"レンズをタップして選択します",
+      lensHelpDragPointTitle:"頂点をドラッグ",
+      lensHelpDragPointDesc:"形を自由に調整します",
+      lensHelpDragInsideTitle:"内側をドラッグ",
+      lensHelpDragInsideDesc:"レンズ全体を移動します",
+      lensHelpDoubleTapTitle:"ダブルタップ",
+      lensHelpDoubleTapDesc:"拡大縮小モードに切り替えます（もう一度ダブルタップで解除）",
+      lensHelpScaleModeTitle:"拡大縮小モード中",
+      lensHelpScaleModeDesc:"内側のドラッグで移動、四隅の点で拡大・縮小、上のアンテナ点で回転できます",
+      lensHelpPinchTitle:"ピンチ（2本指）",
+      lensHelpPinchDesc:"写真全体を拡大・縮小します",
+      lensHelpSwipeTitle:"背景を左右にスワイプ",
+      lensHelpSwipeDesc:"直近に使用した5色を切り替えます",
+      lensHelpTripleTapTitle:"背景をトリプルタップ",
+      lensHelpTripleTapDesc:"ズームをリセットします",
+      lensHelpMirrorLongPressTitle:"レンズを2秒長押し",
+      lensHelpMirrorLongPressDesc:"ミラーリングの確認画面を開きます",
+      lensHelpResetLongPressTitle:"背景（レンズの外）を3秒長押し",
+      lensHelpResetLongPressDesc:"画像リセットの確認画面を開きます",
       customColorFallback:"カスタムカラー",
       landscapeBlockMessage:"iPadを縦画面にしてご利用ください",
       resetConfirmTitle:"画像をリセットしますか？",
@@ -1493,6 +1583,28 @@
       showBadgeLabel:"Show current colour display",
       shutterSoundLabel:"Shutter sound",
       cancelBtn:"Cancel",
+      closeBtn:"Close",
+      lensHelpTitle:"Lens Shape Editing Help",
+      lensHelpTapTitle:"Tap",
+      lensHelpTapDesc:"Tap a lens to select it",
+      lensHelpDragPointTitle:"Drag a point",
+      lensHelpDragPointDesc:"Freely reshape the outline",
+      lensHelpDragInsideTitle:"Drag inside",
+      lensHelpDragInsideDesc:"Move the whole lens",
+      lensHelpDoubleTapTitle:"Double-tap",
+      lensHelpDoubleTapDesc:"Toggle scale mode (double-tap again to exit)",
+      lensHelpScaleModeTitle:"While in scale mode",
+      lensHelpScaleModeDesc:"Drag inside to move, a corner dot to scale, and the antenna dot above to rotate",
+      lensHelpPinchTitle:"Pinch (2 fingers)",
+      lensHelpPinchDesc:"Zoom the whole photo in or out",
+      lensHelpSwipeTitle:"Swipe the background left/right",
+      lensHelpSwipeDesc:"Cycle your last 5 used colours",
+      lensHelpTripleTapTitle:"Triple-tap the background",
+      lensHelpTripleTapDesc:"Reset the zoom",
+      lensHelpMirrorLongPressTitle:"Hold a lens for 2 seconds",
+      lensHelpMirrorLongPressDesc:"Open the mirroring confirmation",
+      lensHelpResetLongPressTitle:"Hold the background (outside any lens) for 3 seconds",
+      lensHelpResetLongPressDesc:"Open the photo reset confirmation",
       customColorFallback:"Custom Colour",
       landscapeBlockMessage:"Please use this app with your iPad in portrait orientation",
       resetConfirmTitle:"Reset the photo?",
@@ -1751,6 +1863,8 @@
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const btnSidebarOpen = document.getElementById('btnSidebarOpen');
   const btnSidebarClose = document.getElementById('btnSidebarClose');
+  const btnLensHelp = document.getElementById('btnLensHelp');
+  const lensHelpOverlay = document.getElementById('lensHelpOverlay');
   const btnFullscreenToggle = document.getElementById('btnFullscreenToggle');
   const appControls = document.getElementById('appControls');
   const sidebarControlsSlot = document.getElementById('sidebarControlsSlot');
@@ -3485,6 +3599,7 @@
   btnSidebarOpen.addEventListener('click', openSidebar);
   btnSidebarClose.addEventListener('click', closeSidebar);
   sidebarBackdrop.addEventListener('click', closeSidebar);
+  btnLensHelp.addEventListener('click', ()=> lensHelpOverlay.classList.add('show'));
 
   // ---------- iPad landscape: fullscreen mode (hide the docked sidebar) ----------
   // lets a centered overlay/picker (e.g. mirroring's confirm sheet) use the
