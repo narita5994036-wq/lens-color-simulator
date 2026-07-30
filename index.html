@@ -854,11 +854,14 @@
 
   /* iPad portrait: the app otherwise stretches edge to edge like on a
      phone — give it some breathing room on a screen this wide instead,
-     centering a narrower column so controls aren't spread uncomfortably
-     far apart. min-height keeps a large phone (rare, but wider than usual
-     in portrait) from matching this. */
+     centering a wider (but still bounded) column so controls aren't spread
+     uncomfortably far apart. min-height keeps a large phone (rare, but
+     wider than usual in portrait) from matching this. Also scale up the
+     header title, which otherwise stays phone-sized despite the extra room. */
   @media (min-width:700px) and (min-height:900px) and (orientation:portrait){
-    .app{max-width:640px;}
+    .app{max-width:820px;}
+    .brand{font-size:19px;}
+    .title{font-size:13px;}
   }
 </style>
 </head>
@@ -1360,7 +1363,7 @@
   const STORAGE_SHOW_TOGGLES = "mykita-lens-show-toggles-v1";
   const STORAGE_SHOW_BADGE   = "mykita-lens-show-badge-v1";
   const STORAGE_SHUTTER_SOUND = "mykita-lens-shutter-sound-v1";
-  const STORAGE_FRAME_SHAPES = "mykita-lens-frame-shapes-v2";
+  const STORAGE_FRAME_SHAPES = "mykita-lens-frame-shapes-v3";
 
   const FRAME_NAMES_RAW = "EKON, LAMIN, BELLIS_CUSTOMIZED, COLEMAN_CUSTOMIZED, BERTHOLD, ELLUM, BELLIS, HOPPER, LETO, SOTO, HEATH, KAMI_A, KAMI, AYAN, FARAH, ATINE, LAIS, SANG, JADA, NEALE, OCEANE, ELBERT, OLYMPE, TALINI, SESI, JULLA, NUKKA, TAIFA, MONDO, EERO, NIKEN, IMBA, EMMI, PEN, ISLA, LUCIA, ALBA, ARMSTRONG, YOTAM, CARSON, GERHARD, SKYLAR, OLLI, MAREN, SONU, MR006, MR001, MR002, MR003, LANA, MR005, TOMI_CUSTOMIZED, KAYO_CUSTOMIZED, YUCCA, DRIFT, PIO, BIJAN, ARVIN, RENO, NOOMI, LAVAND, KABAL, LILIA, ML19, JANO, CLOVER, BLUE, STUDIO12.1, BRAN, NURIA, DORSA, SELBY, ROSCOE, ARVEL, CHRISTA, MARAL, SENTA, PORTIA, HARRISON, FORT, DORIAN, RIBO, MAHSA, KIANA, TOSCA, SANTO, REMBERT, LOMAX, AITA, DELANCEY, NEVILLE, YUKON, HELICON, NIKEN_CUSTOMIZED, WATARU_CUSTOMIZED, YURA, GRUNT, RAT, SAGA, TRUMAN_CUSTOMIZED, STUDIO7.4_CUSTOMIZED, KAMI_CUSTOMIZED, WIM, JULES, CHIP, ML18, STUDIO15.2, STUDIO15.1, PANA, NANOOK, TUKTU, KEOMA, DESTA, TRULES, YOLA, PAULSON, KAIMAR, RHYS, HAMISH, REVA, LAVEN, INDIRA, BEAM, ASPEN, TEVEL, RAIDER, HAWI, NANNA, MOSHA, JASMI, GYLFI, AHTI, MIO, XANDER, THEODORE, GARTH, KIMBER, NYARA, KAIS, KIVA, SOMA, SERUM, TELMA, ASGER, LOVA, RAIM_CUSTOMIZED, PAL, SATU, KARSTEN_CUSTOMIZED, JULIAN, STANLEY, DESNA, LAHTI, HOLM, DELANO, WALLY, TUFF, KAL, NIAM, MABEL, SOLEA, EILISH, SINCLAIR, XANDER_CUSTOMIZED, SIWA_PLUS, FLEMMING, FIR, PHIL, LORENZO, HENNING, CORMAC, ROSEMARY, ROCKWELL, CLIVE, BUD, ALLEN, NAAMA, BADU, AMOS, ML16, BEAR, SAWYER, ML17, ML05, ANDERS, ML09, NEETU_CUSTOMIZED, MR004, PERRY, ALIN, EMBERS, ROWAN, CAT, LOOMIS, TESHI, TOTO, MARELLE, MEL, BIRCH, MAUREEN, SOLENE, AMARE, SANTERI, SIERRA, MAVON, WALKER, SAUL, LAIMI, INCHEON, DAKAR, ML15, ML13, SAMAR, SAGA_A, LEON, DADA, KELSEY, JUSTUS, DELFINA, COLTON, BORGA, ML11, ARTURO, TIWA, KENJA, JEPPE, HILLA, TAAVI, MATIS, SAIMA_A, HAWKING, 1 OF 0 SBP03 CHARCOAL, 1 OF 0 SBP02 GOLDEN OLIVE, 1 OF 0 SBP01 MATTE MAPLE LEAF, TEEMA, ML10, DALUR, DIA_CUSTOMIZED, BELLIS_CUSTOMIZED, DUSK_CUSTOMIZED, TARO_CUSTOMIZED, NIMA, LOME, UNA, PAVI, LEELAND, GIA, AVERY, ALISTER, LAURI, ISE, HALVAR, EDISON, CILIAN, JANAN, SUVI, SELVA, SALVADOR, REEVES, GETZ, GARLAND, CAVEN, CANTARA, PEARL, VAASA, JARA_CUSTOMIZED, WATERS, JOJO_A, COLEMAN, SOLO, KNUT, ALPINE, ML03, ARMIN, ALCOR, TULOK, ALYA, LAMIN_M, ELBA, STUDIO14.2, STUDIO13.1, JELVA, ELVE, KILENDA, MOJAVE, JEFFERSON, MARTIN, CYPRESS, STUDIO14.1, ELI, HOLLIS, KNOX, DAVU_A, TIWA_A, KIENE, MERVI, ARVO, STEEN, IDRIS, HOWLIN, BEACH, WILL, PARIS, STUDIO7.5, KYLAN, ARIELLE, JARI, MONROE, VANILLA, SURI, 032c SILK SCARF, 032c LEATHER TRAY, 032c KEY FOB, FERLO, HELMI, SATIN, SANTANA, NORFOLK, TOBI, NUKKA_A, SINDAL, MARFA, MOTT, STUDIO6.8, KENTON, JALO, ALDER, ML05_DEMO LENSES, LAVRA, VIOLA, RUE, BADU_PLUS, NIAM_PLUS, CAVEN_PLUS, NEVEN, SAIMA, ALICIA, RIKU, KOLDING, LAHTI_A, LERATO, LAGON, MEJA, SESI_A, DIA, ELISA, FINVID_CUSTOMIZED, AKI_CUSTOMIZED, ALESSIA, VELMA, SPRUCE, LENNON, MISAKO, JARA, CANNA, ARLO, SOUDA, BUENO, HANNO, NOR, TATE, ML08, ALCOTT, VISKA, VEN, LALE, SILVER, BADU_PULS, ALFONSO, SERAPHINA, NEELA, DUSK, DON, ML04_DEMO LENSES, KELLY, NAT, KENDALL, LAVRA_A, DAYO_PLUS, MERI, ANANA_A, SAMU, BORGA_A, MOMO, KAITO, PEGGY, IRIS, FELICIA, MINTTU, STUDIO12.2, NALA, MARLOWE, MAHA, NEW, KALLA, EETU, JES, AMKA_A, KISKA, WALT, STUDIO12.5, DEW, KAYO, RYKER, KAORI_CUSTOMIZED, KEOMA_A, EKON_A, LAYANA, MISTY, MIKKEL, HYDRA, KENDO, EITO_CUSTOMIZED, JONAH, JAZ, HOLM_A, PHILLYS, RAYMOND, SCHORSCH, ANIK_A, BERNIE, ANTTI_CUSTOMIZED, NAOKO_CUSTOMIZED, HITI_A, HIMIKO, ANGUS, CLARENCE, KETILL, ACHILLES, STINE, STUDIO13.2, FREDA_A, MAJVI, GIBA, JOLAN, STUDIO5.4, STUDIO5.3, HILDEGARD, SOEREN, THOMAS, AIDEN, LUPITA, ML12, ROLLINS, NESTOR, KIRIMA, TATA, MEGHAN, JORGOS, OLSEN_CUSTOMIZED, DENNIS, TUVA, BIKKI_A, GRIMBART, BOLDEWYN, BELLYN, SIWA, DAYO, TALINI_A, EDE, FARGO, CORINNA, CEDAR, SIRU, ANTTI, SHO, HEGON_A, LEVANTE, AURI, PALOMA, TALVI, KOLMAR, HEMLOCK, CHARLOTTE, SATORI, YASKA, KETILL_A, NIS, BRENDA, STUDIO7.1, RILEY, ML14, SILIA, VERUSCHKA, LEWIS, EITO, CLAAS_CUSTOMIZED, CALLUM, TOMI, HIRO, YUUTO, JONTE, GERO, ESBO, LUMI, ML07, HULDA, ANNIKA, TORBEN, BRODY, MAXIMILIAN, WAVE, ALMETA, ERRKI, MATTI, MERRICK, MMTRANSFER004, MMCRAFT005, MMCRAFT002, MMESSE019, TANNER, BASIL, MMTRANSFER003, AKEMI, ELLINGTON, ML01, MMCRAFT016, STUDIO2.2, STUDIO6.7, MMESSE020, WATARU, TRUMAN, KEELUT_A, KARI, MMRAW007, MMRAW013, KEELUT, COCO, MMRAW021, BUSTER, MMTRANSFER001, MMESSE001, MMESSE013, DEAN, STUDIO4.3, HOLLY, SANNA, JESPER, MMRAW018, AKI, MMCRAFT007, HANSEN, MMRAW011, HELGI, HALDUR_A, TOMOMI, GISELLE, MMCRAFT001, MMRAW020, LARSSON, MMCRAFT006, ML02, DAISUKE, MMRAW002, HESTA_A, MINAKO, RIN, NOBU, ULLA, VANESSA, STUDIO6.6, MMECHO005, MMESSE029, MMESSE028, MMCRAFT014, LISKA, BLU, MMCRAFT013, MMESSE002, HEGON_EU, JIRO, MMCRAFT010, KAUKO, HL002, HL001, STUDIO6.4, STUDIO6.2, JUJUBI_A, BILIMBI_A, BJELLE, MMCRAFT011, MMESSE026, NIBA_A, CLAUDE, DD2.3, RAOUL, NAOKO, GIGI SHADES, ALUKI, JANIS, KARSTEN, STUDIO7.2, ALIO_A_S, MMESSE021, OLGA, ADRIANO, AKSEL, DAGNY, TOMKIN_A, GIORGIO, TOMKIN Shades, MMESSE027, MMRAW017, HOPS, LOUIS, TUKTU_A, KAZU, MADELEINE, MASAO, BAMBI, BRADFIELD, SOLOMON, MMRAW014, HEIKO, PIT, GUNNAR, ROCKET, ISMO, PHILOMENE, QUENBY, KJELL, STUDIO11.1, GAPI, OTTI, BRANDUR_A, YOKO, DD2.2, BELLA, KIKI, REM, STUDIO6.3, ALICE, VABO, FEDOR, MMVIRTUAL001, NEA, ALEXANDER, NIVES, THUNDER, MMRAW005, HAY, DREW, WALSH, KASIMIR, GREGORY, URSULA, GISELLE_S, ALESSIA_S, KASIMIR_S, VITO_S, LENNARD_S, LOVISA, ARLUK_A, LENNARD, NITA, VITO, CLAAS, HIROTO, TAUNO, KAI, ESKID, MMESSE008, JAIS, SCARLETT_S, SEPP_S, BELLYN_S, TONA, OVE, HILLA_A, MAVERICK, MMRAW008, ANNABETH_S, KENDRICK_S, KYO_S, STUDIO9.1, STUDIO9.2, MMESSE016, LILLESOL, SYLVESTER, FEDERICO, LOTUS, CAYENNE, KEELUT Shades, REED, KARMA, JULLA_A, HOUSTON, NATHAN, FERN, STUDIO7.4, JUDE, ROB, TOCLO_A, DAGGOO, JULIUS, MMESSE006, STUDIO6.5, LUAVA_A, NUKKA Shades, MMRAW012, PALM, PRISCILLA, JOVI, MMRAW010, MMRAW009, MMCRAFT004, GINA, CARA, JORDI, APPLE, ADEBAR, GESA, LEMAS, MMESSE009, RYO, TRIBE, CASH, BOOST, HARU, MMCRAFT012, MMRAW016, MMRAW015, MMESSE025, MMESSE024, STUDIO10.2, STUDIO10.1, DALIA, SELLECK, CARLO, GUNDA, ELGARD, COLTRANE, CHARLENE, MERYL, LONNE, JUL, ERI, BEULAH, IVER, FINNA, ZACH_S, JIM_S, DASH_S, PHILOMENE_S, SCHORSCH_S, AGNES_S, SHIFT, JONES, RICCARDO, LANDON, CORALIE, DEMO LENSES, SOS, TRITON, HERKO, STUDIO8.2, STUDIO8.1, STUDIO7.3, STUDIO6.1, STUDIO5.5, STUDIO2.3, STUDIO2.1, STUDIO1.4, ARMIDA_S, LOVELL, MUSK, GUARD ONE / PLUS, GUARD ONE, RIDGE, BOOM, MMCIRCLE002, MMCIRCLE001, CANYON, PEAK, BOND, BLAZE, BALTA, MMECHO001, RIDER, OMEGA, YOSHY, POTI, MARS, CALLIOPE, TITAN, GAMMA, MATO_A, KALLIO_A, ONIKI_A, KENDA_A, MMRAW019, POK, YUMA_A, TORUK_A, LAGON_A, JOVVA_A, ELVE_A, LUAVA, AILO, FRANKLIN, FABIAN, CAPOTE, OKI, YUKA, OLIVE_S, MMDUAL003, GILES, SULLIVAN_S, ELDRIDGE_S, ANNABETH, MMDUAL004, MMDUAL004_S, MMDUAL002, MMDUAL001, GRANT, FABRICE, SIENNA, WARNER_S, ARMIDA, THOMPSON_S, KAYO_DAIKI TSUNETA, LENNARD_DAIKI TSUNETA, OLSEN, KAZUO, NUKKA shades, TALINI shades, TOMKIN shades, KEELUT shades, LEX shades, GIGI shades, FABIAN shades, ROMINA, STUDIO12.3, ML06, MMESSE030, FOCUS, DEEP, MMCRAFT017, JENSEN, SEIGO, DONOVAN, EMORY, TOTAL, SUPER, FELIX, RIKKE, TARO, YOSHI, KAORI, HL003, NETA, ZELDA, BAKER, PARK, DUANE, MMCRAFT015, TILLA, MAGDA, DALTON, DARCY, STUART, LIVA, LOTTA, GUNNARSON, LORENS, HAMPTON, ASMUND, IAN, CALEB, WILDER, WESTON, EASTON, AL, ZANE, LOST, CYNTHIA, RYOKO, YORIN, INGELS, YNGVE, SOY, JOEL, BASIE, VALDA, TURNER, PAULIN, DURAN, HAGEN, RAFFAELLA, LUND, TAPIO, SID, MMESSE007, MMESSE023, MMESSE022, MMCRAFT009, MMCRAFT008, PORTER, JETTE, FRANCESCO, MANUEL, MIRO, MONOGRAM, RAIDON, BJAKE, ANDERSSON, MMCRAFT003, SELINA, KITT, EARTHA E10, YUMI, KUMIKO, TAKEO, JUN, MIZUHO, NILSSON, HELKA, AGAVA, MMESSE018, MMESSE017, ERLING, JONI F69, JONI F10, METTE, ARTO, BIRK, JARMO, ANDO, MALTE, KENT, DD2.2 A25, VERBAL, EARTHA E25, WOODROW, BEVERLY, VERUCHKA, MMESSE010, VILDE, MACY, DUSTY F65, EARTHA E65, ISAAC, DEMI, SLOE, TORGE, AIRA, CELESTE, ENNIO, BRENT, ANYU, ENRICO, MMTRANS001, MMTRANS003, MMESSE011, MMESSE005, MMESSE012, FINVID, OWL, DAVIS, PERNILLA, ESBJOERN, WULF, PEACH, LUPINE, FLAX, VERUCHKA F10, ADEBAR_S, PETZ_S, PETZ, RANI, JOSEPPA, JUNIS, ERIN, VALTO, EJVIND, ELON, ELDER, CLOVE, MMTRANS002, DOUG, CROSBY, THELONIUS, EDDA, BENNY, ELLERY, SCHORSCH F65, JORG, RAGNAR, TIMOTHY, PEYTON, DD2.2 A6, DD2.2 A2, JOOST, FLIP, ROOPE, ZACH, ERWIN F65, MMESSE006_S, MMESSE005_S, MMESSE001_S, GERRIT, CARTER, MADITA, MMESSE003_S, URSULA_S, URSULA F61, ERLAND, LUELLA, BUGSY, ERWIN F61, ERWIN F25, ERWIN F10, ERWIN F9, PRISKA, RASMUS, PIA, EINAR, MAILA, SLY, NORA_S, TARJE, JOHN, YUKI_S, AKIRA_S, MAREIKE, JANIS F10, FRANZ F9, BECKY, TAULANT, BONNIE, RAFAEL, SMILLA, XAVER F10, FRANZ F25, JORDAN, BETTY, NIGEL, JESPER_S, JANIS F9, JAMES, COOPER";
 
@@ -3876,6 +3879,766 @@
     },
     "sourceAspect": 0.6666666666666666,
     "lensWidthMm": 48
+  },
+  "COLTON": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4561222392341129,
+          "y": 0.449710211543254
+        },
+        {
+          "x": 0.4153296910173235,
+          "y": 0.6079908753705067
+        },
+        {
+          "x": 0.3432761733804974,
+          "y": 0.6436884131609495
+        },
+        {
+          "x": 0.27122265574367116,
+          "y": 0.6079908753705067
+        },
+        {
+          "x": 0.24485525227460722,
+          "y": 0.48216678722563605
+        },
+        {
+          "x": 0.2658132264632741,
+          "y": 0.39691341868374286
+        },
+        {
+          "x": 0.3432761733804974,
+          "y": 0.36933002481389554
+        },
+        {
+          "x": 0.4279516926715833,
+          "y": 0.3779804162023533
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5720483073284167,
+          "y": 0.3779804162023533
+        },
+        {
+          "x": 0.6567238266195026,
+          "y": 0.36933002481389554
+        },
+        {
+          "x": 0.7341867735367259,
+          "y": 0.39691341868374286
+        },
+        {
+          "x": 0.7551447477253928,
+          "y": 0.48216678722563605
+        },
+        {
+          "x": 0.7287773442563288,
+          "y": 0.6079908753705067
+        },
+        {
+          "x": 0.6567238266195026,
+          "y": 0.6436884131609495
+        },
+        {
+          "x": 0.5846703089826766,
+          "y": 0.6079908753705067
+        },
+        {
+          "x": 0.5438777607658871,
+          "y": 0.449710211543254
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 58
+  },
+  "KIANA": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4453839572490987,
+          "y": 0.4919701843763922
+        },
+        {
+          "x": 0.41051461708722126,
+          "y": 0.5993861922197016
+        },
+        {
+          "x": 0.34465491630245026,
+          "y": 0.6386938458589279
+        },
+        {
+          "x": 0.2746566177824583,
+          "y": 0.5895099347980209
+        },
+        {
+          "x": 0.24857092185920138,
+          "y": 0.4806457270859079
+        },
+        {
+          "x": 0.27815490221958983,
+          "y": 0.38380043884557624
+        },
+        {
+          "x": 0.3545853226073384,
+          "y": 0.36563422441230514
+        },
+        {
+          "x": 0.4245836211273303,
+          "y": 0.3963193761680012
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5709333350347872,
+          "y": 0.3963193761680012
+        },
+        {
+          "x": 0.640931633554779,
+          "y": 0.36563422441230514
+        },
+        {
+          "x": 0.7173620539425276,
+          "y": 0.38380043884557624
+        },
+        {
+          "x": 0.7469460343029161,
+          "y": 0.4806457270859079
+        },
+        {
+          "x": 0.7208603383796591,
+          "y": 0.5895099347980209
+        },
+        {
+          "x": 0.6508620398596672,
+          "y": 0.6386938458589279
+        },
+        {
+          "x": 0.5850023390748962,
+          "y": 0.5993861922197016
+        },
+        {
+          "x": 0.5501329989130188,
+          "y": 0.4919701843763922
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 44
+  },
+  "BIRCH": {
+    "left": {
+      "points": [
+        {
+          "x": 0.45467877755700636,
+          "y": 0.48058612090822295
+        },
+        {
+          "x": 0.4291748052351745,
+          "y": 0.5792618387160716
+        },
+        {
+          "x": 0.3636090331126637,
+          "y": 0.616023358441756
+        },
+        {
+          "x": 0.29969752070892874,
+          "y": 0.5792618387160716
+        },
+        {
+          "x": 0.2775020678246486,
+          "y": 0.48058612090822295
+        },
+        {
+          "x": 0.3013517804277046,
+          "y": 0.40920568846017596
+        },
+        {
+          "x": 0.3636090331126637,
+          "y": 0.3873325062034742
+        },
+        {
+          "x": 0.43248332467272615,
+          "y": 0.4042429093038483
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5675166753272738,
+          "y": 0.4042429093038483
+        },
+        {
+          "x": 0.6363909668873363,
+          "y": 0.3873325062034742
+        },
+        {
+          "x": 0.6986482195722954,
+          "y": 0.40920568846017596
+        },
+        {
+          "x": 0.7224979321753514,
+          "y": 0.48058612090822295
+        },
+        {
+          "x": 0.7003024792910713,
+          "y": 0.5792618387160716
+        },
+        {
+          "x": 0.6363909668873363,
+          "y": 0.616023358441756
+        },
+        {
+          "x": 0.5708251947648255,
+          "y": 0.5792618387160716
+        },
+        {
+          "x": 0.5453212224429936,
+          "y": 0.48058612090822295
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 47
+  },
+  "NURIA": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4495285359801488,
+          "y": 0.5307146401985111
+        },
+        {
+          "x": 0.4074135940012054,
+          "y": 0.6025505483950944
+        },
+        {
+          "x": 0.34020226139969106,
+          "y": 0.6166212591928327
+        },
+        {
+          "x": 0.2763385393319733,
+          "y": 0.5630592293018001
+        },
+        {
+          "x": 0.2453021046050623,
+          "y": 0.45970160352064704
+        },
+        {
+          "x": 0.2830046441097582,
+          "y": 0.40142187719884037
+        },
+        {
+          "x": 0.37475599669148074,
+          "y": 0.38210421836228287
+        },
+        {
+          "x": 0.4495285359801488,
+          "y": 0.4381836228287841
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5467328370554176,
+          "y": 0.4381836228287841
+        },
+        {
+          "x": 0.6215053763440856,
+          "y": 0.38210421836228287
+        },
+        {
+          "x": 0.7132567289258083,
+          "y": 0.40142187719884037
+        },
+        {
+          "x": 0.7509592684305041,
+          "y": 0.45970160352064704
+        },
+        {
+          "x": 0.7199228337035931,
+          "y": 0.5630592293018001
+        },
+        {
+          "x": 0.6560591116358754,
+          "y": 0.6166212591928327
+        },
+        {
+          "x": 0.5888477790343609,
+          "y": 0.6025505483950944
+        },
+        {
+          "x": 0.5467328370554176,
+          "y": 0.5307146401985111
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 51
+  },
+  "CARSON": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4595012287506757,
+          "y": 0.45773420633762196
+        },
+        {
+          "x": 0.43195583451974306,
+          "y": 0.5855933851970199
+        },
+        {
+          "x": 0.35871049857715753,
+          "y": 0.6174907451814473
+        },
+        {
+          "x": 0.2889887358355645,
+          "y": 0.5908787449985087
+        },
+        {
+          "x": 0.2596815550041356,
+          "y": 0.470947605841344
+        },
+        {
+          "x": 0.28017980283308325,
+          "y": 0.3985847048975786
+        },
+        {
+          "x": 0.35871049857715753,
+          "y": 0.3851861042183621
+        },
+        {
+          "x": 0.43900298092172807,
+          "y": 0.401227384798323
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5648514442230198,
+          "y": 0.401227384798323
+        },
+        {
+          "x": 0.6451439265675903,
+          "y": 0.3851861042183621
+        },
+        {
+          "x": 0.7236746223116646,
+          "y": 0.3985847048975786
+        },
+        {
+          "x": 0.7441728701406123,
+          "y": 0.470947605841344
+        },
+        {
+          "x": 0.7148656893091834,
+          "y": 0.5908787449985087
+        },
+        {
+          "x": 0.6451439265675903,
+          "y": 0.6174907451814473
+        },
+        {
+          "x": 0.5718985906250048,
+          "y": 0.5855933851970199
+        },
+        {
+          "x": 0.5443531963940722,
+          "y": 0.45773420633762196
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 53
+  },
+  "GERHARD": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4648469809760132,
+          "y": 0.44428660049627794
+        },
+        {
+          "x": 0.43320783448205974,
+          "y": 0.5805441904603577
+        },
+        {
+          "x": 0.36056658395368074,
+          "y": 0.6047766749379653
+        },
+        {
+          "x": 0.2794472523665755,
+          "y": 0.5805441904603577
+        },
+        {
+          "x": 0.2579818031430935,
+          "y": 0.4519168734491315
+        },
+        {
+          "x": 0.2862297172135565,
+          "y": 0.40976598323691316
+        },
+        {
+          "x": 0.36056658395368074,
+          "y": 0.4007940446650129
+        },
+        {
+          "x": 0.43151221827031444,
+          "y": 0.40976598323691316
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5727888569985027,
+          "y": 0.40976598323691316
+        },
+        {
+          "x": 0.6437344913151364,
+          "y": 0.4007940446650129
+        },
+        {
+          "x": 0.7180713580552606,
+          "y": 0.40976598323691316
+        },
+        {
+          "x": 0.7463192721257236,
+          "y": 0.4519168734491315
+        },
+        {
+          "x": 0.7248538229022415,
+          "y": 0.5805441904603577
+        },
+        {
+          "x": 0.6437344913151364,
+          "y": 0.6047766749379653
+        },
+        {
+          "x": 0.5710932407867573,
+          "y": 0.5805441904603577
+        },
+        {
+          "x": 0.5394540942928039,
+          "y": 0.44428660049627794
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 52
+  },
+  "JARI": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4631130983036035,
+          "y": 0.468848635235732
+        },
+        {
+          "x": 0.4273698802286384,
+          "y": 0.5868218891074966
+        },
+        {
+          "x": 0.36084108182343133,
+          "y": 0.6132059553349873
+        },
+        {
+          "x": 0.28595827183840605,
+          "y": 0.5868218891074966
+        },
+        {
+          "x": 0.2602398676592226,
+          "y": 0.4588238213399503
+        },
+        {
+          "x": 0.28428746952244244,
+          "y": 0.40099945084287536
+        },
+        {
+          "x": 0.36084108182343133,
+          "y": 0.38965260545905733
+        },
+        {
+          "x": 0.44073629875634734,
+          "y": 0.40601185779076615
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5626053058755797,
+          "y": 0.40601185779076615
+        },
+        {
+          "x": 0.6425005228084957,
+          "y": 0.38965260545905733
+        },
+        {
+          "x": 0.7190541351094846,
+          "y": 0.40099945084287536
+        },
+        {
+          "x": 0.7431017369727044,
+          "y": 0.4588238213399503
+        },
+        {
+          "x": 0.717383332793521,
+          "y": 0.5868218891074966
+        },
+        {
+          "x": 0.6425005228084957,
+          "y": 0.6132059553349873
+        },
+        {
+          "x": 0.5759717244032886,
+          "y": 0.5868218891074966
+        },
+        {
+          "x": 0.5402285063283235,
+          "y": 0.468848635235732
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 53
+  },
+  "SAUL": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4610918114143921,
+          "y": 0.466136476426799
+        },
+        {
+          "x": 0.4317910046924453,
+          "y": 0.5765232639827758
+        },
+        {
+          "x": 0.364007927961671,
+          "y": 0.599962946099969
+        },
+        {
+          "x": 0.2864978040844948,
+          "y": 0.5716597404095747
+        },
+        {
+          "x": 0.2681720430107527,
+          "y": 0.466136476426799
+        },
+        {
+          "x": 0.28649780408449477,
+          "y": 0.4115166051941165
+        },
+        {
+          "x": 0.3656291024860713,
+          "y": 0.4002357320099253
+        },
+        {
+          "x": 0.4350333537412459,
+          "y": 0.4115166051941164
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5649666462587541,
+          "y": 0.4115166051941164
+        },
+        {
+          "x": 0.6343708975139287,
+          "y": 0.4002357320099253
+        },
+        {
+          "x": 0.7135021959155052,
+          "y": 0.4115166051941165
+        },
+        {
+          "x": 0.7318279569892473,
+          "y": 0.466136476426799
+        },
+        {
+          "x": 0.7135021959155052,
+          "y": 0.5716597404095747
+        },
+        {
+          "x": 0.635992072038329,
+          "y": 0.599962946099969
+        },
+        {
+          "x": 0.5682089953075546,
+          "y": 0.5765232639827758
+        },
+        {
+          "x": 0.538908188585608,
+          "y": 0.466136476426799
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 52
+  },
+  "CHRISTA": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4549245541838134,
+          "y": 0.4689817488172653
+        },
+        {
+          "x": 0.42394909140354287,
+          "y": 0.5934382310212056
+        },
+        {
+          "x": 0.3551545847842144,
+          "y": 0.6378146142598412
+        },
+        {
+          "x": 0.28811359346678833,
+          "y": 0.5960685039740593
+        },
+        {
+          "x": 0.253631100082713,
+          "y": 0.46635147586441167
+        },
+        {
+          "x": 0.28636007816488596,
+          "y": 0.3866096338589829
+        },
+        {
+          "x": 0.3551545847842144,
+          "y": 0.3685359801488835
+        },
+        {
+          "x": 0.42394909140354287,
+          "y": 0.39187017976469013
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5725438779926524,
+          "y": 0.39187017976469013
+        },
+        {
+          "x": 0.6413383846119809,
+          "y": 0.3685359801488835
+        },
+        {
+          "x": 0.7101328912313093,
+          "y": 0.3866096338589829
+        },
+        {
+          "x": 0.7428618693134823,
+          "y": 0.46635147586441167
+        },
+        {
+          "x": 0.7083793759294069,
+          "y": 0.5960685039740593
+        },
+        {
+          "x": 0.6413383846119809,
+          "y": 0.6378146142598412
+        },
+        {
+          "x": 0.5725438779926524,
+          "y": 0.5934382310212056
+        },
+        {
+          "x": 0.5415684152123819,
+          "y": 0.4689817488172653
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 49
+  },
+  "SAIMA": {
+    "left": {
+      "points": [
+        {
+          "x": 0.46140607248489773,
+          "y": 0.47120075242135584
+        },
+        {
+          "x": 0.4317660852712406,
+          "y": 0.606153635614785
+        },
+        {
+          "x": 0.3602088261514646,
+          "y": 0.6338779316417196
+        },
+        {
+          "x": 0.28865156703168854,
+          "y": 0.6035853974013855
+        },
+        {
+          "x": 0.26243589743589746,
+          "y": 0.4814737052749539
+        },
+        {
+          "x": 0.2852272494138225,
+          "y": 0.3901808717093165
+        },
+        {
+          "x": 0.3619209849603976,
+          "y": 0.3650248138957818
+        },
+        {
+          "x": 0.4334782440801736,
+          "y": 0.38504439528251744
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5665217559198263,
+          "y": 0.38504439528251744
+        },
+        {
+          "x": 0.6380790150396024,
+          "y": 0.3650248138957818
+        },
+        {
+          "x": 0.7147727505861775,
+          "y": 0.3901808717093165
+        },
+        {
+          "x": 0.7375641025641025,
+          "y": 0.4814737052749539
+        },
+        {
+          "x": 0.7113484329683115,
+          "y": 0.6035853974013855
+        },
+        {
+          "x": 0.6397911738485353,
+          "y": 0.6338779316417196
+        },
+        {
+          "x": 0.5682339147287594,
+          "y": 0.606153635614785
+        },
+        {
+          "x": 0.5385939275151023,
+          "y": 0.47120075242135584
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 52
   }
 };
   let frameShapes = loadJSON(STORAGE_FRAME_SHAPES, DEFAULT_FRAME_SHAPES);
@@ -7314,14 +8077,9 @@
   function updateColorBadge(){
     btnAddFavorite.disabled = !currentColor;
     const badgeWillShow = img && showColorBadgeSetting;
-    // the badge carries its own menu icon once it's visible, so the header's
-    // hamburger (which opens the same sidebar) is only shown as a fallback —
-    // whenever the badge itself isn't up, including before any photo is
-    // loaded, since the sidebar's lens-shape registration link (unlike the
-    // rest of the sidebar) doesn't require a photo either.
-    // visibility (not display) is toggled so .header-icons keeps its width,
-    // keeping .brand-block centered against the fixed-width .header-spacer
-    btnSidebarOpen.style.visibility = badgeWillShow ? 'hidden' : 'visible';
+    // the header's hamburger stays visible/usable at all times now, even
+    // once the stage badge (with its own menu icon) also shows — having
+    // both is intentional, not redundant to be hidden away
     if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
