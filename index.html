@@ -854,11 +854,14 @@
 
   /* iPad portrait: the app otherwise stretches edge to edge like on a
      phone — give it some breathing room on a screen this wide instead,
-     centering a narrower column so controls aren't spread uncomfortably
-     far apart. min-height keeps a large phone (rare, but wider than usual
-     in portrait) from matching this. */
+     centering a wider (but still bounded) column so controls aren't spread
+     uncomfortably far apart. min-height keeps a large phone (rare, but
+     wider than usual in portrait) from matching this. Also scale up the
+     header title, which otherwise stays phone-sized despite the extra room. */
   @media (min-width:700px) and (min-height:900px) and (orientation:portrait){
-    .app{max-width:640px;}
+    .app{max-width:820px;}
+    .brand{font-size:19px;}
+    .title{font-size:13px;}
   }
 </style>
 </head>
@@ -7314,14 +7317,9 @@
   function updateColorBadge(){
     btnAddFavorite.disabled = !currentColor;
     const badgeWillShow = img && showColorBadgeSetting;
-    // the badge carries its own menu icon once it's visible, so the header's
-    // hamburger (which opens the same sidebar) is only shown as a fallback —
-    // whenever the badge itself isn't up, including before any photo is
-    // loaded, since the sidebar's lens-shape registration link (unlike the
-    // rest of the sidebar) doesn't require a photo either.
-    // visibility (not display) is toggled so .header-icons keeps its width,
-    // keeping .brand-block centered against the fixed-width .header-spacer
-    btnSidebarOpen.style.visibility = badgeWillShow ? 'hidden' : 'visible';
+    // the header's hamburger stays visible/usable at all times now, even
+    // once the stage badge (with its own menu icon) also shows — having
+    // both is intentional, not redundant to be hidden away
     if(!badgeWillShow){
       colorBadge.style.display = 'none';
       return;
