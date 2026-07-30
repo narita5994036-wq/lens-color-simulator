@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MYKITA OSAKA | Lens Colour Simulator</title>
+
+<!-- PWA: lets "Add to Home Screen" launch this as a standalone app
+     (no browser chrome) instead of just bookmarking it as a regular tab -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- iOS ignores the manifest's display:standalone on its own — these are
+     what actually make Safari's "Add to Home Screen" open without its
+     own UI chrome there -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Lens Simulator">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
 <style>
   :root{
     color-scheme: light only;
