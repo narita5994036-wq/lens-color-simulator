@@ -857,11 +857,63 @@
      centering a wider (but still bounded) column so controls aren't spread
      uncomfortably far apart. min-height keeps a large phone (rare, but
      wider than usual in portrait) from matching this. Also scale up the
-     header title, which otherwise stays phone-sized despite the extra room. */
+     header title and, below, every other piece of UI text/iconography that
+     otherwise stays phone-sized despite the extra room — buttons, the
+     sidebar (including its swatch grid, which also gets wider so preset
+     names stop truncating), the empty-state prompt, and the density slider. */
   @media (min-width:700px) and (min-height:900px) and (orientation:portrait){
     .app{max-width:820px;}
     .brand{font-size:19px;}
     .title{font-size:13px;}
+
+    .gear{width:40px; height:40px;}
+    .gear svg{width:18px; height:18px;}
+
+    .empty-state{gap:14px; font-size:15px;}
+    .empty-state .icon{width:52px; height:52px;}
+    .empty-state .lib-link{font-size:12px;}
+    .hint{font-size:12px;}
+
+    .stage-toggle{font-size:12px; padding:8px 11px; gap:8px;}
+    .stage-undo-btn{width:40px; height:40px;}
+    .stage-undo-btn svg{width:18px; height:18px;}
+    .stage-color-badge{font-size:13px; padding:9px 14px;}
+    .stage-color-badge .dot{width:14px; height:14px;}
+    .stage-color-badge .badge-menu-icon{width:16px; height:16px;}
+    .stage-slider-row .label{font-size:12px; width:38px;}
+    .stage-slider-row .value{font-size:12px; width:34px;}
+
+    button.btn{font-size:13px; padding:15px 16px;}
+    .compare-row{font-size:13px;}
+    .switch{width:44px; height:24px;}
+    .switch .knob{width:20px; height:22px;}
+    .switch.on .knob{left:21px;}
+
+    .opacity-row{gap:16px;}
+    .opacity-row .label{font-size:13px; width:48px;}
+    .opacity-row .value{font-size:13px; width:40px;}
+    .density-handle .tag{font-size:11px;}
+    input[type=range]::-webkit-slider-thumb{width:18px; height:18px;}
+
+    .sidebar{width:min(420px, 85vw); padding:24px;}
+    .sidebar-title{font-size:14px;}
+    .sidebar-section h3, .history-block h3, section.colors h3{font-size:12px;}
+    .icon-btn{width:32px; height:32px;}
+    .icon-btn svg{width:17px; height:17px;}
+
+    .swatch{width:68px;}
+    .swatch-grid-3{grid-auto-columns:68px;}
+    .swatch .circle{width:48px; height:48px;}
+    .swatch .name{font-size:11px; max-width:68px;}
+    .empty-note{font-size:12px;}
+
+    .sheet{padding:30px 28px 36px;}
+    .sheet h4{font-size:14px;}
+    .field label{font-size:12px;}
+    .sheet .close-x{font-size:22px;}
+    .help-item strong{font-size:13px;}
+    .help-item span{font-size:12px;}
+    .note{font-size:12px;}
   }
 </style>
 </head>
