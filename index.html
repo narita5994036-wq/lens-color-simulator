@@ -5145,7 +5145,7 @@
     const widthScale = widthMm / FRAME_SHAPE_BASE_WIDTH_MM;
     lenses = scaleLensesAroundCenter(corrected, FRAME_SHAPE_APPLY_SCALE * widthScale);
     selectedVertex = null;
-    scaleMode = false;
+    scaleMode = true;
     updateHintText();
     draw();
     return true;
@@ -6584,7 +6584,7 @@
     updated[targetSide] = {points: newTargetPoints};
     lenses = updated;
     selectedVertex = null;
-    scaleMode = false;
+    scaleMode = true;
     updateHintText();
     draw();
   }
