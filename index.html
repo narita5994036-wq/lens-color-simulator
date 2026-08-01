@@ -250,18 +250,27 @@
     font-size:10px; letter-spacing:0.03em; color:var(--black);
   }
 
-  .stage-undo-btn{
-    position:absolute; top:16px; right:16px; z-index:6;
+  /* shared circular floating-button look, reused by the undo/redo pair
+     (top-right) and the delete-photo button (top-left) */
+  .stage-icon-btn{
     width:34px; height:34px; border-radius:50%;
     background:rgba(255,255,255,0.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     border:1px solid rgba(17,17,17,0.15);
     display:none; align-items:center; justify-content:center;
     color:var(--black); cursor:pointer; padding:0;
   }
-  .stage-undo-btn.show{display:flex;}
-  .stage-undo-btn svg{width:16px; height:16px;}
-  .stage-undo-btn:disabled{opacity:0.35; cursor:default;}
-  .stage-undo-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
+  .stage-icon-btn.show{display:flex;}
+  .stage-icon-btn svg{width:16px; height:16px;}
+  .stage-icon-btn:disabled{opacity:0.35; cursor:default;}
+  .stage-icon-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
+
+  .stage-history-group{
+    position:absolute; top:16px; right:16px; z-index:6;
+    display:flex; gap:8px;
+  }
+  .stage-delete-btn{
+    position:absolute; top:16px; left:16px; z-index:6;
+  }
 
   .vertex-nudge-pad{
     /* a floating d-pad for nudging a selected point one pixel at a time —
@@ -875,8 +884,8 @@
     .hint{font-size:12px;}
 
     .stage-toggle{font-size:12px; padding:8px 11px; gap:8px;}
-    .stage-undo-btn{width:40px; height:40px;}
-    .stage-undo-btn svg{width:18px; height:18px;}
+    .stage-icon-btn{width:40px; height:40px;}
+    .stage-icon-btn svg{width:18px; height:18px;}
     .stage-color-badge{font-size:13px; padding:9px 14px;}
     .stage-color-badge .dot{width:14px; height:14px;}
     .stage-color-badge .badge-menu-icon{width:16px; height:16px;}
@@ -958,9 +967,17 @@
       <div data-i18n="emptyState">タップして撮影してください</div>
       <span class="lib-link" id="libLink" data-i18n="chooseFromLibrary">写真から選択</span>
     </div>
-    <button class="stage-undo-btn" id="btnUndo" disabled aria-label="undo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
+    <button class="stage-icon-btn stage-delete-btn" id="btnDeletePhoto" aria-label="delete photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
     </button>
+    <div class="stage-history-group">
+      <button class="stage-icon-btn" id="btnUndo" disabled aria-label="undo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
+      </button>
+      <button class="stage-icon-btn" id="btnRedo" disabled aria-label="redo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg>
+      </button>
+    </div>
     <div class="stage-slider-row" style="display:none;">
       <span class="label" data-i18n="zoomLabel">ズーム</span>
       <input type="range" id="zoomSlider" min="100" max="400" value="100">
@@ -5493,6 +5510,7 @@
   let scaleDragData = null;  // snapshot captured when a scale-drag starts
   let rotateDragData = null; // snapshot captured when a rotate-drag starts (see the antenna handle in scale mode)
   let undoStack = [];        // up to UNDO_MAX past snapshots of `lenses`, for the lens-point undo button
+  let redoStack = [];        // snapshots popped off undoStack by undo, for the redo button; cleared on any new edit
   const UNDO_MAX = 20;
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
@@ -5689,6 +5707,8 @@
   const btnSidebarResetImage = document.getElementById('btnSidebarResetImage');
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
+  const btnRedo = document.getElementById('btnRedo');
+  const btnDeletePhoto = document.getElementById('btnDeletePhoto');
   const vertexNudgePad = document.getElementById('vertexNudgePad');
   const stageBottomBar = document.getElementById('stageBottomBar');
   const historyBlock = document.getElementById('historyBlock');
@@ -5778,6 +5798,7 @@
         activeSide = null;
         selectedVertex = null;
         undoStack = [];
+        redoStack = [];
         currentColor = null;
         currentPreset = null;
         applyDensityConstraints(null);
@@ -6047,7 +6068,7 @@
   function stashMainAppState(){
     return {
       img, imgNatW, imgNatH, lenses, activeSide, scaleMode, selectedVertex,
-      zoomLevel, panX, panY, currentColor, currentPreset, undoStack,
+      zoomLevel, panX, panY, currentColor, currentPreset, undoStack, redoStack,
       frameName, frameNameValue: frameNameInput.value
     };
   }
@@ -6056,8 +6077,9 @@
     activeSide = s.activeSide; scaleMode = s.scaleMode; selectedVertex = s.selectedVertex;
     zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
     currentColor = s.currentColor; currentPreset = s.currentPreset; undoStack = s.undoStack;
+    redoStack = s.redoStack;
     frameName = s.frameName; frameNameInput.value = s.frameNameValue;
-    updateUndoButton();
+    updateHistoryButtons();
     updateColorBadge();
     updateHintText();
     updateToggleVisibility();
@@ -6608,8 +6630,8 @@
     img = null; imgNatW = 0; imgNatH = 0; lenses = null;
     activeSide = null; scaleMode = true; selectedVertex = null;
     zoomLevel = 1; panX = 0; panY = 0;
-    currentColor = null; currentPreset = null; undoStack = [];
-    updateUndoButton();
+    currentColor = null; currentPreset = null; undoStack = []; redoStack = [];
+    updateHistoryButtons();
     const placeholder = document.createComment('stage-placeholder');
     stage.parentNode.insertBefore(placeholder, stage);
     traceStagePlaceholder = placeholder;
@@ -7278,6 +7300,7 @@
     img = null;
     lenses = null;
     undoStack = [];
+    redoStack = [];
     currentColor = null;
     currentPreset = null;
     applyDensityConstraints(null);
@@ -8918,28 +8941,48 @@
     const show = img && showStageToggles;
     handlesToggleWrap.style.display = show ? 'flex' : 'none';
     btnUndo.classList.toggle('show', show);
-    updateUndoButton();
+    btnRedo.classList.toggle('show', show);
+    // the delete-photo button is a primary action, not a decluttering
+    // toggle, so it stays tied to whether a photo is loaded at all rather
+    // than the showStageToggles setting the other two respect
+    btnDeletePhoto.classList.toggle('show', !!img);
+    updateHistoryButtons();
   }
 
   function pushUndoSnapshot(){
     if(!lenses) return;
     undoStack.push(JSON.parse(JSON.stringify(lenses)));
     if(undoStack.length > UNDO_MAX) undoStack.shift();
-    updateUndoButton();
+    // a fresh edit invalidates whatever was previously undone
+    redoStack = [];
+    updateHistoryButtons();
   }
 
-  function updateUndoButton(){
+  function updateHistoryButtons(){
     btnUndo.disabled = undoStack.length === 0;
+    btnRedo.disabled = redoStack.length === 0;
   }
 
   function undoLastChange(){
     if(!undoStack.length) return;
+    redoStack.push(JSON.parse(JSON.stringify(lenses)));
     lenses = undoStack.pop();
-    updateUndoButton();
+    updateHistoryButtons();
+    draw();
+  }
+
+  function redoLastChange(){
+    if(!redoStack.length) return;
+    undoStack.push(JSON.parse(JSON.stringify(lenses)));
+    if(undoStack.length > UNDO_MAX) undoStack.shift();
+    lenses = redoStack.pop();
+    updateHistoryButtons();
     draw();
   }
 
   btnUndo.addEventListener('click', undoLastChange);
+  btnRedo.addEventListener('click', redoLastChange);
+  btnDeletePhoto.addEventListener('click', showResetConfirm);
 
   function setSwitchOn(el, on){
     el.classList.toggle('on', on);
