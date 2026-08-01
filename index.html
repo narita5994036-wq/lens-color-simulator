@@ -8952,10 +8952,7 @@
     handlesToggleWrap.style.display = show ? 'flex' : 'none';
     btnUndo.classList.toggle('show', show);
     btnRedo.classList.toggle('show', show);
-    // the delete-photo button is a primary action, not a decluttering
-    // toggle, so it stays tied to whether a photo is loaded at all rather
-    // than the showStageToggles setting the other two respect
-    btnDeletePhoto.classList.toggle('show', !!img);
+    btnDeletePhoto.classList.toggle('show', show);
     updateHistoryButtons();
   }
 
