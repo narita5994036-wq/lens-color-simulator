@@ -250,18 +250,27 @@
     font-size:10px; letter-spacing:0.03em; color:var(--black);
   }
 
-  .stage-undo-btn{
-    position:absolute; top:16px; right:16px; z-index:6;
+  /* shared circular floating-button look, reused by the undo/redo pair
+     (top-right) and the delete-photo button (top-left) */
+  .stage-icon-btn{
     width:34px; height:34px; border-radius:50%;
     background:rgba(255,255,255,0.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     border:1px solid rgba(17,17,17,0.15);
     display:none; align-items:center; justify-content:center;
     color:var(--black); cursor:pointer; padding:0;
   }
-  .stage-undo-btn.show{display:flex;}
-  .stage-undo-btn svg{width:16px; height:16px;}
-  .stage-undo-btn:disabled{opacity:0.35; cursor:default;}
-  .stage-undo-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
+  .stage-icon-btn.show{display:flex;}
+  .stage-icon-btn svg{width:16px; height:16px;}
+  .stage-icon-btn:disabled{opacity:0.35; cursor:default;}
+  .stage-icon-btn:active:not(:disabled){background:rgba(17,17,17,0.08);}
+
+  .stage-history-group{
+    position:absolute; top:16px; right:16px; z-index:6;
+    display:flex; gap:8px;
+  }
+  .stage-delete-btn{
+    position:absolute; top:16px; left:16px; z-index:6;
+  }
 
   .vertex-nudge-pad{
     /* a floating d-pad for nudging a selected point one pixel at a time —
@@ -875,8 +884,8 @@
     .hint{font-size:12px;}
 
     .stage-toggle{font-size:12px; padding:8px 11px; gap:8px;}
-    .stage-undo-btn{width:40px; height:40px;}
-    .stage-undo-btn svg{width:18px; height:18px;}
+    .stage-icon-btn{width:40px; height:40px;}
+    .stage-icon-btn svg{width:18px; height:18px;}
     .stage-color-badge{font-size:13px; padding:9px 14px;}
     .stage-color-badge .dot{width:14px; height:14px;}
     .stage-color-badge .badge-menu-icon{width:16px; height:16px;}
@@ -958,9 +967,17 @@
       <div data-i18n="emptyState">タップして撮影してください</div>
       <span class="lib-link" id="libLink" data-i18n="chooseFromLibrary">写真から選択</span>
     </div>
-    <button class="stage-undo-btn" id="btnUndo" disabled aria-label="undo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
+    <button class="stage-icon-btn stage-delete-btn" id="btnDeletePhoto" aria-label="delete photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
     </button>
+    <div class="stage-history-group">
+      <button class="stage-icon-btn" id="btnUndo" disabled aria-label="undo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
+      </button>
+      <button class="stage-icon-btn" id="btnRedo" disabled aria-label="redo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg>
+      </button>
+    </div>
     <div class="stage-slider-row" style="display:none;">
       <span class="label" data-i18n="zoomLabel">ズーム</span>
       <input type="range" id="zoomSlider" min="100" max="400" value="100">
@@ -1415,7 +1432,7 @@
   const STORAGE_SHOW_TOGGLES = "mykita-lens-show-toggles-v1";
   const STORAGE_SHOW_BADGE   = "mykita-lens-show-badge-v1";
   const STORAGE_SHUTTER_SOUND = "mykita-lens-shutter-sound-v1";
-  const STORAGE_FRAME_SHAPES = "mykita-lens-frame-shapes-v3";
+  const STORAGE_FRAME_SHAPES = "mykita-lens-frame-shapes-v4";
 
   const FRAME_NAMES_RAW = "EKON, LAMIN, BELLIS_CUSTOMIZED, COLEMAN_CUSTOMIZED, BERTHOLD, ELLUM, BELLIS, HOPPER, LETO, SOTO, HEATH, KAMI_A, KAMI, AYAN, FARAH, ATINE, LAIS, SANG, JADA, NEALE, OCEANE, ELBERT, OLYMPE, TALINI, SESI, JULLA, NUKKA, TAIFA, MONDO, EERO, NIKEN, IMBA, EMMI, PEN, ISLA, LUCIA, ALBA, ARMSTRONG, YOTAM, CARSON, GERHARD, SKYLAR, OLLI, MAREN, SONU, MR006, MR001, MR002, MR003, LANA, MR005, TOMI_CUSTOMIZED, KAYO_CUSTOMIZED, YUCCA, DRIFT, PIO, BIJAN, ARVIN, RENO, NOOMI, LAVAND, KABAL, LILIA, ML19, JANO, CLOVER, BLUE, STUDIO12.1, BRAN, NURIA, DORSA, SELBY, ROSCOE, ARVEL, CHRISTA, MARAL, SENTA, PORTIA, HARRISON, FORT, DORIAN, RIBO, MAHSA, KIANA, TOSCA, SANTO, REMBERT, LOMAX, AITA, DELANCEY, NEVILLE, YUKON, HELICON, NIKEN_CUSTOMIZED, WATARU_CUSTOMIZED, YURA, GRUNT, RAT, SAGA, TRUMAN_CUSTOMIZED, STUDIO7.4_CUSTOMIZED, KAMI_CUSTOMIZED, WIM, JULES, CHIP, ML18, STUDIO15.2, STUDIO15.1, PANA, NANOOK, TUKTU, KEOMA, DESTA, TRULES, YOLA, PAULSON, KAIMAR, RHYS, HAMISH, REVA, LAVEN, INDIRA, BEAM, ASPEN, TEVEL, RAIDER, HAWI, NANNA, MOSHA, JASMI, GYLFI, AHTI, MIO, XANDER, THEODORE, GARTH, KIMBER, NYARA, KAIS, KIVA, SOMA, SERUM, TELMA, ASGER, LOVA, RAIM_CUSTOMIZED, PAL, SATU, KARSTEN_CUSTOMIZED, JULIAN, STANLEY, DESNA, LAHTI, HOLM, DELANO, WALLY, TUFF, KAL, NIAM, MABEL, SOLEA, EILISH, SINCLAIR, XANDER_CUSTOMIZED, SIWA_PLUS, FLEMMING, FIR, PHIL, LORENZO, HENNING, CORMAC, ROSEMARY, ROCKWELL, CLIVE, BUD, ALLEN, NAAMA, BADU, AMOS, ML16, BEAR, SAWYER, ML17, ML05, ANDERS, ML09, NEETU_CUSTOMIZED, MR004, PERRY, ALIN, EMBERS, ROWAN, CAT, LOOMIS, TESHI, TOTO, MARELLE, MEL, BIRCH, MAUREEN, SOLENE, AMARE, SANTERI, SIERRA, MAVON, WALKER, SAUL, LAIMI, INCHEON, DAKAR, ML15, ML13, SAMAR, SAGA_A, LEON, DADA, KELSEY, JUSTUS, DELFINA, COLTON, BORGA, ML11, ARTURO, TIWA, KENJA, JEPPE, HILLA, TAAVI, MATIS, SAIMA_A, HAWKING, 1 OF 0 SBP03 CHARCOAL, 1 OF 0 SBP02 GOLDEN OLIVE, 1 OF 0 SBP01 MATTE MAPLE LEAF, TEEMA, ML10, DALUR, DIA_CUSTOMIZED, BELLIS_CUSTOMIZED, DUSK_CUSTOMIZED, TARO_CUSTOMIZED, NIMA, LOME, UNA, PAVI, LEELAND, GIA, AVERY, ALISTER, LAURI, ISE, HALVAR, EDISON, CILIAN, JANAN, SUVI, SELVA, SALVADOR, REEVES, GETZ, GARLAND, CAVEN, CANTARA, PEARL, VAASA, JARA_CUSTOMIZED, WATERS, JOJO_A, COLEMAN, SOLO, KNUT, ALPINE, ML03, ARMIN, ALCOR, TULOK, ALYA, LAMIN_M, ELBA, STUDIO14.2, STUDIO13.1, JELVA, ELVE, KILENDA, MOJAVE, JEFFERSON, MARTIN, CYPRESS, STUDIO14.1, ELI, HOLLIS, KNOX, DAVU_A, TIWA_A, KIENE, MERVI, ARVO, STEEN, IDRIS, HOWLIN, BEACH, WILL, PARIS, STUDIO7.5, KYLAN, ARIELLE, JARI, MONROE, VANILLA, SURI, 032c SILK SCARF, 032c LEATHER TRAY, 032c KEY FOB, FERLO, HELMI, SATIN, SANTANA, NORFOLK, TOBI, NUKKA_A, SINDAL, MARFA, MOTT, STUDIO6.8, KENTON, JALO, ALDER, ML05_DEMO LENSES, LAVRA, VIOLA, RUE, BADU_PLUS, NIAM_PLUS, CAVEN_PLUS, NEVEN, SAIMA, ALICIA, RIKU, KOLDING, LAHTI_A, LERATO, LAGON, MEJA, SESI_A, DIA, ELISA, FINVID_CUSTOMIZED, AKI_CUSTOMIZED, ALESSIA, VELMA, SPRUCE, LENNON, MISAKO, JARA, CANNA, ARLO, SOUDA, BUENO, HANNO, NOR, TATE, ML08, ALCOTT, VISKA, VEN, LALE, SILVER, BADU_PULS, ALFONSO, SERAPHINA, NEELA, DUSK, DON, ML04_DEMO LENSES, KELLY, NAT, KENDALL, LAVRA_A, DAYO_PLUS, MERI, ANANA_A, SAMU, BORGA_A, MOMO, KAITO, PEGGY, IRIS, FELICIA, MINTTU, STUDIO12.2, NALA, MARLOWE, MAHA, NEW, KALLA, EETU, JES, AMKA_A, KISKA, WALT, STUDIO12.5, DEW, KAYO, RYKER, KAORI_CUSTOMIZED, KEOMA_A, EKON_A, LAYANA, MISTY, MIKKEL, HYDRA, KENDO, EITO_CUSTOMIZED, JONAH, JAZ, HOLM_A, PHILLYS, RAYMOND, SCHORSCH, ANIK_A, BERNIE, ANTTI_CUSTOMIZED, NAOKO_CUSTOMIZED, HITI_A, HIMIKO, ANGUS, CLARENCE, KETILL, ACHILLES, STINE, STUDIO13.2, FREDA_A, MAJVI, GIBA, JOLAN, STUDIO5.4, STUDIO5.3, HILDEGARD, SOEREN, THOMAS, AIDEN, LUPITA, ML12, ROLLINS, NESTOR, KIRIMA, TATA, MEGHAN, JORGOS, OLSEN_CUSTOMIZED, DENNIS, TUVA, BIKKI_A, GRIMBART, BOLDEWYN, BELLYN, SIWA, DAYO, TALINI_A, EDE, FARGO, CORINNA, CEDAR, SIRU, ANTTI, SHO, HEGON_A, LEVANTE, AURI, PALOMA, TALVI, KOLMAR, HEMLOCK, CHARLOTTE, SATORI, YASKA, KETILL_A, NIS, BRENDA, STUDIO7.1, RILEY, ML14, SILIA, VERUSCHKA, LEWIS, EITO, CLAAS_CUSTOMIZED, CALLUM, TOMI, HIRO, YUUTO, JONTE, GERO, ESBO, LUMI, ML07, HULDA, ANNIKA, TORBEN, BRODY, MAXIMILIAN, WAVE, ALMETA, ERRKI, MATTI, MERRICK, MMTRANSFER004, MMCRAFT005, MMCRAFT002, MMESSE019, TANNER, BASIL, MMTRANSFER003, AKEMI, ELLINGTON, ML01, MMCRAFT016, STUDIO2.2, STUDIO6.7, MMESSE020, WATARU, TRUMAN, KEELUT_A, KARI, MMRAW007, MMRAW013, KEELUT, COCO, MMRAW021, BUSTER, MMTRANSFER001, MMESSE001, MMESSE013, DEAN, STUDIO4.3, HOLLY, SANNA, JESPER, MMRAW018, AKI, MMCRAFT007, HANSEN, MMRAW011, HELGI, HALDUR_A, TOMOMI, GISELLE, MMCRAFT001, MMRAW020, LARSSON, MMCRAFT006, ML02, DAISUKE, MMRAW002, HESTA_A, MINAKO, RIN, NOBU, ULLA, VANESSA, STUDIO6.6, MMECHO005, MMESSE029, MMESSE028, MMCRAFT014, LISKA, BLU, MMCRAFT013, MMESSE002, HEGON_EU, JIRO, MMCRAFT010, KAUKO, HL002, HL001, STUDIO6.4, STUDIO6.2, JUJUBI_A, BILIMBI_A, BJELLE, MMCRAFT011, MMESSE026, NIBA_A, CLAUDE, DD2.3, RAOUL, NAOKO, GIGI SHADES, ALUKI, JANIS, KARSTEN, STUDIO7.2, ALIO_A_S, MMESSE021, OLGA, ADRIANO, AKSEL, DAGNY, TOMKIN_A, GIORGIO, TOMKIN Shades, MMESSE027, MMRAW017, HOPS, LOUIS, TUKTU_A, KAZU, MADELEINE, MASAO, BAMBI, BRADFIELD, SOLOMON, MMRAW014, HEIKO, PIT, GUNNAR, ROCKET, ISMO, PHILOMENE, QUENBY, KJELL, STUDIO11.1, GAPI, OTTI, BRANDUR_A, YOKO, DD2.2, BELLA, KIKI, REM, STUDIO6.3, ALICE, VABO, FEDOR, MMVIRTUAL001, NEA, ALEXANDER, NIVES, THUNDER, MMRAW005, HAY, DREW, WALSH, KASIMIR, GREGORY, URSULA, GISELLE_S, ALESSIA_S, KASIMIR_S, VITO_S, LENNARD_S, LOVISA, ARLUK_A, LENNARD, NITA, VITO, CLAAS, HIROTO, TAUNO, KAI, ESKID, MMESSE008, JAIS, SCARLETT_S, SEPP_S, BELLYN_S, TONA, OVE, HILLA_A, MAVERICK, MMRAW008, ANNABETH_S, KENDRICK_S, KYO_S, STUDIO9.1, STUDIO9.2, MMESSE016, LILLESOL, SYLVESTER, FEDERICO, LOTUS, CAYENNE, KEELUT Shades, REED, KARMA, JULLA_A, HOUSTON, NATHAN, FERN, STUDIO7.4, JUDE, ROB, TOCLO_A, DAGGOO, JULIUS, MMESSE006, STUDIO6.5, LUAVA_A, NUKKA Shades, MMRAW012, PALM, PRISCILLA, JOVI, MMRAW010, MMRAW009, MMCRAFT004, GINA, CARA, JORDI, APPLE, ADEBAR, GESA, LEMAS, MMESSE009, RYO, TRIBE, CASH, BOOST, HARU, MMCRAFT012, MMRAW016, MMRAW015, MMESSE025, MMESSE024, STUDIO10.2, STUDIO10.1, DALIA, SELLECK, CARLO, GUNDA, ELGARD, COLTRANE, CHARLENE, MERYL, LONNE, JUL, ERI, BEULAH, IVER, FINNA, ZACH_S, JIM_S, DASH_S, PHILOMENE_S, SCHORSCH_S, AGNES_S, SHIFT, JONES, RICCARDO, LANDON, CORALIE, DEMO LENSES, SOS, TRITON, HERKO, STUDIO8.2, STUDIO8.1, STUDIO7.3, STUDIO6.1, STUDIO5.5, STUDIO2.3, STUDIO2.1, STUDIO1.4, ARMIDA_S, LOVELL, MUSK, GUARD ONE / PLUS, GUARD ONE, RIDGE, BOOM, MMCIRCLE002, MMCIRCLE001, CANYON, PEAK, BOND, BLAZE, BALTA, MMECHO001, RIDER, OMEGA, YOSHY, POTI, MARS, CALLIOPE, TITAN, GAMMA, MATO_A, KALLIO_A, ONIKI_A, KENDA_A, MMRAW019, POK, YUMA_A, TORUK_A, LAGON_A, JOVVA_A, ELVE_A, LUAVA, AILO, FRANKLIN, FABIAN, CAPOTE, OKI, YUKA, OLIVE_S, MMDUAL003, GILES, SULLIVAN_S, ELDRIDGE_S, ANNABETH, MMDUAL004, MMDUAL004_S, MMDUAL002, MMDUAL001, GRANT, FABRICE, SIENNA, WARNER_S, ARMIDA, THOMPSON_S, KAYO_DAIKI TSUNETA, LENNARD_DAIKI TSUNETA, OLSEN, KAZUO, NUKKA shades, TALINI shades, TOMKIN shades, KEELUT shades, LEX shades, GIGI shades, FABIAN shades, ROMINA, STUDIO12.3, ML06, MMESSE030, FOCUS, DEEP, MMCRAFT017, JENSEN, SEIGO, DONOVAN, EMORY, TOTAL, SUPER, FELIX, RIKKE, TARO, YOSHI, KAORI, HL003, NETA, ZELDA, BAKER, PARK, DUANE, MMCRAFT015, TILLA, MAGDA, DALTON, DARCY, STUART, LIVA, LOTTA, GUNNARSON, LORENS, HAMPTON, ASMUND, IAN, CALEB, WILDER, WESTON, EASTON, AL, ZANE, LOST, CYNTHIA, RYOKO, YORIN, INGELS, YNGVE, SOY, JOEL, BASIE, VALDA, TURNER, PAULIN, DURAN, HAGEN, RAFFAELLA, LUND, TAPIO, SID, MMESSE007, MMESSE023, MMESSE022, MMCRAFT009, MMCRAFT008, PORTER, JETTE, FRANCESCO, MANUEL, MIRO, MONOGRAM, RAIDON, BJAKE, ANDERSSON, MMCRAFT003, SELINA, KITT, EARTHA E10, YUMI, KUMIKO, TAKEO, JUN, MIZUHO, NILSSON, HELKA, AGAVA, MMESSE018, MMESSE017, ERLING, JONI F69, JONI F10, METTE, ARTO, BIRK, JARMO, ANDO, MALTE, KENT, DD2.2 A25, VERBAL, EARTHA E25, WOODROW, BEVERLY, VERUCHKA, MMESSE010, VILDE, MACY, DUSTY F65, EARTHA E65, ISAAC, DEMI, SLOE, TORGE, AIRA, CELESTE, ENNIO, BRENT, ANYU, ENRICO, MMTRANS001, MMTRANS003, MMESSE011, MMESSE005, MMESSE012, FINVID, OWL, DAVIS, PERNILLA, ESBJOERN, WULF, PEACH, LUPINE, FLAX, VERUCHKA F10, ADEBAR_S, PETZ_S, PETZ, RANI, JOSEPPA, JUNIS, ERIN, VALTO, EJVIND, ELON, ELDER, CLOVE, MMTRANS002, DOUG, CROSBY, THELONIUS, EDDA, BENNY, ELLERY, SCHORSCH F65, JORG, RAGNAR, TIMOTHY, PEYTON, DD2.2 A6, DD2.2 A2, JOOST, FLIP, ROOPE, ZACH, ERWIN F65, MMESSE006_S, MMESSE005_S, MMESSE001_S, GERRIT, CARTER, MADITA, MMESSE003_S, URSULA_S, URSULA F61, ERLAND, LUELLA, BUGSY, ERWIN F61, ERWIN F25, ERWIN F10, ERWIN F9, PRISKA, RASMUS, PIA, EINAR, MAILA, SLY, NORA_S, TARJE, JOHN, YUKI_S, AKIRA_S, MAREIKE, JANIS F10, FRANZ F9, BECKY, TAULANT, BONNIE, RAFAEL, SMILLA, XAVER F10, FRANZ F25, JORDAN, BETTY, NIGEL, JESPER_S, JANIS F9, JAMES, COOPER";
 
@@ -4691,6 +4708,766 @@
     },
     "sourceAspect": 0.6666666666666666,
     "lensWidthMm": 52
+  },
+  "LOMAX": {
+    "left": {
+      "points": [
+        {
+          "x": 0.45704714640198507,
+          "y": 0.43163647642679903
+        },
+        {
+          "x": 0.42880084476550473,
+          "y": 0.5948205201611928
+        },
+        {
+          "x": 0.3499383936544971,
+          "y": 0.6304302032481414
+        },
+        {
+          "x": 0.2634994330314962,
+          "y": 0.6005029022951879
+        },
+        {
+          "x": 0.22975186104218362,
+          "y": 0.4430012406947891
+        },
+        {
+          "x": 0.2691818151654911,
+          "y": 0.390249881598115
+        },
+        {
+          "x": 0.3490818858560795,
+          "y": 0.3804950372208435
+        },
+        {
+          "x": 0.42311846263150976,
+          "y": 0.38740869053111743
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5768815373684902,
+          "y": 0.38740869053111743
+        },
+        {
+          "x": 0.6509181141439204,
+          "y": 0.3804950372208435
+        },
+        {
+          "x": 0.7308181848345089,
+          "y": 0.390249881598115
+        },
+        {
+          "x": 0.7702481389578164,
+          "y": 0.4430012406947891
+        },
+        {
+          "x": 0.7365005669685039,
+          "y": 0.6005029022951879
+        },
+        {
+          "x": 0.6500616063455029,
+          "y": 0.6304302032481414
+        },
+        {
+          "x": 0.5711991552344953,
+          "y": 0.5948205201611928
+        },
+        {
+          "x": 0.5429528535980149,
+          "y": 0.43163647642679903
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 48
+  },
+  "FORT": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4527832095933882,
+          "y": 0.44723525451855556
+        },
+        {
+          "x": 0.42189073941660676,
+          "y": 0.5913079405859464
+        },
+        {
+          "x": 0.34909631943689257,
+          "y": 0.6182546281438115
+        },
+        {
+          "x": 0.27272869846462255,
+          "y": 0.5913079405859464
+        },
+        {
+          "x": 0.2436228287841191,
+          "y": 0.4445553537741387
+        },
+        {
+          "x": 0.2798751004497343,
+          "y": 0.39427919376133874
+        },
+        {
+          "x": 0.34909631943689257,
+          "y": 0.386091811414392
+        },
+        {
+          "x": 0.41653093792777296,
+          "y": 0.39427919376133874
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5798958610796712,
+          "y": 0.39427919376133874
+        },
+        {
+          "x": 0.6473304795705516,
+          "y": 0.386091811414392
+        },
+        {
+          "x": 0.7165516985577098,
+          "y": 0.39427919376133874
+        },
+        {
+          "x": 0.752803970223325,
+          "y": 0.4445553537741387
+        },
+        {
+          "x": 0.7236981005428216,
+          "y": 0.5913079405859464
+        },
+        {
+          "x": 0.6473304795705516,
+          "y": 0.6182546281438115
+        },
+        {
+          "x": 0.5745360595908373,
+          "y": 0.5913079405859464
+        },
+        {
+          "x": 0.5436435894140559,
+          "y": 0.44723525451855556
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 48
+  },
+  "BUD": {
+    "left": {
+      "points": [
+        {
+          "x": 0.45710247853740626,
+          "y": 0.4419510734193831
+        },
+        {
+          "x": 0.42455445844601214,
+          "y": 0.588896504204036
+        },
+        {
+          "x": 0.34442799691965437,
+          "y": 0.6216068614789648
+        },
+        {
+          "x": 0.2549549679822131,
+          "y": 0.5917004744273611
+        },
+        {
+          "x": 0.22988420181968575,
+          "y": 0.4531669543126834
+        },
+        {
+          "x": 0.2568242814644298,
+          "y": 0.3931446004511073
+        },
+        {
+          "x": 0.340689369955221,
+          "y": 0.3800620347394542
+        },
+        {
+          "x": 0.42268514496379544,
+          "y": 0.3903406302277822
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5773148550362046,
+          "y": 0.3903406302277822
+        },
+        {
+          "x": 0.6593106300447791,
+          "y": 0.3800620347394542
+        },
+        {
+          "x": 0.7431757185355702,
+          "y": 0.3931446004511073
+        },
+        {
+          "x": 0.7701157981803143,
+          "y": 0.4531669543126834
+        },
+        {
+          "x": 0.7450450320177868,
+          "y": 0.5917004744273611
+        },
+        {
+          "x": 0.6555720030803456,
+          "y": 0.6216068614789648
+        },
+        {
+          "x": 0.5754455415539879,
+          "y": 0.588896504204036
+        },
+        {
+          "x": 0.5428975214625937,
+          "y": 0.4419510734193831
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 48
+  },
+  "CORMAC": {
+    "left": {
+      "points": [
+        {
+          "x": 0.44694234564114943,
+          "y": 0.5031597620176511
+        },
+        {
+          "x": 0.4182224077711046,
+          "y": 0.6070550884847886
+        },
+        {
+          "x": 0.34589879895787834,
+          "y": 0.6305006654745086
+        },
+        {
+          "x": 0.2753783332381177,
+          "y": 0.6043503738445901
+        },
+        {
+          "x": 0.24846153846153862,
+          "y": 0.5031597620176511
+        },
+        {
+          "x": 0.25734690230346086,
+          "y": 0.4046738648309107
+        },
+        {
+          "x": 0.34589879895787834,
+          "y": 0.3812282878411908
+        },
+        {
+          "x": 0.4416632679861585,
+          "y": 0.4046738648309106
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5547304458269101,
+          "y": 0.4046738648309106
+        },
+        {
+          "x": 0.6504949148551903,
+          "y": 0.3812282878411908
+        },
+        {
+          "x": 0.7390468115096078,
+          "y": 0.4046738648309107
+        },
+        {
+          "x": 0.74793217535153,
+          "y": 0.5031597620176511
+        },
+        {
+          "x": 0.7210153805749508,
+          "y": 0.6043503738445901
+        },
+        {
+          "x": 0.6504949148551903,
+          "y": 0.6305006654745086
+        },
+        {
+          "x": 0.578171306041964,
+          "y": 0.6070550884847886
+        },
+        {
+          "x": 0.5494513681719192,
+          "y": 0.5031597620176511
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 48
+  },
+  "JULES": {
+    "left": {
+      "points": [
+        {
+          "x": 0.44771604938271603,
+          "y": 0.4774744533530352
+        },
+        {
+          "x": 0.4202068952130575,
+          "y": 0.5890555208508447
+        },
+        {
+          "x": 0.35379392212725547,
+          "y": 0.63039555683014
+        },
+        {
+          "x": 0.2873809490414534,
+          "y": 0.5890555208508447
+        },
+        {
+          "x": 0.26158395368072784,
+          "y": 0.4774744533530352
+        },
+        {
+          "x": 0.2873809490414534,
+          "y": 0.3992804826294194
+        },
+        {
+          "x": 0.35379392212725547,
+          "y": 0.3733498759305211
+        },
+        {
+          "x": 0.41849473640412443,
+          "y": 0.3992804826294194
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.572092525796041,
+          "y": 0.3992804826294194
+        },
+        {
+          "x": 0.63679334007291,
+          "y": 0.3733498759305211
+        },
+        {
+          "x": 0.7032063131587121,
+          "y": 0.3992804826294194
+        },
+        {
+          "x": 0.7290033085194376,
+          "y": 0.4774744533530352
+        },
+        {
+          "x": 0.7032063131587121,
+          "y": 0.5890555208508447
+        },
+        {
+          "x": 0.63679334007291,
+          "y": 0.63039555683014
+        },
+        {
+          "x": 0.5703803669871079,
+          "y": 0.5890555208508447
+        },
+        {
+          "x": 0.5428712128174494,
+          "y": 0.4774744533530352
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 48
+  },
+  "LORENZO": {
+    "left": {
+      "points": [
+        {
+          "x": 0.46132529612809586,
+          "y": 0.4471427078863416
+        },
+        {
+          "x": 0.4247147706345807,
+          "y": 0.5915417146320081
+        },
+        {
+          "x": 0.3578690169639653,
+          "y": 0.6229330584525831
+        },
+        {
+          "x": 0.28766511606423495,
+          "y": 0.601616156319353
+        },
+        {
+          "x": 0.2560918114143922,
+          "y": 0.512626578854083
+        },
+        {
+          "x": 0.27255345353321747,
+          "y": 0.40600672843595953
+        },
+        {
+          "x": 0.3578690169639653,
+          "y": 0.3846898263027294
+        },
+        {
+          "x": 0.4398264331655981,
+          "y": 0.39593228674861464
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5576094642702993,
+          "y": 0.39593228674861464
+        },
+        {
+          "x": 0.6395668804719321,
+          "y": 0.3846898263027294
+        },
+        {
+          "x": 0.72488244390268,
+          "y": 0.40600672843595953
+        },
+        {
+          "x": 0.7413440860215053,
+          "y": 0.512626578854083
+        },
+        {
+          "x": 0.7097707813716625,
+          "y": 0.601616156319353
+        },
+        {
+          "x": 0.6395668804719321,
+          "y": 0.6229330584525831
+        },
+        {
+          "x": 0.5727211268013168,
+          "y": 0.5915417146320081
+        },
+        {
+          "x": 0.5361106013078016,
+          "y": 0.4471427078863416
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 55
+  },
+  "WALKER": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4563358147229116,
+          "y": 0.4430508684863524
+        },
+        {
+          "x": 0.42062191621683465,
+          "y": 0.5871532473510203
+        },
+        {
+          "x": 0.3552067824648471,
+          "y": 0.6222307692307694
+        },
+        {
+          "x": 0.2811481416822558,
+          "y": 0.5949324036785637
+        },
+        {
+          "x": 0.2566708023159636,
+          "y": 0.48065012406947893
+        },
+        {
+          "x": 0.2765508684863523,
+          "y": 0.41193424317617866
+        },
+        {
+          "x": 0.3612572373862697,
+          "y": 0.38859677419354843
+        },
+        {
+          "x": 0.4355913978494625,
+          "y": 0.3963759305210918
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5644086021505375,
+          "y": 0.3963759305210918
+        },
+        {
+          "x": 0.6387427626137303,
+          "y": 0.38859677419354843
+        },
+        {
+          "x": 0.7234491315136478,
+          "y": 0.41193424317617866
+        },
+        {
+          "x": 0.7433291976840364,
+          "y": 0.48065012406947893
+        },
+        {
+          "x": 0.7188518583177441,
+          "y": 0.5949324036785637
+        },
+        {
+          "x": 0.644793217535153,
+          "y": 0.6222307692307694
+        },
+        {
+          "x": 0.5793780837831654,
+          "y": 0.5871532473510203
+        },
+        {
+          "x": 0.5436641852770884,
+          "y": 0.4430508684863524
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 56
+  },
+  "RIBO": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4444789081885854,
+          "y": 0.47330024813895794
+        },
+        {
+          "x": 0.41040722409608477,
+          "y": 0.590863358741605
+        },
+        {
+          "x": 0.3484491315136476,
+          "y": 0.6296153846153849
+        },
+        {
+          "x": 0.2829343805358423,
+          "y": 0.590863358741605
+        },
+        {
+          "x": 0.25419768403639376,
+          "y": 0.46796526054590587
+        },
+        {
+          "x": 0.2882693681288945,
+          "y": 0.39308205068767565
+        },
+        {
+          "x": 0.3484491315136476,
+          "y": 0.375669975186104
+        },
+        {
+          "x": 0.41040722409608477,
+          "y": 0.3904145568911496
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5834720149444448,
+          "y": 0.3904145568911496
+        },
+        {
+          "x": 0.645430107526882,
+          "y": 0.375669975186104
+        },
+        {
+          "x": 0.7056098709116351,
+          "y": 0.39308205068767565
+        },
+        {
+          "x": 0.7396815550041358,
+          "y": 0.46796526054590587
+        },
+        {
+          "x": 0.7109448585046872,
+          "y": 0.590863358741605
+        },
+        {
+          "x": 0.645430107526882,
+          "y": 0.6296153846153849
+        },
+        {
+          "x": 0.5834720149444448,
+          "y": 0.590863358741605
+        },
+        {
+          "x": 0.5494003308519442,
+          "y": 0.47330024813895794
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 47
+  },
+  "BRAN": {
+    "left": {
+      "points": [
+        {
+          "x": 0.44906801192315493,
+          "y": 0.4440477650742741
+        },
+        {
+          "x": 0.41745087909619444,
+          "y": 0.5928862873523384
+        },
+        {
+          "x": 0.34219116063486116,
+          "y": 0.6187779122825435
+        },
+        {
+          "x": 0.26327552819503325,
+          "y": 0.5928862873523384
+        },
+        {
+          "x": 0.23897022332506201,
+          "y": 0.455015507009758
+        },
+        {
+          "x": 0.26510348518428056,
+          "y": 0.3994027911833066
+        },
+        {
+          "x": 0.34219116063486116,
+          "y": 0.38447890818858566
+        },
+        {
+          "x": 0.41745087909619444,
+          "y": 0.3939189202155647
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5741454815324241,
+          "y": 0.3939189202155647
+        },
+        {
+          "x": 0.6494051999937573,
+          "y": 0.38447890818858566
+        },
+        {
+          "x": 0.726492875444338,
+          "y": 0.3994027911833066
+        },
+        {
+          "x": 0.7526261373035565,
+          "y": 0.455015507009758
+        },
+        {
+          "x": 0.7283208324335853,
+          "y": 0.5928862873523384
+        },
+        {
+          "x": 0.6494051999937573,
+          "y": 0.6187779122825435
+        },
+        {
+          "x": 0.5741454815324241,
+          "y": 0.5928862873523384
+        },
+        {
+          "x": 0.5425283487054636,
+          "y": 0.4440477650742741
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 52
+  },
+  "FIR": {
+    "left": {
+      "points": [
+        {
+          "x": 0.4521091811414391,
+          "y": 0.4587406947890813
+        },
+        {
+          "x": 0.4266749379652605,
+          "y": 0.5808250620347395
+        },
+        {
+          "x": 0.3656429688979242,
+          "y": 0.6114128860808177
+        },
+        {
+          "x": 0.29479296817051204,
+          "y": 0.5842919762952495
+        },
+        {
+          "x": 0.2723738626964433,
+          "y": 0.4638275434243171
+        },
+        {
+          "x": 0.29479296817051204,
+          "y": 0.4042176839791166
+        },
+        {
+          "x": 0.36733858510966944,
+          "y": 0.38727047146402005
+        },
+        {
+          "x": 0.4263192723548648,
+          "y": 0.4016742596614987
+        }
+      ]
+    },
+    "right": {
+      "points": [
+        {
+          "x": 0.5728535977857471,
+          "y": 0.4016742596614987
+        },
+        {
+          "x": 0.6318342850309424,
+          "y": 0.38727047146402005
+        },
+        {
+          "x": 0.7043799019700998,
+          "y": 0.4042176839791166
+        },
+        {
+          "x": 0.7267990074441686,
+          "y": 0.4638275434243171
+        },
+        {
+          "x": 0.7043799019700998,
+          "y": 0.5842919762952495
+        },
+        {
+          "x": 0.6335299012426876,
+          "y": 0.6114128860808177
+        },
+        {
+          "x": 0.5724979321753514,
+          "y": 0.5808250620347395
+        },
+        {
+          "x": 0.5470636889991727,
+          "y": 0.4587406947890813
+        }
+      ]
+    },
+    "sourceAspect": 0.6666666666666666,
+    "lensWidthMm": 47
   }
 };
   let frameShapes = loadJSON(STORAGE_FRAME_SHAPES, DEFAULT_FRAME_SHAPES);
@@ -4733,6 +5510,7 @@
   let scaleDragData = null;  // snapshot captured when a scale-drag starts
   let rotateDragData = null; // snapshot captured when a rotate-drag starts (see the antenna handle in scale mode)
   let undoStack = [];        // up to UNDO_MAX past snapshots of `lenses`, for the lens-point undo button
+  let redoStack = [];        // snapshots popped off undoStack by undo, for the redo button; cleared on any new edit
   const UNDO_MAX = 20;
   let lastTap = {time:0, x:0, y:0, side:null, count:0};
   const DOUBLE_TAP_MS = 350;
@@ -4929,6 +5707,8 @@
   const btnSidebarResetImage = document.getElementById('btnSidebarResetImage');
   const handlesToggleWrap = document.getElementById('handlesToggleWrap');
   const btnUndo = document.getElementById('btnUndo');
+  const btnRedo = document.getElementById('btnRedo');
+  const btnDeletePhoto = document.getElementById('btnDeletePhoto');
   const vertexNudgePad = document.getElementById('vertexNudgePad');
   const stageBottomBar = document.getElementById('stageBottomBar');
   const historyBlock = document.getElementById('historyBlock');
@@ -5018,6 +5798,7 @@
         activeSide = null;
         selectedVertex = null;
         undoStack = [];
+        redoStack = [];
         currentColor = null;
         currentPreset = null;
         applyDensityConstraints(null);
@@ -5287,7 +6068,7 @@
   function stashMainAppState(){
     return {
       img, imgNatW, imgNatH, lenses, activeSide, scaleMode, selectedVertex,
-      zoomLevel, panX, panY, currentColor, currentPreset, undoStack,
+      zoomLevel, panX, panY, currentColor, currentPreset, undoStack, redoStack,
       frameName, frameNameValue: frameNameInput.value
     };
   }
@@ -5296,8 +6077,9 @@
     activeSide = s.activeSide; scaleMode = s.scaleMode; selectedVertex = s.selectedVertex;
     zoomLevel = s.zoomLevel; panX = s.panX; panY = s.panY;
     currentColor = s.currentColor; currentPreset = s.currentPreset; undoStack = s.undoStack;
+    redoStack = s.redoStack;
     frameName = s.frameName; frameNameInput.value = s.frameNameValue;
-    updateUndoButton();
+    updateHistoryButtons();
     updateColorBadge();
     updateHintText();
     updateToggleVisibility();
@@ -5848,8 +6630,8 @@
     img = null; imgNatW = 0; imgNatH = 0; lenses = null;
     activeSide = null; scaleMode = true; selectedVertex = null;
     zoomLevel = 1; panX = 0; panY = 0;
-    currentColor = null; currentPreset = null; undoStack = [];
-    updateUndoButton();
+    currentColor = null; currentPreset = null; undoStack = []; redoStack = [];
+    updateHistoryButtons();
     const placeholder = document.createComment('stage-placeholder');
     stage.parentNode.insertBefore(placeholder, stage);
     traceStagePlaceholder = placeholder;
@@ -6518,6 +7300,7 @@
     img = null;
     lenses = null;
     undoStack = [];
+    redoStack = [];
     currentColor = null;
     currentPreset = null;
     applyDensityConstraints(null);
@@ -8158,28 +8941,48 @@
     const show = img && showStageToggles;
     handlesToggleWrap.style.display = show ? 'flex' : 'none';
     btnUndo.classList.toggle('show', show);
-    updateUndoButton();
+    btnRedo.classList.toggle('show', show);
+    // the delete-photo button is a primary action, not a decluttering
+    // toggle, so it stays tied to whether a photo is loaded at all rather
+    // than the showStageToggles setting the other two respect
+    btnDeletePhoto.classList.toggle('show', !!img);
+    updateHistoryButtons();
   }
 
   function pushUndoSnapshot(){
     if(!lenses) return;
     undoStack.push(JSON.parse(JSON.stringify(lenses)));
     if(undoStack.length > UNDO_MAX) undoStack.shift();
-    updateUndoButton();
+    // a fresh edit invalidates whatever was previously undone
+    redoStack = [];
+    updateHistoryButtons();
   }
 
-  function updateUndoButton(){
+  function updateHistoryButtons(){
     btnUndo.disabled = undoStack.length === 0;
+    btnRedo.disabled = redoStack.length === 0;
   }
 
   function undoLastChange(){
     if(!undoStack.length) return;
+    redoStack.push(JSON.parse(JSON.stringify(lenses)));
     lenses = undoStack.pop();
-    updateUndoButton();
+    updateHistoryButtons();
+    draw();
+  }
+
+  function redoLastChange(){
+    if(!redoStack.length) return;
+    undoStack.push(JSON.parse(JSON.stringify(lenses)));
+    if(undoStack.length > UNDO_MAX) undoStack.shift();
+    lenses = redoStack.pop();
+    updateHistoryButtons();
     draw();
   }
 
   btnUndo.addEventListener('click', undoLastChange);
+  btnRedo.addEventListener('click', redoLastChange);
+  btnDeletePhoto.addEventListener('click', showResetConfirm);
 
   function setSwitchOn(el, on){
     el.classList.toggle('on', on);
