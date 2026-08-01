@@ -634,11 +634,8 @@
   .lens-blank-backdrop{
     position:absolute; width:210px; height:210px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    overflow:hidden; background:#f4d3b3; transition:background .15s ease;
+    overflow:hidden; background:transparent; transition:background .15s ease;
   }
-  /* skin tone reads as a card/paper swatch the round lens sits on (like the
-     physical sample cards it's modelled on), rather than a second disc */
-  .lens-blank-backdrop.square{border-radius:16px;}
   .lens-blank-backdrop .backdrop-letter{
     font-family:inherit; font-weight:700; font-size:64px; line-height:1; color:#161616;
   }
@@ -674,11 +671,6 @@
     pointer-events:none;
   }
 
-  .skin-tone-row{display:flex; gap:10px; justify-content:center; margin:12px 0 20px;}
-  .skin-tone-swatch{
-    width:30px; height:30px; border-radius:50%; border:1px solid var(--gray-line); cursor:pointer; padding:0;
-  }
-  .skin-tone-swatch.active{border:2px solid var(--black);}
 
   /* ---- modal ---- */
   .overlay{
@@ -1494,17 +1486,6 @@
       <div class="lens-blank-preview" id="customColorPreview"></div>
     </div>
 
-    <div class="compare-row">
-      <span data-i18n="backdropSkinLabel">肌色背景</span>
-      <div class="switch on" id="backdropSkinToggle"><div class="knob"></div></div>
-    </div>
-    <div class="skin-tone-row" id="skinToneRow">
-      <button type="button" class="skin-tone-swatch active" data-tone="0" aria-label="skin tone 1"></button>
-      <button type="button" class="skin-tone-swatch" data-tone="1" aria-label="skin tone 2"></button>
-      <button type="button" class="skin-tone-swatch" data-tone="2" aria-label="skin tone 3"></button>
-      <button type="button" class="skin-tone-swatch" data-tone="3" aria-label="skin tone 4"></button>
-      <button type="button" class="skin-tone-swatch" data-tone="4" aria-label="skin tone 5"></button>
-    </div>
     <div class="compare-row" style="margin-bottom:20px;">
       <span data-i18n="backdropTextLabel">文字透過</span>
       <div class="switch" id="backdropTextToggle"><div class="knob"></div></div>
@@ -1691,7 +1672,6 @@
       openCustomColorBtn:"カスタムカラーを作成",
       customColorsEmpty:"まだカスタムカラーがありません",
       customColorTitle:"カスタムカラー",
-      backdropSkinLabel:"肌色背景",
       backdropTextLabel:"文字透過",
       customColorRefLabel:"参考カラーを選択",
       customColorHexLabel:"色味を調整",
@@ -1819,7 +1799,6 @@
       openCustomColorBtn:"Create Custom Colour",
       customColorsEmpty:"No custom colours yet",
       customColorTitle:"Custom Colour",
-      backdropSkinLabel:"Skin Tone Background",
       backdropTextLabel:"Text See-Through",
       customColorRefLabel:"Choose a Reference Colour",
       customColorHexLabel:"Adjust the Tone",
@@ -5775,10 +5754,7 @@
   const btnCustomColorClose = document.getElementById('btnCustomColorClose');
   const customColorPreview = document.getElementById('customColorPreview');
   const customColorBackdrop = document.getElementById('customColorBackdrop');
-  const backdropSkinToggle = document.getElementById('backdropSkinToggle');
   const backdropTextToggle = document.getElementById('backdropTextToggle');
-  const skinToneRow = document.getElementById('skinToneRow');
-  const skinToneButtons = Array.from(document.querySelectorAll('.skin-tone-swatch'));
   const customColorRefRow = document.getElementById('customColorRefRow');
   const customColorHexInput = document.getElementById('customColorHexInput');
   const customColorHexValueText = document.getElementById('customColorHexValueText');
@@ -8948,21 +8924,16 @@
   let customColorHex = '#a69571';
   let customColorGradient = false;
   let customColorDensity = 50;
-  let customColorSkinOn = true;
   let customColorTextOn = false;
-  let customColorSkinTone = 0;
-  // lighter/warmer overall than a first pass — the target audience's skin
-  // tones sit mostly in this fair-to-medium, yellow-undertone range
-  const CUSTOM_COLOR_SKIN_TONES = ['#fce4d0', '#f5d5b8', '#edc29c', '#e0ac82', '#cf9468'];
 
   function updateCustomColorPreview(){
     // genuine alpha transparency (not a mix-with-white approximation) so
-    // whichever backdrop is selected below actually shows through the
-    // lens, tinted by its colour — density controls how much. Reaches
-    // fully opaque at the slider's own max (90%): a 90%-density tint should
-    // hide almost everything behind it, not just fade it a bit
+    // the 文字透過 letter actually shows through the lens, tinted by its
+    // colour — density controls how much. Capped just short of fully
+    // opaque even at the slider's own max (90%): a 90%-density tint should
+    // hide almost everything behind it, not literally all of it
     const {r,g,b} = hexToRgb(customColorHex);
-    const topAlpha = Math.min(1, 0.1 + customColorDensity/100);
+    const topAlpha = Math.min(0.95, 0.05 + customColorDensity/100);
     const topColor = `rgba(${r},${g},${b},${topAlpha.toFixed(2)})`;
     if(customColorGradient){
       const bottomAlpha = topAlpha * GRADIENT_FADE_RATIO;
@@ -8980,32 +8951,13 @@
   }
 
   function updateCustomColorBackdrop(){
-    // skin and text are independent now — either, both, or neither can be
-    // on, so the black letter can be checked against a skin tone instead of
-    // only ever a plain neutral card
-    customColorBackdrop.classList.toggle('square', customColorSkinOn);
-    customColorBackdrop.style.background = customColorSkinOn ? CUSTOM_COLOR_SKIN_TONES[customColorSkinTone] : 'transparent';
     customColorBackdrop.innerHTML = customColorTextOn ? '<span class="backdrop-letter">A</span>' : '';
-    skinToneRow.style.display = customColorSkinOn ? 'flex' : 'none';
   }
 
-  backdropSkinToggle.addEventListener('click', ()=>{
-    customColorSkinOn = !customColorSkinOn;
-    setSwitchOn(backdropSkinToggle, customColorSkinOn);
-    updateCustomColorBackdrop();
-  });
   backdropTextToggle.addEventListener('click', ()=>{
     customColorTextOn = !customColorTextOn;
     setSwitchOn(backdropTextToggle, customColorTextOn);
     updateCustomColorBackdrop();
-  });
-  skinToneButtons.forEach((btn,i)=>{
-    btn.style.background = CUSTOM_COLOR_SKIN_TONES[i];
-    btn.addEventListener('click', ()=>{
-      customColorSkinTone = i;
-      skinToneButtons.forEach(b=> b.classList.toggle('active', b===btn));
-      updateCustomColorBackdrop();
-    });
   });
 
   function setCustomColorHex(hex){
@@ -9032,12 +8984,8 @@
     customColorDensitySlider.value = 50;
     customColorDensityValue.textContent = '50%';
     setSwitchOn(customColorGradientToggle, false);
-    customColorSkinOn = true;
     customColorTextOn = false;
-    customColorSkinTone = 0;
-    setSwitchOn(backdropSkinToggle, true);
     setSwitchOn(backdropTextToggle, false);
-    skinToneButtons.forEach((b,i)=> b.classList.toggle('active', i===0));
     updateCustomColorBackdrop();
     renderCustomColorRefRow();
     setCustomColorHex(presets.length ? presets[0].hex : '#a69571');
