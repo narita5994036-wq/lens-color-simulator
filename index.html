@@ -644,11 +644,16 @@
   }
   .lens-blank-preview{
     width:180px; height:180px; border-radius:50%; position:relative;
+    /* how strongly the reflections/highlights below show — set inline from
+       JS, inversely tied to density, so a denser tint reads as the lens
+       itself going more opaque/matte rather than just its own colour
+       staying exactly as glossy while whatever's behind it fades out */
+    --gloss: 1;
     /* lighter inset shading than a first pass had — a heavy dark rim read
        as solid coloured plastic rather than a translucent lens tint */
     box-shadow:
       inset -10px -10px 24px rgba(0,0,0,0.14),
-      inset 10px 10px 22px rgba(255,255,255,0.4),
+      inset 10px 10px 22px rgba(255,255,255,calc(0.22 * var(--gloss))),
       0 10px 26px rgba(0,0,0,0.14);
   }
   /* a soft highlight wash near one corner, on top of whatever backdrop is
@@ -657,13 +662,13 @@
   .lens-blank-preview::before{
     content:'';
     position:absolute; inset:0; border-radius:50%;
-    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), rgba(255,255,255,0.05) 55%, rgba(255,255,255,0) 78%);
+    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,calc(0.2 * var(--gloss))), rgba(255,255,255,calc(0.03 * var(--gloss))) 55%, rgba(255,255,255,0) 78%);
     pointer-events:none;
   }
   .lens-blank-preview::after{
     content:'';
     position:absolute; top:14%; left:16%; width:38%; height:24%;
-    background:radial-gradient(ellipse at center, rgba(255,255,255,0.75), rgba(255,255,255,0) 72%);
+    background:radial-gradient(ellipse at center, rgba(255,255,255,calc(0.45 * var(--gloss))), rgba(255,255,255,0) 72%);
     border-radius:50%;
     transform:rotate(-28deg);
     pointer-events:none;
@@ -1501,7 +1506,7 @@
       <button type="button" class="skin-tone-swatch" data-tone="4" aria-label="skin tone 5"></button>
     </div>
     <div class="compare-row" style="margin-bottom:20px;">
-      <span data-i18n="backdropTextLabel">黒文字を表示</span>
+      <span data-i18n="backdropTextLabel">文字透過</span>
       <div class="switch" id="backdropTextToggle"><div class="knob"></div></div>
     </div>
 
@@ -1687,7 +1692,7 @@
       customColorsEmpty:"まだカスタムカラーがありません",
       customColorTitle:"カスタムカラー",
       backdropSkinLabel:"肌色背景",
-      backdropTextLabel:"黒文字を表示",
+      backdropTextLabel:"文字透過",
       customColorRefLabel:"参考カラーを選択",
       customColorHexLabel:"色味を調整",
       customColorGradientLabel:"グラデーションにする",
@@ -1815,7 +1820,7 @@
       customColorsEmpty:"No custom colours yet",
       customColorTitle:"Custom Colour",
       backdropSkinLabel:"Skin Tone Background",
-      backdropTextLabel:"Show Black Text",
+      backdropTextLabel:"Text See-Through",
       customColorRefLabel:"Choose a Reference Colour",
       customColorHexLabel:"Adjust the Tone",
       customColorGradientLabel:"Make it a Gradient",
@@ -8966,6 +8971,12 @@
     } else {
       customColorPreview.style.background = topColor;
     }
+    // fading the glossy highlight out as density climbs reads as the LENS
+    // itself going more opaque/matte — without this the highlight stays
+    // just as bright regardless, which instead makes whatever's behind it
+    // look like it's simply fading away on its own
+    const gloss = Math.max(0, 1 - (customColorDensity - 10) / 80);
+    customColorPreview.style.setProperty('--gloss', gloss.toFixed(2));
   }
 
   function updateCustomColorBackdrop(){
