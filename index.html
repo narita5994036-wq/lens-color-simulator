@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MYKITA OSAKA | Lens Colour Simulator</title>
 
+<!-- a standalone home-screen PWA has no reload/refresh gesture of its own,
+     so it depends entirely on ordinary HTTP caching to notice new deploys —
+     these ask the browser to always revalidate rather than serve a stale
+     copy. Not a guarantee on every platform/host, but the only lever
+     available from the HTML itself on static hosting (e.g. GitHub Pages)
+     that can't set real Cache-Control response headers -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <!-- PWA: lets "Add to Home Screen" launch this as a standalone app
      (no browser chrome) instead of just bookmarking it as a regular tab -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -1425,7 +1435,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v15";
+  const STORAGE_PRESETS = "mykita-lens-presets-v17";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1445,6 +1455,17 @@
   // (see currentDensityContinuous)
   const PHOTOCHROMIC_DENSITY_RANGE = [10,65];
   const DEFAULT_PRESETS = [
+    // ---- MYKITA original colours — density is fixed (a single-value
+    // densitySteps locks the slider, same as the twin colours below), but
+    // each has a separate gradient variant the user can pick instead ----
+    {id:"sfbr", name:"ソフトブラウン", nameEn:"Soft Brown", hex:"#a69571", group:"mykita", densitySteps:[50]},
+    {id:"yelw", name:"イエロー",       nameEn:"Yellow",     hex:"#e3b73c", group:"mykita", densitySteps:[50]},
+    {id:"sfgr", name:"ソフトグリーン", nameEn:"Soft Green", hex:"#88bfb5", group:"mykita", densitySteps:[50]},
+
+    {id:"sfbr_g", name:"ソフトブラウン（グラデーション）", nameEn:"Soft Brown (Gradient)", hex:"#a69571", group:"mykita_gradient", gradient:true, densitySteps:[50]},
+    {id:"yelw_g", name:"イエロー（グラデーション）",       nameEn:"Yellow (Gradient)",     hex:"#e3b73c", group:"mykita_gradient", gradient:true, densitySteps:[50]},
+    {id:"sfgr_g", name:"ソフトグリーン（グラデーション）", nameEn:"Soft Green (Gradient)", hex:"#88bfb5", group:"mykita_gradient", gradient:true, densitySteps:[50]},
+
     {id:"faoc", name:"フェアオークル",       nameEn:"Fair Ochre",      hex:"#c9a067", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"fabr", name:"フェアブラウン",       nameEn:"Fair Brown",      hex:"#7a4a2e", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"famn", name:"フェアマロン",         nameEn:"Fair Maroon",     hex:"#5c3025", group:"arriate", densitySteps:[10,15,25,35,50]},
@@ -1539,6 +1560,8 @@
       historyHeader:"最近使用したカラー",
       historyEmpty:"まだ使用履歴がありません",
       groupStandard:"スタンダード",
+      groupMykita:"MYKITAオリジナル",
+      groupMykitaGradient:"MYKITAオリジナル(グラデーション)",
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
       groupPhotochromic:"ZEISS 調光",
@@ -1658,6 +1681,8 @@
       historyHeader:"Recently Used",
       historyEmpty:"No colours used yet",
       groupStandard:"Standard",
+      groupMykita:"MYKITA Original",
+      groupMykitaGradient:"MYKITA Original (Gradient)",
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
       groupPhotochromic:"ZEISS Photochromic",
@@ -8703,6 +8728,8 @@
     renderNoColorOption();
     presetGroups.innerHTML = '';
     const groupOrder = [
+      {key:'mykita', labelKey:'groupMykita'},
+      {key:'mykita_gradient', labelKey:'groupMykitaGradient'},
       {key:'arriate', labelKey:'groupArriate'},
       {key:'gradient', labelKey:'groupGradient'},
       {key:'photochromic', labelKey:'groupPhotochromic'}
@@ -8942,10 +8969,7 @@
     handlesToggleWrap.style.display = show ? 'flex' : 'none';
     btnUndo.classList.toggle('show', show);
     btnRedo.classList.toggle('show', show);
-    // the delete-photo button is a primary action, not a decluttering
-    // toggle, so it stays tied to whether a photo is loaded at all rather
-    // than the showStageToggles setting the other two respect
-    btnDeletePhoto.classList.toggle('show', !!img);
+    btnDeletePhoto.classList.toggle('show', show);
     updateHistoryButtons();
   }
 
