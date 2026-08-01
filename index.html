@@ -623,34 +623,63 @@
   /* the custom-colour screen's live preview — a round, uncut lens blank
      (like the physical sample discs it's modelled on) rather than the
      swatch circles used everywhere else, with a fake glassy highlight so it
-     reads as a 3D lens instead of a flat coloured dot */
-  .lens-blank-wrap{display:flex; justify-content:center; margin:4px 0 26px;}
+     reads as a 3D lens instead of a flat coloured dot. Its fill is genuine
+     rgba alpha (not a flat colour), so whatever backdrop is chosen below
+     shows through it — that's also what lets the backdrop feature work at
+     all, not just a translucency touch-up */
+  .lens-blank-wrap{
+    display:flex; align-items:center; justify-content:center; position:relative;
+    height:220px; margin:4px 0 18px;
+  }
+  .lens-blank-backdrop{
+    position:absolute; width:210px; height:210px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; background:#f4d3b3; transition:background .15s ease;
+  }
+  /* skin tone reads as a card/paper swatch the round lens sits on (like the
+     physical sample cards it's modelled on), rather than a second disc */
+  .lens-blank-backdrop.square{border-radius:16px;}
+  .lens-blank-backdrop .backdrop-letter{
+    font-family:inherit; font-weight:700; font-size:64px; line-height:1; color:#161616;
+  }
   .lens-blank-preview{
     width:180px; height:180px; border-radius:50%; position:relative;
     /* lighter inset shading than a first pass had — a heavy dark rim read
        as solid coloured plastic rather than a translucent lens tint */
     box-shadow:
       inset -10px -10px 24px rgba(0,0,0,0.14),
-      inset 10px 10px 22px rgba(255,255,255,0.55),
+      inset 10px 10px 22px rgba(255,255,255,0.4),
       0 10px 26px rgba(0,0,0,0.14);
   }
-  /* overall glassy wash — fades the fill toward white from the same corner
-     as the highlight below, so the disc reads as something light passes
-     through rather than a flat, fully opaque colour */
+  /* a soft highlight wash near one corner, on top of whatever backdrop is
+     showing through the fill beneath it — kept faint so it still reads as
+     a glass reflection rather than papering over the backdrop */
   .lens-blank-preview::before{
     content:'';
     position:absolute; inset:0; border-radius:50%;
-    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0.08) 55%, rgba(255,255,255,0) 78%);
+    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), rgba(255,255,255,0.05) 55%, rgba(255,255,255,0) 78%);
     pointer-events:none;
   }
   .lens-blank-preview::after{
     content:'';
     position:absolute; top:14%; left:16%; width:38%; height:24%;
-    background:radial-gradient(ellipse at center, rgba(255,255,255,0.85), rgba(255,255,255,0) 72%);
+    background:radial-gradient(ellipse at center, rgba(255,255,255,0.75), rgba(255,255,255,0) 72%);
     border-radius:50%;
     transform:rotate(-28deg);
     pointer-events:none;
   }
+
+  .backdrop-select-row{display:flex; gap:8px; margin-bottom:14px;}
+  .backdrop-btn{
+    flex:1; padding:9px 6px; font-family:inherit; font-size:11px; letter-spacing:0.03em;
+    background:var(--white); color:var(--black); border:1px solid var(--gray-line); cursor:pointer;
+  }
+  .backdrop-btn.active{background:var(--black); color:var(--white); border-color:var(--black);}
+  .skin-tone-row{display:flex; gap:10px; justify-content:center; margin-bottom:26px;}
+  .skin-tone-swatch{
+    width:30px; height:30px; border-radius:50%; border:1px solid var(--gray-line); cursor:pointer; padding:0;
+  }
+  .skin-tone-swatch.active{border:2px solid var(--black);}
 
   /* ---- modal ---- */
   .overlay{
@@ -1462,7 +1491,20 @@
   </div>
   <div class="trace-panel" style="flex:1;">
     <div class="lens-blank-wrap">
+      <div class="lens-blank-backdrop" id="customColorBackdrop"></div>
       <div class="lens-blank-preview" id="customColorPreview"></div>
+    </div>
+
+    <div class="backdrop-select-row" id="backdropSelectRow">
+      <button type="button" class="backdrop-btn active" data-backdrop="skin" data-i18n="backdropSkinLabel">肌色</button>
+      <button type="button" class="backdrop-btn" data-backdrop="text" data-i18n="backdropTextLabel">黒文字</button>
+    </div>
+    <div class="skin-tone-row" id="skinToneRow">
+      <button type="button" class="skin-tone-swatch active" data-tone="0" aria-label="skin tone 1"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="1" aria-label="skin tone 2"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="2" aria-label="skin tone 3"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="3" aria-label="skin tone 4"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="4" aria-label="skin tone 5"></button>
     </div>
 
     <div class="group-label" data-i18n="customColorRefLabel">参考カラーを選択</div>
@@ -1646,6 +1688,8 @@
       openCustomColorBtn:"カスタムカラーを作成",
       customColorsEmpty:"まだカスタムカラーがありません",
       customColorTitle:"カスタムカラー",
+      backdropSkinLabel:"肌色",
+      backdropTextLabel:"黒文字",
       customColorRefLabel:"参考カラーを選択",
       customColorHexLabel:"色味を調整",
       customColorGradientLabel:"グラデーションにする",
@@ -1772,6 +1816,8 @@
       openCustomColorBtn:"Create Custom Colour",
       customColorsEmpty:"No custom colours yet",
       customColorTitle:"Custom Colour",
+      backdropSkinLabel:"Skin Tone",
+      backdropTextLabel:"Black Text",
       customColorRefLabel:"Choose a Reference Colour",
       customColorHexLabel:"Adjust the Tone",
       customColorGradientLabel:"Make it a Gradient",
@@ -5725,6 +5771,10 @@
   const customColorModal = document.getElementById('customColorModal');
   const btnCustomColorClose = document.getElementById('btnCustomColorClose');
   const customColorPreview = document.getElementById('customColorPreview');
+  const customColorBackdrop = document.getElementById('customColorBackdrop');
+  const backdropButtons = Array.from(document.querySelectorAll('.backdrop-btn'));
+  const skinToneRow = document.getElementById('skinToneRow');
+  const skinToneButtons = Array.from(document.querySelectorAll('.skin-tone-swatch'));
   const customColorRefRow = document.getElementById('customColorRefRow');
   const customColorHexInput = document.getElementById('customColorHexInput');
   const customColorHexValueText = document.getElementById('customColorHexValueText');
@@ -8894,19 +8944,55 @@
   let customColorHex = '#a69571';
   let customColorGradient = false;
   let customColorDensity = 50;
+  let customColorBackdropMode = 'skin'; // 'skin' | 'text'
+  let customColorSkinTone = 0;
+  // lighter/warmer overall than a first pass — the target audience's skin
+  // tones sit mostly in this fair-to-medium, yellow-undertone range
+  const CUSTOM_COLOR_SKIN_TONES = ['#fce4d0', '#f5d5b8', '#edc29c', '#e0ac82', '#cf9468'];
 
   function updateCustomColorPreview(){
-    // density visually washes the preview toward white the same way it
-    // would fade a real lens tint, rather than always showing the raw hue
-    // at full strength regardless of the density chosen
-    const topColor = mixWithWhite(customColorHex, 1 - customColorDensity/100);
+    // genuine alpha transparency (not a mix-with-white approximation) so
+    // whichever backdrop is selected below actually shows through the
+    // lens, tinted by its colour — density controls how much
+    const {r,g,b} = hexToRgb(customColorHex);
+    const topAlpha = 0.18 + (customColorDensity/100) * 0.72;
+    const topColor = `rgba(${r},${g},${b},${topAlpha.toFixed(2)})`;
     if(customColorGradient){
-      const bottomColor = mixWithWhite(customColorHex, 1 - (customColorDensity/100) * GRADIENT_FADE_RATIO);
+      const bottomAlpha = topAlpha * GRADIENT_FADE_RATIO;
+      const bottomColor = `rgba(${r},${g},${b},${bottomAlpha.toFixed(2)})`;
       customColorPreview.style.background = `linear-gradient(to bottom, ${topColor} 0%, ${bottomColor} 100%)`;
     } else {
       customColorPreview.style.background = topColor;
     }
   }
+
+  function updateCustomColorBackdrop(){
+    customColorBackdrop.classList.toggle('square', customColorBackdropMode === 'skin');
+    if(customColorBackdropMode === 'skin'){
+      customColorBackdrop.innerHTML = '';
+      customColorBackdrop.style.background = CUSTOM_COLOR_SKIN_TONES[customColorSkinTone];
+    } else {
+      customColorBackdrop.style.background = '#f2f0ec';
+      customColorBackdrop.innerHTML = '<span class="backdrop-letter">A</span>';
+    }
+    skinToneRow.style.display = customColorBackdropMode === 'skin' ? 'flex' : 'none';
+  }
+
+  backdropButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      customColorBackdropMode = btn.dataset.backdrop;
+      backdropButtons.forEach(b=> b.classList.toggle('active', b===btn));
+      updateCustomColorBackdrop();
+    });
+  });
+  skinToneButtons.forEach((btn,i)=>{
+    btn.style.background = CUSTOM_COLOR_SKIN_TONES[i];
+    btn.addEventListener('click', ()=>{
+      customColorSkinTone = i;
+      skinToneButtons.forEach(b=> b.classList.toggle('active', b===btn));
+      updateCustomColorBackdrop();
+    });
+  });
 
   function setCustomColorHex(hex){
     customColorHex = hex;
@@ -8932,6 +9018,11 @@
     customColorDensitySlider.value = 50;
     customColorDensityValue.textContent = '50%';
     setSwitchOn(customColorGradientToggle, false);
+    customColorBackdropMode = 'skin';
+    customColorSkinTone = 0;
+    backdropButtons.forEach(b=> b.classList.toggle('active', b.dataset.backdrop === 'skin'));
+    skinToneButtons.forEach((b,i)=> b.classList.toggle('active', i===0));
+    updateCustomColorBackdrop();
     renderCustomColorRefRow();
     setCustomColorHex(presets.length ? presets[0].hex : '#a69571');
     closeSidebar();
