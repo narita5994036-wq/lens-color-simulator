@@ -1505,6 +1505,8 @@
       <button type="button" class="skin-tone-swatch active" data-tone="0" aria-label="skin tone 1"></button>
       <button type="button" class="skin-tone-swatch" data-tone="1" aria-label="skin tone 2"></button>
       <button type="button" class="skin-tone-swatch" data-tone="2" aria-label="skin tone 3"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="3" aria-label="skin tone 4"></button>
+      <button type="button" class="skin-tone-swatch" data-tone="4" aria-label="skin tone 5"></button>
     </div>
 
     <div class="group-label" data-i18n="customColorRefLabel">参考カラーを選択</div>
@@ -8948,7 +8950,7 @@
   let customColorDensity = 50;
   let customColorBackdropMode = 'skin'; // 'skin' | 'text' | 'eye'
   let customColorSkinTone = 0;
-  const CUSTOM_COLOR_SKIN_TONES = ['#f4d6b4', '#d9a066', '#8d5524'];
+  const CUSTOM_COLOR_SKIN_TONES = ['#f4d6b4', '#e3b98d', '#c68642', '#8d5524', '#5c3a21'];
   // an almond sclera shape (not just a plain circle) so the eye model
   // reads as an actual eye rather than a coloured marble
   const CUSTOM_COLOR_EYE_SVG = `<svg viewBox="0 0 100 60">
@@ -8960,10 +8962,10 @@
       </radialGradient>
     </defs>
     <path d="M2,30 Q50,2 98,30 Q50,58 2,30 Z" fill="#fdfdfa" stroke="#d8d4c8" stroke-width="1"/>
-    <circle cx="50" cy="30" r="19" fill="url(#customColorIrisGrad)"/>
-    <circle cx="50" cy="30" r="19" fill="none" stroke="#2a1d14" stroke-width="1"/>
-    <circle cx="50" cy="30" r="8.5" fill="#15100c"/>
-    <circle cx="45" cy="24" r="3" fill="rgba(255,255,255,0.85)"/>
+    <circle cx="50" cy="30" r="12" fill="url(#customColorIrisGrad)"/>
+    <circle cx="50" cy="30" r="12" fill="none" stroke="#2a1d14" stroke-width="1"/>
+    <circle cx="50" cy="30" r="5.5" fill="#15100c"/>
+    <circle cx="47" cy="27" r="2" fill="rgba(255,255,255,0.85)"/>
   </svg>`;
 
   function updateCustomColorPreview(){
