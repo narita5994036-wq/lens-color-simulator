@@ -627,15 +627,26 @@
   .lens-blank-wrap{display:flex; justify-content:center; margin:4px 0 26px;}
   .lens-blank-preview{
     width:180px; height:180px; border-radius:50%; position:relative;
+    /* lighter inset shading than a first pass had — a heavy dark rim read
+       as solid coloured plastic rather than a translucent lens tint */
     box-shadow:
-      inset -16px -16px 32px rgba(0,0,0,0.28),
-      inset 12px 12px 26px rgba(255,255,255,0.4),
-      0 10px 26px rgba(0,0,0,0.18);
+      inset -10px -10px 24px rgba(0,0,0,0.14),
+      inset 10px 10px 22px rgba(255,255,255,0.55),
+      0 10px 26px rgba(0,0,0,0.14);
+  }
+  /* overall glassy wash — fades the fill toward white from the same corner
+     as the highlight below, so the disc reads as something light passes
+     through rather than a flat, fully opaque colour */
+  .lens-blank-preview::before{
+    content:'';
+    position:absolute; inset:0; border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0.08) 55%, rgba(255,255,255,0) 78%);
+    pointer-events:none;
   }
   .lens-blank-preview::after{
     content:'';
     position:absolute; top:14%; left:16%; width:38%; height:24%;
-    background:radial-gradient(ellipse at center, rgba(255,255,255,0.75), rgba(255,255,255,0) 72%);
+    background:radial-gradient(ellipse at center, rgba(255,255,255,0.85), rgba(255,255,255,0) 72%);
     border-radius:50%;
     transform:rotate(-28deg);
     pointer-events:none;
@@ -683,6 +694,19 @@
   .field input[type=color]{
     width:100%; height:46px; border:1px solid var(--gray-line); padding:2px; background:var(--white);
   }
+  /* iOS/Safari renders input[type=color] as a fixed circular swatch
+     regardless of its box size — stretching it to the field's full width
+     (the generic rule above) squashes that circle into a distorted oval.
+     Constrain it to a small square instead and show the hex value as text
+     alongside it */
+  .custom-color-hex-row{display:flex; align-items:center; gap:14px;}
+  .custom-color-hex-row input[type=color]{
+    width:52px; height:52px; padding:0; border:1px solid var(--gray-line);
+    border-radius:50%; background:none; flex-shrink:0;
+  }
+  .custom-color-hex-row input[type=color]::-webkit-color-swatch-wrapper{padding:0; border-radius:50%;}
+  .custom-color-hex-row input[type=color]::-webkit-color-swatch{border:none; border-radius:50%;}
+  .custom-color-hex-value{font-size:14px; letter-spacing:0.04em; color:var(--black); text-transform:uppercase;}
   .autocomplete-list{
     position:absolute; left:0; right:0; top:100%; margin-top:2px; z-index:20;
     background:var(--white); border:1px solid var(--gray-line);
@@ -1446,7 +1470,10 @@
 
     <div class="field">
       <label data-i18n="customColorHexLabel">色味を調整</label>
-      <input type="color" id="customColorHexInput" value="#a69571">
+      <div class="custom-color-hex-row">
+        <input type="color" id="customColorHexInput" value="#a69571">
+        <span class="custom-color-hex-value" id="customColorHexValueText">#A69571</span>
+      </div>
     </div>
 
     <div class="compare-row">
@@ -5700,6 +5727,7 @@
   const customColorPreview = document.getElementById('customColorPreview');
   const customColorRefRow = document.getElementById('customColorRefRow');
   const customColorHexInput = document.getElementById('customColorHexInput');
+  const customColorHexValueText = document.getElementById('customColorHexValueText');
   const customColorGradientToggle = document.getElementById('customColorGradientToggle');
   const customColorDensitySlider = document.getElementById('customColorDensitySlider');
   const customColorDensityValue = document.getElementById('customColorDensityValue');
@@ -8880,31 +8908,32 @@
     }
   }
 
+  function setCustomColorHex(hex){
+    customColorHex = hex;
+    customColorHexInput.value = hex;
+    customColorHexValueText.textContent = hex.toUpperCase();
+    updateCustomColorPreview();
+  }
+
   function renderCustomColorRefRow(){
     customColorRefRow.innerHTML = '';
     presets.forEach(p=>{
       const el = document.createElement('div');
       el.className = 'swatch';
       el.innerHTML = `<div class="circle" style="background:${swatchBackground(p)}"></div><div class="name">${displayName(p)}</div>`;
-      el.addEventListener('click', ()=>{
-        customColorHex = p.hex;
-        customColorHexInput.value = p.hex;
-        updateCustomColorPreview();
-      });
+      el.addEventListener('click', ()=> setCustomColorHex(p.hex));
       customColorRefRow.appendChild(el);
     });
   }
 
   function openCustomColorModal(){
-    customColorHex = presets.length ? presets[0].hex : '#a69571';
     customColorGradient = false;
     customColorDensity = 50;
-    customColorHexInput.value = customColorHex;
     customColorDensitySlider.value = 50;
     customColorDensityValue.textContent = '50%';
     setSwitchOn(customColorGradientToggle, false);
     renderCustomColorRefRow();
-    updateCustomColorPreview();
+    setCustomColorHex(presets.length ? presets[0].hex : '#a69571');
     closeSidebar();
     customColorModal.classList.add('show');
   }
@@ -8915,10 +8944,7 @@
   btnOpenCustomColor.addEventListener('click', openCustomColorModal);
   btnCustomColorClose.addEventListener('click', closeCustomColorModal);
 
-  customColorHexInput.addEventListener('input', ()=>{
-    customColorHex = customColorHexInput.value;
-    updateCustomColorPreview();
-  });
+  customColorHexInput.addEventListener('input', ()=> setCustomColorHex(customColorHexInput.value));
   customColorGradientToggle.addEventListener('click', ()=>{
     customColorGradient = !customColorGradient;
     setSwitchOn(customColorGradientToggle, customColorGradient);
