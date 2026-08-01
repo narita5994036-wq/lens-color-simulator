@@ -1435,7 +1435,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v15";
+  const STORAGE_PRESETS = "mykita-lens-presets-v16";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1455,6 +1455,11 @@
   // (see currentDensityContinuous)
   const PHOTOCHROMIC_DENSITY_RANGE = [10,65];
   const DEFAULT_PRESETS = [
+    // ---- MYKITA original colours ----
+    {id:"sfbr", name:"ソフトブラウン", nameEn:"Soft Brown", hex:"#a69571", group:"mykita", densitySteps:[10,15,25,35,50]},
+    {id:"yelw", name:"イエロー",       nameEn:"Yellow",     hex:"#e3b73c", group:"mykita", densitySteps:[10,15,25,35,50]},
+    {id:"sfgr", name:"ソフトグリーン", nameEn:"Soft Green", hex:"#88bfb5", group:"mykita", densitySteps:[10,15,25,35,50]},
+
     {id:"faoc", name:"フェアオークル",       nameEn:"Fair Ochre",      hex:"#c9a067", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"fabr", name:"フェアブラウン",       nameEn:"Fair Brown",      hex:"#7a4a2e", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"famn", name:"フェアマロン",         nameEn:"Fair Maroon",     hex:"#5c3025", group:"arriate", densitySteps:[10,15,25,35,50]},
@@ -1549,6 +1554,7 @@
       historyHeader:"最近使用したカラー",
       historyEmpty:"まだ使用履歴がありません",
       groupStandard:"スタンダード",
+      groupMykita:"MYKITAオリジナル",
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
       groupPhotochromic:"ZEISS 調光",
@@ -1668,6 +1674,7 @@
       historyHeader:"Recently Used",
       historyEmpty:"No colours used yet",
       groupStandard:"Standard",
+      groupMykita:"MYKITA Original",
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
       groupPhotochromic:"ZEISS Photochromic",
@@ -8713,6 +8720,7 @@
     renderNoColorOption();
     presetGroups.innerHTML = '';
     const groupOrder = [
+      {key:'mykita', labelKey:'groupMykita'},
       {key:'arriate', labelKey:'groupArriate'},
       {key:'gradient', labelKey:'groupGradient'},
       {key:'photochromic', labelKey:'groupPhotochromic'}
