@@ -620,6 +620,27 @@
       var(--gray-mid) calc(50% + 1px), transparent calc(50% + 1px));
   }
 
+  /* the custom-colour screen's live preview — a round, uncut lens blank
+     (like the physical sample discs it's modelled on) rather than the
+     swatch circles used everywhere else, with a fake glassy highlight so it
+     reads as a 3D lens instead of a flat coloured dot */
+  .lens-blank-wrap{display:flex; justify-content:center; margin:4px 0 26px;}
+  .lens-blank-preview{
+    width:180px; height:180px; border-radius:50%; position:relative;
+    box-shadow:
+      inset -16px -16px 32px rgba(0,0,0,0.28),
+      inset 12px 12px 26px rgba(255,255,255,0.4),
+      0 10px 26px rgba(0,0,0,0.18);
+  }
+  .lens-blank-preview::after{
+    content:'';
+    position:absolute; top:14%; left:16%; width:38%; height:24%;
+    background:radial-gradient(ellipse at center, rgba(255,255,255,0.75), rgba(255,255,255,0) 72%);
+    border-radius:50%;
+    transform:rotate(-28deg);
+    pointer-events:none;
+  }
+
   /* ---- modal ---- */
   .overlay{
     position:fixed; inset:0; background:rgba(17,17,17,0.4); display:none; align-items:flex-end; justify-content:center; z-index:50;
@@ -1083,11 +1104,11 @@
     <div id="presetGroups"></div>
   </div>
 
-  <div class="sidebar-section" id="favoritesSection">
-    <h3 data-i18n="sectionFavorites">お気に入り</h3>
-    <button class="btn" id="btnAddFavorite" disabled data-i18n="addFavoriteBtn">現在のカラーをお気に入りに追加</button>
-    <div class="swatch-row" id="favoritesRow" style="margin-top:14px;"></div>
-    <div class="empty-note" id="favoritesEmptyNote" data-i18n="favoritesEmpty">まだお気に入りがありません</div>
+  <div class="sidebar-section" id="customColorSection">
+    <h3 data-i18n="sectionCustomColor">カスタムカラー</h3>
+    <button class="btn" id="btnOpenCustomColor" data-i18n="openCustomColorBtn">カスタムカラーを作成</button>
+    <div class="swatch-row" id="customColorsRow" style="margin-top:14px;"></div>
+    <div class="empty-note" id="customColorsEmptyNote" data-i18n="customColorsEmpty">まだカスタムカラーがありません</div>
   </div>
 
   <div class="sidebar-section" id="resetSection">
@@ -1404,6 +1425,47 @@
 <input type="file" id="trace-upload-input" accept="image/*" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
 <input type="file" id="frame-shapes-import-input" accept="application/json,.json" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
 
+<!-- dedicated custom-colour creation screen, opened from the sidebar's
+     "カスタムカラー" section in place of the old favourites feature —
+     builds a bespoke colour (base reference + free hue/tone + full/gradient
+     + density) previewed on a round lens-blank disc rather than the user's
+     own photo, then applies it and saves it to the sidebar's custom-colours
+     list for reuse -->
+<div class="trace-modal" id="customColorModal">
+  <div class="trace-header">
+    <button class="close-x" id="btnCustomColorClose">×</button>
+    <span class="trace-step-label" data-i18n="customColorTitle">カスタムカラー</span>
+  </div>
+  <div class="trace-panel" style="flex:1;">
+    <div class="lens-blank-wrap">
+      <div class="lens-blank-preview" id="customColorPreview"></div>
+    </div>
+
+    <div class="group-label" data-i18n="customColorRefLabel">参考カラーを選択</div>
+    <div class="swatch-row swatch-grid-3" id="customColorRefRow"></div>
+
+    <div class="field">
+      <label data-i18n="customColorHexLabel">色味を調整</label>
+      <input type="color" id="customColorHexInput" value="#a69571">
+    </div>
+
+    <div class="compare-row">
+      <span data-i18n="customColorGradientLabel">グラデーションにする</span>
+      <div class="switch" id="customColorGradientToggle"><div class="knob"></div></div>
+    </div>
+
+    <div class="opacity-row">
+      <span class="label" data-i18n="opacityLabel">濃度</span>
+      <input type="range" id="customColorDensitySlider" min="10" max="90" step="5" value="50">
+      <span class="value" id="customColorDensityValue">50%</span>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn primary" id="btnCustomColorApply" data-i18n="customColorApplyBtn">このカラーを適用</button>
+    </div>
+  </div>
+</div>
+
 <!-- cropping/position modal — opens on top of #traceModal once a tracing
      photo is chosen in step 2; confirming here moves on to step 3 -->
 <div class="trace-modal trace-crop-modal" id="traceCropModal">
@@ -1437,7 +1499,7 @@
 
   const STORAGE_PRESETS = "mykita-lens-presets-v17";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
-  const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
+  const STORAGE_CUSTOM_COLORS = "mykita-lens-custom-colors-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
   const STORAGE_SHOW_TOGGLES = "mykita-lens-show-toggles-v1";
   const STORAGE_SHOW_BADGE   = "mykita-lens-show-badge-v1";
@@ -1553,9 +1615,14 @@
       retakeBtn:"撮り直す",
       sectionColors:"カラープリセット",
       noColor:"カラー無し",
-      sectionFavorites:"お気に入り",
-      addFavoriteBtn:"現在のカラーをお気に入りに追加",
-      favoritesEmpty:"まだお気に入りがありません",
+      sectionCustomColor:"カスタムカラー",
+      openCustomColorBtn:"カスタムカラーを作成",
+      customColorsEmpty:"まだカスタムカラーがありません",
+      customColorTitle:"カスタムカラー",
+      customColorRefLabel:"参考カラーを選択",
+      customColorHexLabel:"色味を調整",
+      customColorGradientLabel:"グラデーションにする",
+      customColorApplyBtn:"このカラーを適用",
       sectionReset:"リセット",
       historyHeader:"最近使用したカラー",
       historyEmpty:"まだ使用履歴がありません",
@@ -1674,9 +1741,14 @@
       retakeBtn:"Retake",
       sectionColors:"Colour Presets",
       noColor:"No Colour",
-      sectionFavorites:"Favourites",
-      addFavoriteBtn:"Add Current Colour to Favourites",
-      favoritesEmpty:"No favourites yet",
+      sectionCustomColor:"Custom Colour",
+      openCustomColorBtn:"Create Custom Colour",
+      customColorsEmpty:"No custom colours yet",
+      customColorTitle:"Custom Colour",
+      customColorRefLabel:"Choose a Reference Colour",
+      customColorHexLabel:"Adjust the Tone",
+      customColorGradientLabel:"Make it a Gradient",
+      customColorApplyBtn:"Apply this Colour",
       sectionReset:"Reset",
       historyHeader:"Recently Used",
       historyEmpty:"No colours used yet",
@@ -1772,8 +1844,8 @@
   let presets = loadJSON(STORAGE_PRESETS, DEFAULT_PRESETS).filter(p => p.group !== 'custom');
   saveJSON(STORAGE_PRESETS, presets);
   let history = loadJSON(STORAGE_HISTORY, []).slice(0,5);
-  let favorites = loadJSON(STORAGE_FAVORITES, []);
-  const FAVORITES_MAX = 20;
+  let customColors = loadJSON(STORAGE_CUSTOM_COLORS, []);
+  const CUSTOM_COLORS_MAX = 20;
   // custom lens shapes registered per frame name (normalized upper-cased
   // name -> {left:{points}, right:{points}}), so re-entering a frame name
   // later recalls the exact outline that was tuned for it
@@ -5620,9 +5692,18 @@
   let captureBaseImageData = null;
   let captureW = 0, captureH = 0;
   let captureMaskData = null;
-  const btnAddFavorite = document.getElementById('btnAddFavorite');
-  const favoritesRow = document.getElementById('favoritesRow');
-  const favoritesEmptyNote = document.getElementById('favoritesEmptyNote');
+  const btnOpenCustomColor = document.getElementById('btnOpenCustomColor');
+  const customColorsRow = document.getElementById('customColorsRow');
+  const customColorsEmptyNote = document.getElementById('customColorsEmptyNote');
+  const customColorModal = document.getElementById('customColorModal');
+  const btnCustomColorClose = document.getElementById('btnCustomColorClose');
+  const customColorPreview = document.getElementById('customColorPreview');
+  const customColorRefRow = document.getElementById('customColorRefRow');
+  const customColorHexInput = document.getElementById('customColorHexInput');
+  const customColorGradientToggle = document.getElementById('customColorGradientToggle');
+  const customColorDensitySlider = document.getElementById('customColorDensitySlider');
+  const customColorDensityValue = document.getElementById('customColorDensityValue');
+  const btnCustomColorApply = document.getElementById('btnCustomColorApply');
   const frameNameInput = document.getElementById('frameNameInput');
   const frameAutocompleteList = document.getElementById('frameAutocompleteList');
   let frameName = '';
@@ -5706,14 +5787,14 @@
   // matches the CSS media query that docks the sidebar on iPad landscape;
   // #appControls (now just density + share button) relocates into the
   // sidebar there too, in a specific priority order (frame name, colour
-  // presets, favourites, density/share, lens shape); the current-color
+  // presets, custom colours, density/share, lens shape); the current-color
   // bar stays overlaying the image as usual, while recent-colors history
   // and the drag-usage hint relocate to a row below the (now much wider)
   // stage; everything moves back to its normal spot everywhere else
   const landscapeDockMql = window.matchMedia('(min-width:900px) and (min-height:700px) and (orientation:landscape)');
   function updateControlsPlacement(){
     if(landscapeDockMql.matches){
-      favoritesSection.after(sidebarControlsSlot);
+      customColorSection.after(sidebarControlsSlot);
       sidebarControlsSlot.appendChild(appControls);
       sidebarControlsSlot.after(shapeSection);
       belowStageRow.appendChild(historyBlock);
@@ -5740,7 +5821,7 @@
   const belowStageRow = document.getElementById('belowStageRow');
   const shapeSection = document.getElementById('shapeSection');
   const colorsSection = document.getElementById('colorsSection');
-  const favoritesSection = document.getElementById('favoritesSection');
+  const customColorSection = document.getElementById('customColorSection');
   const colorBadge = document.getElementById('colorBadge');
   const colorBadgeDot = document.getElementById('colorBadgeDot');
   const colorBadgeName = document.getElementById('colorBadgeName');
@@ -8728,11 +8809,11 @@
     renderNoColorOption();
     presetGroups.innerHTML = '';
     const groupOrder = [
-      {key:'mykita', labelKey:'groupMykita'},
-      {key:'mykita_gradient', labelKey:'groupMykitaGradient'},
       {key:'arriate', labelKey:'groupArriate'},
       {key:'gradient', labelKey:'groupGradient'},
-      {key:'photochromic', labelKey:'groupPhotochromic'}
+      {key:'photochromic', labelKey:'groupPhotochromic'},
+      {key:'mykita', labelKey:'groupMykita'},
+      {key:'mykita_gradient', labelKey:'groupMykitaGradient'}
     ];
     groupOrder.forEach(g=>{
       const items = presets.filter(p => (p.group||'custom') === g.key);
@@ -8751,7 +8832,7 @@
     });
     // recently-used colours are meant to be swapped in at whatever density
     // is currently active, not jump to whatever density each colour
-    // happened to be at when it was last used (that's what favourites,
+    // happened to be at when it was last used (that's what custom colours,
     // which do carry their own saved density, are for), and switching
     // between them shouldn't reshuffle the row's order either
     renderSwatches(historyRow, history, {
@@ -8763,47 +8844,134 @@
       }
     });
     historyEmptyNote.style.display = history.length ? 'none' : 'block';
-    renderFavorites();
+    renderCustomColors();
   }
 
-  function renderFavorites(){
-    renderSwatches(favoritesRow, favorites, {
+  function renderCustomColors(){
+    renderSwatches(customColorsRow, customColors, {
       deletable: true,
       showAdd: false,
       onDelete:(item)=>{
-        favorites = favorites.filter(f => !(f.hex===item.hex && f.id===item.id && f.pct===item.pct));
-        saveJSON(STORAGE_FAVORITES, favorites);
-        renderFavorites();
+        customColors = customColors.filter(c => c !== item);
+        saveJSON(STORAGE_CUSTOM_COLORS, customColors);
+        renderCustomColors();
       }
     });
-    favoritesEmptyNote.style.display = favorites.length ? 'none' : 'block';
+    customColorsEmptyNote.style.display = customColors.length ? 'none' : 'block';
   }
 
-  function addCurrentToFavorites(){
-    if(!currentColor) return;
-    const pct = Math.round(opacity*100);
-    const favId = currentPreset ? (currentPreset.id||null) : null;
-    const already = favorites.some(f => f.hex===currentColor && f.id===favId && f.pct===pct && f.bottomPct===gradientBottomPct);
-    if(already) return;
-    const name = currentPreset ? currentPreset.name : t('customColorFallback');
-    const nameEn = currentPreset ? currentPreset.nameEn : t('customColorFallback');
-    favorites.unshift({hex: currentColor, id: favId, name, nameEn, pct, bottomPct: gradientBottomPct});
-    if(favorites.length > FAVORITES_MAX) favorites.pop();
-    saveJSON(STORAGE_FAVORITES, favorites);
-    renderFavorites();
+  // ---------- custom colour creation screen ----------
+  // working state for the in-progress colour, independent of the main
+  // app's currentColor/opacity until "適用" commits it
+  let customColorHex = '#a69571';
+  let customColorGradient = false;
+  let customColorDensity = 50;
+
+  function updateCustomColorPreview(){
+    // density visually washes the preview toward white the same way it
+    // would fade a real lens tint, rather than always showing the raw hue
+    // at full strength regardless of the density chosen
+    const topColor = mixWithWhite(customColorHex, 1 - customColorDensity/100);
+    if(customColorGradient){
+      const bottomColor = mixWithWhite(customColorHex, 1 - (customColorDensity/100) * GRADIENT_FADE_RATIO);
+      customColorPreview.style.background = `linear-gradient(to bottom, ${topColor} 0%, ${bottomColor} 100%)`;
+    } else {
+      customColorPreview.style.background = topColor;
+    }
   }
 
-  btnAddFavorite.addEventListener('click', addCurrentToFavorites);
+  function renderCustomColorRefRow(){
+    customColorRefRow.innerHTML = '';
+    presets.forEach(p=>{
+      const el = document.createElement('div');
+      el.className = 'swatch';
+      el.innerHTML = `<div class="circle" style="background:${swatchBackground(p)}"></div><div class="name">${displayName(p)}</div>`;
+      el.addEventListener('click', ()=>{
+        customColorHex = p.hex;
+        customColorHexInput.value = p.hex;
+        updateCustomColorPreview();
+      });
+      customColorRefRow.appendChild(el);
+    });
+  }
+
+  function openCustomColorModal(){
+    customColorHex = presets.length ? presets[0].hex : '#a69571';
+    customColorGradient = false;
+    customColorDensity = 50;
+    customColorHexInput.value = customColorHex;
+    customColorDensitySlider.value = 50;
+    customColorDensityValue.textContent = '50%';
+    setSwitchOn(customColorGradientToggle, false);
+    renderCustomColorRefRow();
+    updateCustomColorPreview();
+    closeSidebar();
+    customColorModal.classList.add('show');
+  }
+  function closeCustomColorModal(){
+    customColorModal.classList.remove('show');
+  }
+
+  btnOpenCustomColor.addEventListener('click', openCustomColorModal);
+  btnCustomColorClose.addEventListener('click', closeCustomColorModal);
+
+  customColorHexInput.addEventListener('input', ()=>{
+    customColorHex = customColorHexInput.value;
+    updateCustomColorPreview();
+  });
+  customColorGradientToggle.addEventListener('click', ()=>{
+    customColorGradient = !customColorGradient;
+    setSwitchOn(customColorGradientToggle, customColorGradient);
+    updateCustomColorPreview();
+  });
+  customColorDensitySlider.addEventListener('input', ()=>{
+    customColorDensity = parseInt(customColorDensitySlider.value, 10);
+    customColorDensityValue.textContent = customColorDensity + '%';
+    updateCustomColorPreview();
+  });
+
+  function applyCustomColor(){
+    const hex = customColorHex;
+    const preset = {
+      id: null, name: hex, nameEn: hex, // a hex-string name/nameEn triggers the existing "customColorFallback" display everywhere (badge, swatch label, share caption)
+      hex, gradient: customColorGradient, group: 'custom', custom: true
+    };
+    applyResolvedColorState(preset, customColorDensity, customColorGradient ? 0 : null);
+    customColors.unshift({
+      hex, gradient: customColorGradient, custom: true, name: hex, nameEn: hex,
+      pct: customColorDensity, bottomPct: customColorGradient ? 0 : null
+    });
+    if(customColors.length > CUSTOM_COLORS_MAX) customColors.pop();
+    saveJSON(STORAGE_CUSTOM_COLORS, customColors);
+    renderCustomColors();
+    // also feed into "recently used", same as any other applied colour
+    history = history.filter(h => !(h.hex===hex && h.id===null));
+    history.unshift({hex, id:null, custom:true, name:hex, nameEn:hex, pct:customColorDensity, bottomPct: customColorGradient ? 0 : null});
+    history = history.slice(0,5);
+    saveJSON(STORAGE_HISTORY, history);
+    renderAll();
+    historyRow.scrollLeft = 0;
+    closeCustomColorModal();
+    draw();
+  }
+  btnCustomColorApply.addEventListener('click', applyCustomColor);
 
   function resolvePresetForItem(item){
     if(item.id){
       const byId = presets.find(p=>p.id===item.id);
       if(byId) return byId;
     }
-    const byHex = presets.find(p=>p.hex===item.hex);
-    if(byHex) return byHex;
+    // a colour explicitly created via the custom-colour screen skips the
+    // hex match below even if its hex happens to equal some preset's exactly
+    // (e.g. its reference colour was left unchanged) — otherwise its own
+    // gradient/density choices would be silently discarded in favour of
+    // that unrelated preset's
+    if(!item.custom){
+      const byHex = presets.find(p=>p.hex===item.hex);
+      if(byHex) return byHex;
+    }
     // legacy/custom entry with no matching preset left: build a pseudo-preset from what we have
-    return {hex:item.hex, name:item.name, nameEn:item.nameEn, group:'custom'};
+    return {hex:item.hex, name:item.name, nameEn:item.nameEn, group:'custom', gradient: !!item.gradient};
   }
 
   function applyResolvedColorState(preset, pct, bottomPct){
@@ -8937,7 +9105,6 @@
   }
 
   function updateColorBadge(){
-    btnAddFavorite.disabled = !currentColor;
     const badgeWillShow = img && showColorBadgeSetting;
     // the header's hamburger stays visible/usable at all times now, even
     // once the stage badge (with its own menu icon) also shows — having
