@@ -1435,7 +1435,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_PRESETS = "mykita-lens-presets-v16";
+  const STORAGE_PRESETS = "mykita-lens-presets-v17";
   const STORAGE_HISTORY = "mykita-lens-history-v1";
   const STORAGE_FAVORITES = "mykita-lens-favorites-v1";
   const STORAGE_LANG    = "mykita-lens-lang-v1";
@@ -1455,10 +1455,16 @@
   // (see currentDensityContinuous)
   const PHOTOCHROMIC_DENSITY_RANGE = [10,65];
   const DEFAULT_PRESETS = [
-    // ---- MYKITA original colours ----
-    {id:"sfbr", name:"ソフトブラウン", nameEn:"Soft Brown", hex:"#a69571", group:"mykita", densitySteps:[10,15,25,35,50]},
-    {id:"yelw", name:"イエロー",       nameEn:"Yellow",     hex:"#e3b73c", group:"mykita", densitySteps:[10,15,25,35,50]},
-    {id:"sfgr", name:"ソフトグリーン", nameEn:"Soft Green", hex:"#88bfb5", group:"mykita", densitySteps:[10,15,25,35,50]},
+    // ---- MYKITA original colours — density is fixed (a single-value
+    // densitySteps locks the slider, same as the twin colours below), but
+    // each has a separate gradient variant the user can pick instead ----
+    {id:"sfbr", name:"ソフトブラウン", nameEn:"Soft Brown", hex:"#a69571", group:"mykita", densitySteps:[50]},
+    {id:"yelw", name:"イエロー",       nameEn:"Yellow",     hex:"#e3b73c", group:"mykita", densitySteps:[50]},
+    {id:"sfgr", name:"ソフトグリーン", nameEn:"Soft Green", hex:"#88bfb5", group:"mykita", densitySteps:[50]},
+
+    {id:"sfbr_g", name:"ソフトブラウン（グラデーション）", nameEn:"Soft Brown (Gradient)", hex:"#a69571", group:"mykita_gradient", gradient:true, densitySteps:[50]},
+    {id:"yelw_g", name:"イエロー（グラデーション）",       nameEn:"Yellow (Gradient)",     hex:"#e3b73c", group:"mykita_gradient", gradient:true, densitySteps:[50]},
+    {id:"sfgr_g", name:"ソフトグリーン（グラデーション）", nameEn:"Soft Green (Gradient)", hex:"#88bfb5", group:"mykita_gradient", gradient:true, densitySteps:[50]},
 
     {id:"faoc", name:"フェアオークル",       nameEn:"Fair Ochre",      hex:"#c9a067", group:"arriate", densitySteps:[10,15,25,35,50]},
     {id:"fabr", name:"フェアブラウン",       nameEn:"Fair Brown",      hex:"#7a4a2e", group:"arriate", densitySteps:[10,15,25,35,50]},
@@ -1555,6 +1561,7 @@
       historyEmpty:"まだ使用履歴がありません",
       groupStandard:"スタンダード",
       groupMykita:"MYKITAオリジナル",
+      groupMykitaGradient:"MYKITAオリジナル(グラデーション)",
       groupArriate:"アリアーテトレス(フルカラー)",
       groupGradient:"アリアーテトレス(グラデーション)",
       groupPhotochromic:"ZEISS 調光",
@@ -1675,6 +1682,7 @@
       historyEmpty:"No colours used yet",
       groupStandard:"Standard",
       groupMykita:"MYKITA Original",
+      groupMykitaGradient:"MYKITA Original (Gradient)",
       groupArriate:"Arriate Tres (Full Colour)",
       groupGradient:"Arriate Tres (Gradient)",
       groupPhotochromic:"ZEISS Photochromic",
@@ -8721,6 +8729,7 @@
     presetGroups.innerHTML = '';
     const groupOrder = [
       {key:'mykita', labelKey:'groupMykita'},
+      {key:'mykita_gradient', labelKey:'groupMykitaGradient'},
       {key:'arriate', labelKey:'groupArriate'},
       {key:'gradient', labelKey:'groupGradient'},
       {key:'photochromic', labelKey:'groupPhotochromic'}
